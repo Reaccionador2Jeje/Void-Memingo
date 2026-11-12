@@ -78,7 +78,7 @@ jobs:
       - name: Package Visual Studio Code extension
         working-directory: vscode-extension
         run: |
-          npm install --global @vscode/vsce
+          npm install --global @vscode/vsce@^4.0.2
           vsce package --out ../release/void-memingo-vscode.vsix
       - name: Publish Visual Studio Code extension
         working-directory: vscode-extension
