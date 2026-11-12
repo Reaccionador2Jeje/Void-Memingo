@@ -1,138 +1,109 @@
 # Void Memingo
 
-**Void Memingo** is a Rust-based toolkit for building operating-system projects and custom Linux distributions.
+Void Memingo is evolving into an operating-system development environment: a Rust application, terminal UI (TUI), and a small scripting language.
 
-## Quick install
+## Install
 
-**Supported platform:** Linux x86_64.
-
-Install the latest published version with:
+The public Cloudflare Worker currently serves the bootstrap shell script:
 
 ```sh
 curl -fsSL https://void-memingo-installer.cristopheriguaran-7.workers.dev/install.sh | sh
 ```
 
-The installer:
-- Downloads the latest Linux x86_64 binary from GitHub Releases.
-- Verifies its SHA-256 checksum before installation.
-- Installs to `/usr/local/bin/void` when it has permission.
-- Falls back to `~/.local/bin/void` when system-wide installation is unavailable.
-
-Requirements: `curl` and `sha256sum`. If the installer uses `~/.local/bin`, add that directory to your `PATH` if it is not already there:
+**Important:** the command above still requires curl to retrieve the first installer script. A program cannot download itself from a URL without some network transport. Once you already have the Void executable, its native installer uses Rust HTTPS libraries and does not invoke curl or wget:
 
 ```sh
-export PATH="$HOME/.local/bin:$PATH"
+void install
 ```
 
-Check the installation:
+The native installer downloads the latest Linux x86_64 GitHub Release, verifies SHA-256, and installs to `~/.local/bin` or `/usr/local/bin`.
+
+A GitHub Release with the expected assets must exist for installation to succeed. A 404 means the release asset URL is not published yet (or the asset filename does not match).
+
+## Terminal interface
+
+Launch the interactive menu:
 
 ```sh
-void --help
-void version
+void tui
 ```
 
-> The installer endpoint is live, but installation requires at least one published GitHub Release containing the binary and checksum.
+Options include project initialization, project checks, configuration display, running scripts, and installing updates.
 
-## Commands
+## Void language (first iteration)
 
-| Command | Description |
-| --- | --- |
-| `void help` or `void --help` | Show command help |
-| `void version` | Show the installed version |
-| `void init [path]` | Initialize a project |
-| `void check [path]` | Validate project configuration and structure |
-| `void config [path]` | Display project configuration |
+Void scripts use the `.void` extension.
 
-Initialize and inspect a project:
+Example `hello.void`:
+
+```text
+# A first Void script
+let project = "MyOS"
+print "Welcome to Void Memingo"
+print project
+```
+
+Run it:
 
 ```sh
-void init my-operating-system
-cd my-operating-system
-void check
-void config
+void run hello.void
 ```
 
-Void creates a `void.toml` file and the initial project directories for the compiler, operating system, distribution, tools, runtime, examples, tests, and documentation.
+Current language features:
+- `#` comments
+- `let name = value` variable assignment
+- `print value` output
+- Quoted strings and integer literals
 
-## Project configuration
+This is an initial interpreter, not yet a kernel or a general-purpose programming language.
 
-Example `void.toml`:
+## CLI
 
-```toml
-[project]
-name = "MyOperatingSystem"
-version = "0.1.0"
-
-[build]
-target = "x86_64-unknown-none"
-```
-
-The build target defaults to `x86_64-unknown-none` when the `[build]` section is omitted.
+- `void tui` — open the TUI
+- `void install` — download and install the latest release without curl/wget
+- `void run <file.void>` — execute a Void script
+- `void init [path]` — initialize an OS project
+- `void check [path]` — validate project structure and configuration
+- `void config [path]` — show project configuration
+- `void version` — show version
 
 ## Build from source
 
-Requirements:
-- Rust stable toolchain
-- Cargo
-
-Build and run the tests:
+Requires Rust stable and Cargo:
 
 ```sh
 cargo test
 cargo build --release
 ```
 
-The executable is created at `target/release/void`.
+The executable is `target/release/void`.
 
 ## Releases
 
-Releases are built automatically by GitHub Actions when a version tag is pushed. The workflow runs the test suite, builds the release executable, generates a SHA-256 checksum, and attaches both files to the GitHub Release.
-
-For the next release:
+Push a version tag to trigger the GitHub Actions release workflow:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
-Release assets:
-
+Assets expected by the installer:
 - `void-linux-x86_64`
 - `void-linux-x86_64.sha256`
 
-Do not create the tag again if it already exists. Check the repository's Releases page first.
+## Cloudflare
 
-## Cloudflare installer
+The Worker source is in `cloudflare/`. Its public endpoint is:
 
-The public installer endpoint is hosted on Cloudflare Workers:
+https://void-memingo-installer.cristopheriguaran-7.workers.dev
 
-- Installer script: https://void-memingo-installer.cristopheriguaran-7.workers.dev/install.sh
-- Worker root: https://void-memingo-installer.cristopheriguaran-7.workers.dev
+The current Worker proxies `install.sh` from the repository. Deploy changes from `cloudflare/` with Wrangler (Node.js 22.12+).
 
-Worker source and configuration are in `cloudflare/`.
+## Current limitations
 
-To deploy updates, use Node.js **22.12.0 or newer** and run:
-
-```sh
-cd cloudflare
-npx wrangler@latest login
-npx wrangler@latest deploy
-```
-
-The Worker fetches `install.sh` from this repository's `main` branch and caches the response briefly. It does not store release binaries or Cloudflare credentials.
-
-## Current support
-
-| Component | Support |
-| --- | --- |
-| CLI | Linux and other platforms where the Rust binary can run; release installer currently targets Linux x86_64 |
-| Release binary | Linux x86_64 |
-| Installer | Linux x86_64 |
-| Distribution build system | In development |
-
-## Project status
-
-Void Memingo is an early-stage project. The current version provides project initialization, TOML configuration loading and validation, a CLI, and the automated Linux x86_64 release pipeline. Kernel compilation, bootloader integration, package management, and full distribution generation are future development areas.
+- Prebuilt release and native installer currently target Linux x86_64.
+- The first Void language implementation is intentionally small.
+- Kernel, bootloader, compiler toolchain, package manager, and distribution image builder are not implemented yet.
 
 ## License
 
