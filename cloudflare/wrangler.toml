@@ -1,0 +1,6 @@
+name = "void-memingo-installer"
+main = "worker.js"
+compatibility_date = "2026-11-12"
+
+[observability]
+enabled = true
