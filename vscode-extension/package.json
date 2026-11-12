@@ -1,0 +1,30 @@
+{
+  "name": "void-memingo-vscode",
+  "displayName": "Void Memingo",
+  "description": "Language support for Void Memingo .void scripts",
+  "version": "0.2.0",
+  "publisher": "atdev-dev",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages"],
+  "activationEvents": ["onLanguage:void"],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [{
+      "id": "void",
+      "aliases": ["Void", "void"],
+      "extensions": [".void"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "void",
+      "scopeName": "source.void",
+      "path": "./syntaxes/void.tmLanguage.json"
+    }],
+    "snippets": [{ "language": "void", "path": "./snippets/void.json" }],
+    "commands": [{
+      "command": "voidMemingo.runFile",
+      "title": "Void Memingo: Run Current File"
+    }]
+  }
+}
