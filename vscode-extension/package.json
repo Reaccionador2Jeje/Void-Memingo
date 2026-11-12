@@ -3,7 +3,7 @@
   "displayName": "Void Memingo",
   "description": "Language support for Void Memingo .void scripts",
   "version": "0.3.0",
-  "publisher": "atdev-dev",
+  "publisher": "atdev",
   "license": "MIT",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Programming Languages"],
