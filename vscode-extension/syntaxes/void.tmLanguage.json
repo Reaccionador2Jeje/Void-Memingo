@@ -1,0 +1,29 @@
+{
+  "scopeName": "source.void",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#numbers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [{ "name": "comment.line.number-sign.void", "match": "#.*$" }]
+    },
+    "strings": {
+      "name": "string.quoted.double.void",
+      "begin": "\\"",
+      "end": "\\"",
+      "patterns": [{ "name": "constant.character.escape.void", "match": "\\\\." }]
+    },
+    "keywords": {
+      "patterns": [
+        { "name": "keyword.control.void", "match": "\\b(let|print)\\b" },
+        { "name": "variable.other.void", "match": "(?<=let\\s)[A-Za-z_][A-Za-z0-9_]*" }
+      ]
+    },
+    "numbers": {
+      "patterns": [{ "name": "constant.numeric.void", "match": "\\b[0-9]+\\b" }]
+    }
+  }
+}
