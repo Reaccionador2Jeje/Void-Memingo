@@ -2,29 +2,51 @@
   "name": "void-memingo-vscode",
   "displayName": "Void Memingo",
   "description": "Language support for Void Memingo .void scripts",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "atdev",
   "license": "MIT",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Programming Languages"],
-  "activationEvents": ["onLanguage:void"],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:void"
+  ],
   "main": "./extension.js",
   "contributes": {
-    "languages": [{
-      "id": "void",
-      "aliases": ["Void", "void"],
-      "extensions": [".void"],
-      "configuration": "./language-configuration.json"
-    }],
-    "grammars": [{
-      "language": "void",
-      "scopeName": "source.void",
-      "path": "./syntaxes/void.tmLanguage.json"
-    }],
-    "snippets": [{ "language": "void", "path": "./snippets/void.json" }],
-    "commands": [{
-      "command": "voidMemingo.runFile",
-      "title": "Void Memingo: Run Current File"
-    }]
+    "languages": [
+      {
+        "id": "void",
+        "aliases": [
+          "Void",
+          "void"
+        ],
+        "extensions": [
+          ".void"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "void",
+        "scopeName": "source.void",
+        "path": "./syntaxes/void.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "void",
+        "path": "./snippets/void.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "voidMemingo.runFile",
+        "title": "Void Memingo: Run Current File"
+      }
+    ]
   }
 }
