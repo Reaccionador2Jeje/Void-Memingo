@@ -1,6 +1,6 @@
 [package]
 name = "void-memingo"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 description = "Void Memingo - OS toolkit, language, and terminal interface"
 license = "MIT"
