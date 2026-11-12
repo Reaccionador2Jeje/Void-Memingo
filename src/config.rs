@@ -98,4 +98,45 @@ mod tests {
         let source = "[project\nname = broken";
         assert!(toml::from_str::<VoidConfig>(source).is_err());
     }
+
+    #[test]
+    fn rejects_empty_project_name() {
+        let config = VoidConfig {
+            project: ProjectSection {
+                name: "   ".into(),
+                version: "0.1.0".into(),
+            },
+            build: BuildSection::default(),
+        };
+
+        assert_eq!(validate(&config), Err("The project name cannot be empty.".into()));
+    }
+
+    #[test]
+    fn rejects_empty_project_version() {
+        let config = VoidConfig {
+            project: ProjectSection {
+                name: "TestOS".into(),
+                version: " ".into(),
+            },
+            build: BuildSection::default(),
+        };
+
+        assert_eq!(validate(&config), Err("The project version cannot be empty.".into()));
+    }
+
+    #[test]
+    fn rejects_empty_build_target() {
+        let config = VoidConfig {
+            project: ProjectSection {
+                name: "TestOS".into(),
+                version: "0.1.0".into(),
+            },
+            build: BuildSection {
+                target: String::new(),
+            },
+        };
+
+        assert_eq!(validate(&config), Err("The build target cannot be empty.".into()));
+    }
 }
