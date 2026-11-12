@@ -1,5 +1,6 @@
 mod config;
 mod language;
+mod ide;
 mod tui;
 
 use std::env;
