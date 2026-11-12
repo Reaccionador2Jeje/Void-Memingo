@@ -23,10 +23,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Run test suite
-        run: cargo test --locked
+        run: cargo test
 
       - name: Build release binary
-        run: cargo build --release --locked
+        run: cargo build --release
 
       - name: Check installer shell syntax
         run: sh -n install.sh
