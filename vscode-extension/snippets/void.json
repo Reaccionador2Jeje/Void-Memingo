@@ -1,0 +1,17 @@
+{
+  "print": {
+    "prefix": "print",
+    "body": ["print \"\u0024{1:message}\""],
+    "description": "Print a value"
+  },
+  "let": {
+    "prefix": "let",
+    "body": ["let \u0024{1:name} = \u0024{2:value}"],
+    "description": "Declare or update a variable"
+  },
+  "hello": {
+    "prefix": "hello",
+    "body": ["# First Void script", "print \"Hello from Void Memingo\""],
+    "description": "Basic Void script"
+  }
+}
