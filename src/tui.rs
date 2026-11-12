@@ -18,7 +18,11 @@ pub fn run() -> Result<(), String> {
         print!("\n  void> ");
         io::stdout().flush().map_err(|e| e.to_string())?;
         let mut choice = String::new();
-        io::stdin().read_line(&mut choice).map_err(|e| e.to_string())?;
+        let bytes = io::stdin().read_line(&mut choice).map_err(|e| e.to_string())?;
+        if bytes == 0 {
+            println!("\\nNo interactive input detected. Closing Void Memingo TUI.");
+            return Ok(());
+        }
 
         let result = match choice.trim() {
             "1" => {
@@ -40,7 +44,11 @@ pub fn run() -> Result<(), String> {
         if let Err(error) = result { println!("\nError: {}", error); }
         println!("\nPress Enter to return to the menu...");
         let mut pause = String::new();
-        io::stdin().read_line(&mut pause).map_err(|e| e.to_string())?;
+        let bytes = io::stdin().read_line(&mut pause).map_err(|e| e.to_string())?;
+        if bytes == 0 {
+            println!("\\nInput closed. Exiting Void Memingo TUI.");
+            return Ok(());
+        }
     }
 }
 
