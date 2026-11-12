@@ -1,0 +1,10 @@
+[package]
+name = "void-memingo"
+version = "0.1.0"
+edition = "2024"
+description = "Void Memingo - Operating System and Linux Distribution Development Toolkit"
+license = "MIT"
+
+[[bin]]
+name = "void"
+path = "src/main.rs"
