@@ -1,13 +1,15 @@
 [package]
 name = "void-memingo"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
-description = "Void Memingo - Operating System and Linux Distribution Development Toolkit"
+description = "Void Memingo - OS toolkit, language, and terminal interface"
 license = "MIT"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+sha2 = "0.10"
 
 [[bin]]
 name = "void"
