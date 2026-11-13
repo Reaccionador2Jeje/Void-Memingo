@@ -219,6 +219,16 @@ installer = false
 iso_name = ${quote(osIsoName)}
 directory = ${quote(osOutputDir)}
 `;
+    try {
+      const rootEntries = await invoke<FileEntry[]>('list_directory', { root: workspace, relativePath: '' });
+      if (rootEntries.some((entry) => entry.name === 'void-os.toml' && !entry.isDir)) {
+        const confirmed = window.confirm('void-os.toml ya existe. ¿Quieres reemplazarlo con los valores actuales del formulario?');
+        if (!confirmed) return;
+      }
+    } catch (error) {
+      addLog('No se pudo comprobar el manifiesto existente: ' + String(error));
+      return;
+    }
     setOsBusy(true);
     try {
       await invoke('write_text_file', { root: workspace, relativePath: 'void-os.toml', contents: template });
