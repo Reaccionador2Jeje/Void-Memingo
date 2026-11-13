@@ -155,6 +155,7 @@ function App() {
   const [osBusy, setOsBusy] = useState(false);
 
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
+  const isLinuxHost = typeof navigator !== 'undefined' && /Linux/i.test(navigator.userAgent);
 
   const activeTab = useMemo(
     () => tabs.find((tab) => tab.path === activePath) ?? null,
@@ -423,7 +424,7 @@ directory = ${quote(osOutputDir)}
     const command = 'cd ' + quoteShell(buildPreparation.buildDirectory) + ' && sudo ' + quoteShell(buildPreparation.scriptPath);
     const confirmed = window.confirm(
       'Se ejecutará el script revisado en la terminal integrada con permisos de administrador.\\n\\n' +
-      command + '\\n\\nNo se sobrescribirán ISOs existentes. ¿Continuar?'
+      command + '\n\nNo se sobrescribirán ISOs existentes. ¿Continuar?'
     );
     if (!confirmed) return;
     setTerminalMounted(true);
@@ -663,7 +664,7 @@ directory = ${quote(osOutputDir)}
                 <button className="secondary-button" onClick={() => void prepareOsBuild()} disabled={osBusy || !workspace}>
                   <HardDrive size={15} /> Preparar backend
                 </button>
-                <button className="secondary-button" onClick={runOsBuild} disabled={osBusy || !workspace || !buildPreparation || !osValidation?.valid} title="Ejecutar el script revisado en la terminal integrada">
+                <button className="secondary-button" onClick={runOsBuild} disabled={osBusy || !isLinuxHost || !workspace || !buildPreparation || !osValidation?.valid} title="Ejecutar el script revisado en la terminal integrada">
                   <Disc3 size={15} /> Build ISO
                 </button>
               </div>
@@ -683,7 +684,7 @@ directory = ${quote(osOutputDir)}
                   {osValidation.warnings.map((warning, index) => <p key={'w'+index}>Aviso: {warning}</p>)}
                 </div>
               )}
-              <div className="os-builder-footnote">Los tres backends preparan perfiles específicos y scripts revisables. La creación de la ISO requiere ejecutar el script en Linux con las herramientas de la distribución; la app no eleva privilegios silenciosamente.</div>
+              <div className="os-builder-footnote">Los tres backends preparan perfiles específicos y scripts revisables. La creación de ISO requiere Linux y las herramientas de la distribución. La terminal muestra el progreso y permite cancelar con Ctrl+C; sudo solicita autorización explícita.</div>
             </section>
           ) : activeTab ? (
             <section className="editor-area">
