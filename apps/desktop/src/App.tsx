@@ -279,8 +279,8 @@ function App() {
           {workspace ? workspace.split(/[\\\\/]/).filter(Boolean).pop() : 'Sin workspace abierto'}
         </div>
         <div className="titlebar-actions">
-          <button className="icon-button" title="Ayuda"><CircleHelp size={16} /></button>
-          <button className="icon-button" title="Configuración"><Settings size={16} /></button>
+          <button className="icon-button" title="Ayuda (próximamente)" disabled><CircleHelp size={16} /></button>
+          <button className="icon-button" title="Configuración (próximamente)" disabled><Settings size={16} /></button>
           <div className="window-indicator"><span /></div>
         </div>
       </header>
@@ -302,8 +302,8 @@ function App() {
             </button>
           </div>
           <div className="rail-group rail-bottom">
-            <button className="rail-button" title="Herramientas de sistema"><Cpu size={20} /></button>
-            <button className="rail-button" title="Configuración"><Settings size={20} /></button>
+            <button className="rail-button" title="Herramientas de sistema (próximamente)" disabled><Cpu size={20} /></button>
+            <button className="rail-button" title="Configuración (próximamente)" disabled><Settings size={20} /></button>
           </div>
         </nav>
 
@@ -317,10 +317,10 @@ function App() {
             {sidebarView === 'explorer' && (
               <>
                 <div className="workspace-heading">
-                  <button className="workspace-label" onClick={() => setSidebarOpen(!sidebarOpen)}>
+                  <div className="workspace-label">
                     <ChevronDown size={13} />
                     <span>{workspace ? workspace.split(/[\\\\/]/).filter(Boolean).pop() : 'SIN CARPETA ABIERTA'}</span>
-                  </button>
+                  </div>
                   <div className="workspace-tools">
                     <button className="subtle-icon" onClick={() => void createFile()} title="Nuevo archivo"><FilePlus2 size={15} /></button>
                     <button className="subtle-icon" onClick={() => workspace && void refreshWorkspace(workspace)} title="Actualizar"><Activity size={15} /></button>
@@ -431,7 +431,7 @@ function App() {
           {bottomOpen && (
             <section className="bottom-panel">
               <div className="panel-tabs">
-                <button className={bottomView === 'problems' ? 'selected' : ''} onClick={() => setBottomView('problems')}>PROBLEMAS <span className="count-pill">0</span></button>
+                <button className={bottomView === 'problems' ? 'selected' : ''} onClick={() => setBottomView('problems')}>PROBLEMAS</button>
                 <button className={bottomView === 'output' ? 'selected' : ''} onClick={() => setBottomView('output')}>SALIDA</button>
                 <button className={bottomView === 'terminal' ? 'selected' : ''} onClick={() => setBottomView('terminal')}>TERMINAL</button>
                 <div className="panel-spacer" />
@@ -439,7 +439,7 @@ function App() {
               </div>
               <div className="panel-content">
                 {bottomView === 'problems' && (
-                  <div className="panel-empty"><Check size={16} /> No hay problemas detectados por el editor.</div>
+                  <div className="panel-empty"><Check size={16} /> El análisis de código y los diagnósticos todavía no están conectados.</div>
                 )}
                 {bottomView === 'output' && (
                   <div className="output-list">
@@ -460,7 +460,7 @@ function App() {
 
       <footer className="statusbar">
         <div className="status-left">
-          <span className="status-branch"><GitBranch size={12} /> main</span>
+          <span className="status-branch"><GitBranch size={12} /> Git no conectado</span>
           <span><AlertCircle size={12} /> 0</span>
           <span><Check size={12} /> Workspace local</span>
         </div>
