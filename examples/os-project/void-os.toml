@@ -1,0 +1,42 @@
+[project]
+name = "Atdev OS"
+id = "atdev-os"
+version = "0.1.0"
+publisher = "Atdev Dev"
+description = "A custom Linux distribution built with Void Memingo"
+iso_label = "ATDEV_OS"
+
+[base]
+distribution = "debian"
+release = "stable"
+architecture = "amd64"
+
+[packages]
+install = []
+remove = []
+
+[filesystem]
+overlay = "filesystem"
+locale = "es_CL.UTF-8"
+timezone = "America/Santiago"
+hostname = "atdev-os"
+storage_filesystem = "ext4"
+services_enabled = []
+
+[desktop]
+environment = "xfce"
+display_manager = "lightdm"
+applications = []
+theme = ""
+icon_theme = ""
+wallpaper = ""
+
+[boot]
+uefi = true
+bios = true
+live_session = true
+installer = false
+
+[output]
+iso_name = "atdev-os-0.1.0.iso"
+directory = "dist"
