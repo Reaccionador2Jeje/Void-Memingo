@@ -116,11 +116,12 @@ Implemented in the desktop branch:
 - TOML parsing and initial validation.
 - Explicit base capability registry containing only Debian, Ubuntu and Arch Linux.
 - OS Builder workbench entry, base/release/desktop selection, package input, starter manifest creation and validation UI.
-- Initial Debian Live preparation: creates an isolated live-build workspace, writes install/remove package lists, adds selected desktop task packages and applications, copies a validated root filesystem overlay without following symlinks, and generates a reviewable build script with hostname, timezone, locale and service-enable configuration.
+- Initial Debian Live preparation: creates an isolated live-build workspace, writes package installation lists, adds selected desktop task packages and applications, copies a validated root filesystem overlay without following symlinks, and generates chroot hooks for package removal, hostname, timezone, locale and service enablement.
+- The generated Debian build script runs live-build, requires exactly one resulting ISO, copies it to the configured output directory and writes a SHA-256 checksum. It is generated for review and is not executed by the app yet.
 
 Not implemented yet:
 
-- Executing the Debian Live build and validating its resulting ISO. The first profile currently accepts amd64, UEFI + BIOS hybrid boot, a live session and no installer; other boot/install combinations are rejected rather than silently ignored.
+- Running the generated Debian build script from the app, streaming logs and cancellation, then inspecting the ISO format and optionally boot-testing it. The script currently requires manual review and explicit execution with administrator privileges. The first profile accepts amd64, UEFI + BIOS hybrid boot, a live session and no installer; other boot/install combinations are rejected rather than silently ignored.
 - Ubuntu live-image and Archiso build backends.
 - Real package resolution and repository management.
 - Desktop environment installation and theme application.
