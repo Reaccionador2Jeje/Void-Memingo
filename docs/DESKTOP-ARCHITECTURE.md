@@ -64,8 +64,8 @@ A module is only marked available after its backend and UI behavior are implemen
 
 Native bundles are built on native GitHub Actions runners:
 
-- Linux: .deb, .rpm, and AppImage.
-- Windows: .msi and NSIS .exe.
+- Linux: .deb.
+- Windows: .msi.
 - macOS: .dmg.
 
 The release workflow also preserves the existing CLI binaries and VS Code extension. A platform artifact is considered released only after its runner completes successfully.
