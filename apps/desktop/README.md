@@ -32,6 +32,17 @@ Tauri produces Linux `.deb`, Windows `.msi` / `.exe` (NSIS), and macOS `.dmg` bu
 
 The Rust backend only reads and writes files within the folder selected by the user. It rejects parent-directory traversal and does not follow symbolic links while listing the workspace. The first milestone includes directory browsing, UTF-8 text editing, creating files, and saving changes.
 
+## Git source control
+
+The Source Control view uses the system Git executable and supports:
+- Open an existing local repository or initialize a new one.
+- Clone a repository from an HTTPS or SSH Git URL.
+- View working-tree status, staged summary, recent commits and local branches.
+- Stage all changes, create commits, create/switch branches, add remotes and fetch.
+- Run pull and push in the integrated PTY so configured credential helpers and SSH agents can interact.
+
+GitHub, GitLab and other compatible Git hosts work through their standard Git remote URLs. GitVoid is detected as an experimental provider label, but dedicated GitVoid service integration is not available until its remote protocol/API is complete. Credentials remain in the operating system's Git credential helper or SSH agent; do not paste access tokens into repository URLs.
+
 ## Integrated terminal
 
 The bottom panel now uses a native cross-platform PTY through `portable-pty` and renders it with xterm.js. Shell sessions stay open between commands, stream output as it arrives, accept interactive input, support terminal resize signals, and can be interrupted with Ctrl+C. Multiple terminal sessions can be opened in tabs and closed independently.
