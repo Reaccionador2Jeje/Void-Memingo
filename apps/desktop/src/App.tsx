@@ -256,7 +256,7 @@ services_enabled = [${osServices.split(',').map((item) => item.trim()).filter(Bo
 
 [desktop]
 environment = ${quote(osDesktop)}
-display_manager = ${quote(osDesktop === 'none' ? '' : osDesktop === 'gnome' ? 'gdm3' : osDesktop === 'kde-plasma' ? 'sddm' : 'lightdm')}
+display_manager = ${quote(osDesktop === 'none' ? '' : osBaseId === 'arch' ? (osDesktop === 'gnome' ? 'gdm' : osDesktop === 'kde-plasma' ? 'sddm' : 'lightdm') : (osDesktop === 'gnome' ? 'gdm3' : osDesktop === 'kde-plasma' ? 'sddm' : 'lightdm'))}
 applications = []
 theme = ${quote(osTheme)}
 icon_theme = ${quote(osIconTheme)}
@@ -567,7 +567,7 @@ directory = ${quote(osOutputDir)}
                     <span className="os-base-mark">{base.id === 'debian' ? 'D' : base.id === 'ubuntu' ? 'U' : 'A'}</span>
                     <b>{base.name}</b>
                     <small>{base.backend}</small>
-                    <span className="os-base-status">Backend: {base.backendStatus === 'ready' ? 'Disponible' : 'Pendiente'}</span>
+                    <span className="os-base-status">Backend: {base.backendStatus === 'ready' ? 'Build verificado' : base.backendStatus === 'preview' ? 'Perfil disponible' : 'Pendiente'}</span>
                   </button>
                 ))}
               </div>
