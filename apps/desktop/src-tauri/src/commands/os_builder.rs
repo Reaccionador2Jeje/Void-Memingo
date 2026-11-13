@@ -968,12 +968,14 @@ lb build
 count=0
 image=""
 for candidate in ./*.iso; do [ -f "$candidate" ] || continue; count=$((count + 1)); image="$candidate"; done
-[ "$count" -eq 1 ] || {{ echo "Expected exactly one ISO from Ubuntu live-build." >&2; exit 1; }}
+[ "$count" -eq 1 ] && [ -s "$image" ] || {{ echo "Expected exactly one non-empty Ubuntu ISO." >&2; exit 1; }}
 mkdir -p {output_dir}
 [ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
 install -m 0644 "$image" {output}
+file {output} | grep -qi "ISO 9660" || {{ echo "Output is not an ISO 9660 image." >&2; exit 1; }}
 sha256sum {output} > {checksum}
-echo "Ubuntu live ISO and SHA-256 checksum created."
+sha256sum --check {checksum}
+echo "Ubuntu live ISO validated and SHA-256 checksum created."
 "#,
             build_dir = shell_quote(&build_root.to_string_lossy()),
             codename = codename,
@@ -991,12 +993,16 @@ echo "Ubuntu live ISO and SHA-256 checksum created."
             .map_err(|error| format!("Cannot write Arch package list: {error}"))?;
         let profile_path = arch_profile.to_string_lossy().to_string();
         let packages_path = package_file.to_string_lossy().to_string();
+        let remove_file = build_root.join("packages.remove");
+        fs::write(&remove_file, format!("{}\\n", project.packages.remove.join("\\n")))
+            .map_err(|error| format!("Cannot write Arch package removal list: {error}"))?;
         format!(r#"#!/bin/sh
 set -eu
 command -v mkarchiso >/dev/null 2>&1 || {{ echo "Install archiso first." >&2; exit 127; }}
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
 install -m 0644 {packages} {profile}/packages.x86_64
+if [ -s {remove_packages} ]; then grep -Fvx -f {remove_packages} {profile}/packages.x86_64 > {profile}/packages.tmp || true; mv {profile}/packages.tmp {profile}/packages.x86_64; fi
 mkdir -p {profile}/airootfs
 cp -a {custom_overlay}/. {profile}/airootfs/
 mkdir -p {output_dir}
@@ -1004,16 +1010,19 @@ mkarchiso -v -w {work}/work -o {output_dir} {profile}
 count=0
 image=""
 for candidate in {output_dir}/*.iso; do [ -f "$candidate" ] || continue; count=$((count + 1)); image="$candidate"; done
-[ "$count" -ge 1 ] || {{ echo "Archiso did not create an ISO." >&2; exit 1; }}
+[ "$count" -eq 1 ] && [ -s "$image" ] || {{ echo "Expected exactly one non-empty Archiso image." >&2; exit 1; }}
 mkdir -p {final_dir}
 [ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
 install -m 0644 "$image" {output}
+file {output} | grep -qi "ISO 9660" || {{ echo "Output is not an ISO 9660 image." >&2; exit 1; }}
 sha256sum {output} > {checksum}
-echo "Arch Linux ISO and SHA-256 checksum created."
+sha256sum --check {checksum}
+echo "Arch Linux ISO validated and SHA-256 checksum created."
 "#,
             profile = shell_quote(&profile_path),
             custom_overlay = shell_quote(&overlay_target.to_string_lossy()),
             packages = shell_quote(&packages_path),
+            remove_packages = shell_quote(&remove_file.to_string_lossy()),
             work = shell_quote(&build_root.to_string_lossy()),
             output_dir = shell_quote(&build_root.join("output").to_string_lossy()),
             final_dir = output_dir_q,
