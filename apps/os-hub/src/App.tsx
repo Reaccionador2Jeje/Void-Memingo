@@ -57,6 +57,11 @@ function App() {
   const [desktop, setDesktop] = useState('lxqt');
   const [architectures, setArchitectures] = useState('x86_64');
   const [sourceUrl, setSourceUrl] = useState('');
+  const [releaseVersion, setReleaseVersion] = useState('0.1.0');
+  const [releaseChannel, setReleaseChannel] = useState('stable');
+  const [artifactUrl, setArtifactUrl] = useState('');
+  const [artifactSha256, setArtifactSha256] = useState('');
+  const [releaseNotes, setReleaseNotes] = useState('');
   const [publishing, setPublishing] = useState(false);
 
   const loadProjects = useCallback(async () => {
@@ -133,9 +138,14 @@ function App() {
       setNotice('La URL del repositorio debe comenzar con https://.');
       return;
     }
+    const hasReleaseArtifact = artifactUrl.trim().length > 0 || artifactSha256.trim().length > 0;
+    if (hasReleaseArtifact && (!/^https:\/\//i.test(artifactUrl.trim()) || !/^[a-f0-9]{64}$/i.test(artifactSha256.trim()))) {
+      setNotice('Para publicar una versión, indica una URL HTTPS y un SHA-256 válido de 64 caracteres.');
+      return;
+    }
     setPublishing(true);
     setNotice('');
-    const { error } = await supabase.from('os_projects').insert({
+    const { data: createdProject, error } = await supabase.from('os_projects').insert({
       owner_id: user.id,
       slug: normalizedSlug,
       name: name.trim(),
@@ -148,15 +158,32 @@ function App() {
       source_url: sourceUrl.trim() || null,
       visibility: 'public',
       status: 'published'
-    });
-    setPublishing(false);
-    if (error) {
-      setNotice('No se pudo publicar el proyecto: ' + error.message);
+    }).select('id').single();
+    if (error || !createdProject) {
+      setPublishing(false);
+      setNotice('No se pudo publicar el proyecto: ' + (error?.message || 'No se recibió el identificador del proyecto.'));
       return;
     }
+    if (hasReleaseArtifact) {
+      const { error: releaseError } = await supabase.from('os_releases').insert({
+        project_id: createdProject.id,
+        version: releaseVersion.trim(),
+        channel: releaseChannel,
+        release_notes: releaseNotes.trim(),
+        artifact_url: artifactUrl.trim(),
+        sha256: artifactSha256.trim().toLowerCase(),
+        status: 'published',
+        published_at: new Date().toISOString()
+      });
+      if (releaseError) setNotice('Sistema publicado, pero no se pudo registrar su versión: ' + releaseError.message);
+      else setNotice('Sistema y versión publicados en Atdev OS Hub. Recuerda que el checksum se debe verificar contra el archivo descargado.');
+    } else {
+      setNotice('Sistema publicado en Atdev OS Hub.');
+    }
+    setPublishing(false);
     setShowPublish(false);
     setName(''); setSlug(''); setSummary(''); setDescription(''); setSourceUrl('');
-    setNotice('Sistema publicado en Atdev OS Hub.');
+    setArtifactUrl(''); setArtifactSha256(''); setReleaseNotes('');
     await loadProjects();
   };
 
@@ -247,6 +274,11 @@ function App() {
             <div className="form-row"><label>Base<select value={base} onChange={(event) => setBase(event.target.value)}><option value="ubuntu">Ubuntu</option><option value="debian">Debian</option><option value="arch">Arch Linux</option><option value="other">Otra</option></select></label><label>Escritorio<select value={desktop} onChange={(event) => setDesktop(event.target.value)}><option value="lxqt">LXQt</option><option value="xfce">Xfce</option><option value="gnome">GNOME</option><option value="kde-plasma">KDE Plasma</option><option value="none">Sin escritorio</option></select></label></div>
             <label>Arquitecturas<input value={architectures} onChange={(event) => setArchitectures(event.target.value)} placeholder="x86_64, aarch64" /></label>
             <label>Repositorio fuente (HTTPS)<input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://github.com/usuario/proyecto" /></label>
+            <div className="release-form-heading"><strong>Primera versión (opcional)</strong><span>El ISO se aloja fuera de Supabase.</span></div>
+            <div className="form-row"><label>Versión<input value={releaseVersion} onChange={(event) => setReleaseVersion(event.target.value)} maxLength={64} /></label><label>Canal<select value={releaseChannel} onChange={(event) => setReleaseChannel(event.target.value)}><option value="stable">Stable</option><option value="beta">Beta</option><option value="alpha">Alpha</option><option value="nightly">Nightly</option></select></label></div>
+            <label>URL del archivo ISO (HTTPS)<input value={artifactUrl} onChange={(event) => setArtifactUrl(event.target.value)} placeholder="https://.../pondos.iso" /></label>
+            <label>SHA-256 del ISO<input value={artifactSha256} onChange={(event) => setArtifactSha256(event.target.value)} placeholder="64 caracteres hexadecimales" maxLength={64} /></label>
+            <label>Notas de versión<textarea rows={2} value={releaseNotes} onChange={(event) => setReleaseNotes(event.target.value)} /></label>
             <button className="primary-link submit-publish" disabled={publishing}>{publishing ? 'Publicando...' : 'Publicar proyecto'} <ArrowUpRight size={15} /></button>
           </form>
         </div>
