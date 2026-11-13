@@ -62,11 +62,12 @@ A module is only marked available after its backend and UI behavior are implemen
 
 ## Packaging
 
-Native bundles are built on native GitHub Actions runners:
+Void Memingo Desktop is a PC application, not a mobile/Android app. The same source and feature set target Windows, mainstream Linux distributions, and macOS. Native bundles are built on native GitHub Actions runners:
 
-- Linux: .deb.
-- Windows: .msi.
-- macOS: .dmg.
+- Linux x86_64: `.deb`.
+- Windows x86_64: `.msi` and NSIS `.exe`.
+- macOS Intel x86_64: `.dmg`.
+- macOS Apple Silicon ARM64: `.dmg`.
 
 The release workflow also preserves the existing CLI binaries and VS Code extension. A platform artifact is considered released only after its runner completes successfully.
 
