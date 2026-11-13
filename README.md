@@ -2,6 +2,37 @@
 
 Void Memingo is evolving into an operating-system development environment: a Rust application, terminal UI (TUI), and a small scripting language.
 
+## Desktop IDE
+
+A native cross-platform desktop workspace is being developed in \`apps/desktop/\` using Tauri 2, Rust, React, TypeScript, and Vite. It is a separate application and does not replace or break the existing \`void\` CLI.
+
+The first desktop foundation provides:
+- Native folder selection and workspace navigation.
+- A file explorer with lazy directory loading.
+- Multi-tab UTF-8 text editing and save support (\`Ctrl+S\` / \`Cmd+S\`).
+- A Rust filesystem backend that blocks path traversal and avoids following symbolic links.
+- A modular VS Code-inspired workbench layout.
+
+The integrated terminal, Git operations, language server, debugger, build system, and OS-development tooling are future modules. Their panels are visibly marked as not implemented rather than pretending to work.
+
+### Run the desktop application
+
+Requires Node.js 20.19+ or 22.12+, Rust stable, and the platform-specific Tauri 2 prerequisites.
+
+\`\`\`sh
+cd apps/desktop
+npm install
+npm run tauri dev
+\`\`\`
+
+Build a Debian package on Linux:
+
+\`\`\`sh
+npm run tauri build -- --bundles deb
+\`\`\`
+
+Release automation is being extended to publish Linux \`.deb\` / \`.rpm\` / AppImage, Windows \`.msi\` / \`.exe\`, and macOS \`.dmg\` installers. Actual release availability depends on successful platform CI builds.
+
 ## Supported platforms
 
 Release builds are provided for Linux x86_64, Windows x86_64, macOS Intel (x86_64), and macOS Apple Silicon (ARM64).
