@@ -5,6 +5,7 @@ fn main() {
         .manage(commands::terminal::TerminalState::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            commands::git::git_clone_repository,
             commands::git::git_snapshot,
             commands::git::git_init,
             commands::git::git_stage_all,
