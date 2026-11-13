@@ -454,17 +454,17 @@ fn copy_overlay_tree(source: &Path, destination: &Path) -> Result<(), String> {
 fn apply_common_filesystem_defaults(overlay: &Path, project: &OsProject) -> Result<(), String> {
     if !project.filesystem.hostname.is_empty() {
         let etc = safe_create_project_directory(overlay, "etc")?;
-        fs::write(etc.join("hostname"), format!("{}\\n", project.filesystem.hostname))
+        fs::write(etc.join("hostname"), format!("{}\n", project.filesystem.hostname))
             .map_err(|error| format!("Cannot write hostname: {error}"))?;
     }
     if !project.filesystem.timezone.is_empty() {
         let etc = safe_create_project_directory(overlay, "etc")?;
-        fs::write(etc.join("timezone"), format!("{}\\n", project.filesystem.timezone))
+        fs::write(etc.join("timezone"), format!("{}\n", project.filesystem.timezone))
             .map_err(|error| format!("Cannot write timezone: {error}"))?;
     }
     if !project.filesystem.locale.is_empty() {
         let defaults = safe_create_project_directory(overlay, "etc/default")?;
-        fs::write(defaults.join("locale"), format!("LANG={}\\n", project.filesystem.locale))
+        fs::write(defaults.join("locale"), format!("LANG={}\n", project.filesystem.locale))
             .map_err(|error| format!("Cannot write locale defaults: {error}"))?;
         let etc = safe_create_project_directory(overlay, "etc")?;
         fs::write(etc.join("locale.gen"), format!("{} UTF-8\\n", project.filesystem.locale))
@@ -994,7 +994,7 @@ echo "Ubuntu live ISO validated and SHA-256 checksum created."
         let profile_path = arch_profile.to_string_lossy().to_string();
         let packages_path = package_file.to_string_lossy().to_string();
         let remove_file = build_root.join("packages.remove");
-        fs::write(&remove_file, format!("{}\\n", project.packages.remove.join("\\n")))
+        fs::write(&remove_file, format!("{}\n", project.packages.remove.join("\n")))
             .map_err(|error| format!("Cannot write Arch package removal list: {error}"))?;
         format!(r#"#!/bin/sh
 set -eu
