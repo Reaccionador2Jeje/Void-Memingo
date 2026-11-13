@@ -255,14 +255,15 @@ function App() {
     'Fetch completado.'
   ), [runGitAction, workspace]);
 
-  const runGitInTerminal = useCallback((command: string) => {
-    if (!workspace) return;
-    setTerminalMounted(true);
-    setBottomOpen(true);
-    setBottomView('terminal');
-    setTerminalCommand(command);
-    addLog('Git enviado a la terminal: ' + command);
-  }, [addLog, workspace]);
+  const pullGitChanges = useCallback(() => runGitAction(
+    () => invoke<GitSnapshot>('git_pull_ff_only', { root: workspace! }),
+    'Pull completado (fast-forward).'
+  ), [runGitAction, workspace]);
+
+  const pushGitChanges = useCallback(() => runGitAction(
+    () => invoke<GitSnapshot>('git_push', { root: workspace! }),
+    'Push completado.'
+  ), [runGitAction, workspace]);
 
   useEffect(() => {
     invoke<string>('app_version').then(setVersion).catch(() => undefined);
@@ -802,8 +803,8 @@ directory = ${quote(osOutputDir)}
                     {gitSnapshot.stagedSummary && <pre className="git-status-output git-staged">{gitSnapshot.stagedSummary}</pre>}
                     <div className="git-actions">
                       <button className="secondary-button" disabled={gitBusy} onClick={() => void stageGitChanges()}>Preparar todos</button>
-                      <button className="secondary-button" disabled={gitBusy || gitSnapshot.remotes.length === 0} onClick={() => runGitInTerminal('git pull --ff-only')}>Pull</button>
-                      <button className="secondary-button" disabled={gitBusy || gitSnapshot.remotes.length === 0} onClick={() => runGitInTerminal('git push')}>Push</button>
+                      <button className="secondary-button" disabled={gitBusy || gitSnapshot.remotes.length === 0} onClick={() => void pullGitChanges()}>Pull</button>
+                      <button className="secondary-button" disabled={gitBusy || gitSnapshot.remotes.length === 0} onClick={() => void pushGitChanges()}>Push</button>
                       <button className="secondary-button" disabled={gitBusy || gitSnapshot.remotes.length === 0} onClick={() => void fetchGitRemotes()}>Fetch</button>
                     </div>
                     <div className="git-commit-box">
