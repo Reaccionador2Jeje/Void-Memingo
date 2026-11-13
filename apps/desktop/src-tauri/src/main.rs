@@ -5,6 +5,14 @@ fn main() {
         .manage(commands::terminal::TerminalState::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            commands::git::git_snapshot,
+            commands::git::git_init,
+            commands::git::git_stage_all,
+            commands::git::git_commit,
+            commands::git::git_add_remote,
+            commands::git::git_create_branch,
+            commands::git::git_checkout_branch,
+            commands::git::git_fetch_all,
             commands::workspace::app_version,
             commands::workspace::list_directory,
             commands::workspace::read_text_file,
