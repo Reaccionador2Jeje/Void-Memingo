@@ -21,7 +21,7 @@ pub fn base_capabilities() -> Vec<BaseCapabilities> {
             id: "debian",
             name: "Debian",
             backend: "live-build",
-            backend_status: "planned",
+            backend_status: "preview",
             releases: &["stable", "testing"],
             architectures: &["amd64"],
             desktops: &["gnome", "kde-plasma", "xfce", "lxqt", "cinnamon", "mate", "none"],
