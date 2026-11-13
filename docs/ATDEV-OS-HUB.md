@@ -50,9 +50,9 @@ The currently connected Supabase project named `Atdev OpenWeb Linux` is reported
 1. Choose or restore an active Supabase project in the Atdev Dev organization.
 2. Configure GitHub and Google OAuth credentials in Supabase Auth.
 3. Set the project URL and publishable key as frontend environment variables.
-4. Apply the SQL migration in `supabase/migrations/`.
-5. Create the public screenshot bucket with upload restrictions.
-6. Configure allowed redirect URLs for the production and local development origins.
+4. Review and apply `supabase/schema-draft.sql` to the selected active project; it is a reviewed schema draft, not an auto-applied migration.
+5. Confirm `public` is listed under the project's exposed Data API schemas and keep the explicit SQL grants in the schema draft.\n6. Create the public screenshot bucket with upload restrictions.
+7. Configure allowed redirect URLs for the production and local development origins.
 
 ## Planned milestones
 
@@ -65,3 +65,15 @@ The currently connected Supabase project named `Atdev OpenWeb Linux` is reported
 ## Relationship with PondOS
 
 PondOS is the first showcase project: Ubuntu / Ubuntu Server base, LXQt desktop, natural green-and-blue visual identity, pond-and-frog theme, and the minimalist green frog-head-and-leaf logo. Its project page should include release notes, screenshots, documentation, source repository and ISO checksums.
+
+
+## Void Memingo and PondOS publishing flow
+
+1. Open the PondOS project from `examples/pondos` in Void Memingo.
+2. Edit `pondos.toml` and the `filesystem/` overlay; keep the manifest, desktop assets and build scripts in the same Git repository.
+3. Use the Source Control panel for local Git history and remotes. GitHub and GitLab work through ordinary Git HTTPS/SSH transports and the operating system credential helper. GitVoid is shown as experimental until its server implements a documented Git transport/API.
+4. Validate the manifest and prepare the matching distribution backend before starting an ISO build. The builder must not label a profile preview as a tested bootable installer.
+5. After building, publish the source revision and release metadata to OS Hub: version, channel, artifact URL, byte size, SHA-256, builder version and source commit. Keep ISO binaries on a release host; OS Hub stores metadata and small screenshots.
+6. OS Hub must verify the SHA-256 value against the downloadable artifact before showing a release as verified. A user-provided checksum is metadata, not proof by itself.
+
+The currently connected Supabase project is inactive. The schema draft and frontend are prepared, but OAuth providers, database deployment and live publishing remain unavailable until an active project and provider credentials are configured.
