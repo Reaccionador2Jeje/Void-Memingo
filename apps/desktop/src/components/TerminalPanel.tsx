@@ -98,6 +98,8 @@ export default function TerminalPanel({ workspace, onLog }: Props) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [selectedShell, setSelectedShell] = useState('default');
+  const isWindows = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent);
   const sessionsRef = useRef<Session[]>([]);
   sessionsRef.current = sessions;
 
@@ -106,7 +108,7 @@ export default function TerminalPanel({ workspace, onLog }: Props) {
     setCreating(true);
     try {
       const id = await invoke<string>('start_terminal', {
-        root: workspace, currentDirectory: '', cols: 100, rows: 24
+        root: workspace, currentDirectory: '', cols: 100, rows: 24, shell: selectedShell
       });
       const next = { id, name: 'Terminal ' + (sessionsRef.current.length + 1) };
       setSessions((current) => [...current, next]);
@@ -117,7 +119,7 @@ export default function TerminalPanel({ workspace, onLog }: Props) {
     } finally {
       setCreating(false);
     }
-  }, [workspace, creating, onLog]);
+  }, [workspace, creating, onLog, selectedShell]);
 
   useEffect(() => {
     if (!workspace) {
@@ -128,7 +130,7 @@ export default function TerminalPanel({ workspace, onLog }: Props) {
     let cancelled = false;
     let createdId: string | null = null;
     void invoke<string>('start_terminal', {
-      root: workspace, currentDirectory: '', cols: 100, rows: 24
+      root: workspace, currentDirectory: '', cols: 100, rows: 24, shell: 'default'
     }).then((id) => {
       createdId = id;
       if (cancelled) {
@@ -178,6 +180,25 @@ export default function TerminalPanel({ workspace, onLog }: Props) {
             </button>
           ))}
         </div>
+        <select className="terminal-shell-select" value={selectedShell}
+          onChange={(event) => setSelectedShell(event.target.value)} title="Shell para nuevas terminales">
+          {isWindows ? (
+            <>
+              <option value="default">Predeterminado</option>
+              <option value="cmd">Command Prompt</option>
+              <option value="powershell">PowerShell</option>
+              <option value="pwsh">PowerShell 7</option>
+            </>
+          ) : (
+            <>
+              <option value="default">Predeterminado</option>
+              <option value="sh">sh</option>
+              <option value="bash">bash</option>
+              <option value="zsh">zsh</option>
+              <option value="fish">fish</option>
+            </>
+          )}
+        </select>
         <button className="terminal-new-session" onClick={() => void createSession()}
           disabled={!workspace || creating} title="Nueva terminal"><Plus size={14} /></button>
       </div>
