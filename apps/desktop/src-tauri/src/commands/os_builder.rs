@@ -170,7 +170,8 @@ fn safe_identifier(value: &str) -> bool {
 }
 
 fn safe_iso_filename(value: &str) -> bool {
-    value.len() <= 128
+    value.len() > 4
+        && value.len() <= 128
         && value.ends_with(".iso")
         && value.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
 }
@@ -723,5 +724,13 @@ directory = "dist"
         let mut project = sample();
         project.filesystem.overlay = "../../etc".into();
         assert!(!validate_project(&project).valid);
+    }
+
+    #[test]
+    fn accepts_only_simple_iso_output_names() {
+        assert!(safe_iso_filename("atdev-os-0.1.0.iso"));
+        assert!(!safe_iso_filename("../outside.iso"));
+        assert!(!safe_iso_filename("bad name.iso"));
+        assert!(!safe_iso_filename(".iso"));
     }
 }
