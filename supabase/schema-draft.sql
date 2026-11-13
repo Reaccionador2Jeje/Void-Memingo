@@ -76,7 +76,7 @@ create table if not exists public.os_comments (
 
 create index if not exists os_projects_public_created_idx
   on public.os_projects (created_at desc)
-  where visibility = 'public' and os_releases.status = 'published';
+  where visibility = 'public' and status = 'published';
 create index if not exists os_releases_project_created_idx
   on public.os_releases (project_id, created_at desc);
 create index if not exists os_comments_project_created_idx
@@ -104,7 +104,7 @@ create policy "Users update their own profile"
 create policy "Read published projects or owned drafts"
   on public.os_projects for select to anon, authenticated
   using (
-    (visibility = 'public' and os_releases.status = 'published')
+    (visibility = 'public' and status = 'published')
     or owner_id = (select auth.uid())
   );
 create policy "Owners publish projects"
@@ -224,6 +224,9 @@ grant insert, update, delete on public.profiles, public.os_projects,
   public.os_releases, public.os_screenshots, public.os_stars,
   public.os_comments to authenticated;
 
+-- Supabase changed the default Data API exposure behavior in 2026.
+-- Keep these grants explicit and ensure the public schema is enabled in
+-- Project Settings -> API -> Exposed schemas before using the browser client.
 -- Store screenshots only; ISO files remain on the project's release host.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
