@@ -9,7 +9,7 @@ import { Plus, TerminalSquare, X } from 'lucide-react';
 type TerminalOutput = { sessionId: string; data: string };
 type TerminalExit = { sessionId: string; code: number | null };
 type Session = { id: string; name: string };
-type Props = { workspace: string | null; onLog: (message: string) => void };
+type Props = { workspace: string | null; onLog: (message: string) => void; command?: string | null; onCommandConsumed?: () => void };
 
 function TerminalView({ sessionId, active }: { sessionId: string; active: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -98,7 +98,7 @@ function TerminalView({ sessionId, active }: { sessionId: string; active: boolea
   return <div className="terminal-xterm-host" ref={hostRef} style={{ display: active ? 'block' : 'none' }} />;
 }
 
-export default function TerminalPanel({ workspace, onLog }: Props) {
+export default function TerminalPanel({ workspace, onLog, command, onCommandConsumed }: Props) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -156,6 +156,17 @@ export default function TerminalPanel({ workspace, onLog }: Props) {
       }
     };
   }, [workspace, onLog]);
+
+  useEffect(() => {
+    if (!command || !activeId) return;
+    void invoke('write_terminal_input', {
+      sessionId: activeId,
+      data: command + '\\r'
+    }).then(() => {
+      onLog('Comando de build enviado a la terminal.');
+      onCommandConsumed?.();
+    }).catch((error) => onLog('No se pudo enviar el comando de build: ' + String(error)));
+  }, [command, activeId, onCommandConsumed, onLog]);
 
   const closeSession = (id: string) => {
     void invoke('close_terminal', { sessionId: id }).catch((error) => onLog(String(error)));
