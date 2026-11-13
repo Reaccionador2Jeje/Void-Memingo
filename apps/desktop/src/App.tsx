@@ -195,7 +195,7 @@ services_enabled = []
 
 [desktop]
 environment = ${quote(osDesktop)}
-display_manager = ${quote(osDesktop === 'none' ? '' : osDesktop === 'gnome' ? 'gdm' : osDesktop === 'kde-plasma' ? 'sddm' : 'lightdm')}
+display_manager = ${quote(osDesktop === 'none' ? '' : osDesktop === 'gnome' ? 'gdm3' : osDesktop === 'kde-plasma' ? 'sddm' : 'lightdm')}
 applications = []
 theme = ""
 icon_theme = ""
