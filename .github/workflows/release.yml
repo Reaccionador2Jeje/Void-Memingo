@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.name }}
+    name: Build ${ matrix.name }
     strategy:
       fail-fast: false
       matrix:
@@ -20,41 +20,83 @@ jobs:
             target: x86_64-unknown-linux-gnu
             asset: void-linux-x86_64
             binary: void
+            bundles: deb,rpm,appimage
           - name: Windows x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
             asset: void-windows-x86_64.exe
             binary: void.exe
+            bundles: msi,nsis
           - name: macOS Intel
             os: macos-13
             target: x86_64-apple-darwin
             asset: void-macos-x86_64
             binary: void
+            bundles: dmg
           - name: macOS Apple Silicon
             os: macos-latest
             target: aarch64-apple-darwin
             asset: void-macos-aarch64
             binary: void
-    runs-on: ${{ matrix.os }}
+            bundles: dmg
+    runs-on: ${ matrix.os }
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev
+
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
-      - name: Run tests
-        run: cargo test --target ${{ matrix.target }}
-      - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }}
-      - name: Prepare binary and SHA-256
+          targets: ${ matrix.target }
+
+      - name: Build CLI release
+        run: |
+          cargo test --target ${ matrix.target }
+          cargo build --release --target ${ matrix.target }
+
+      - name: Prepare CLI binary and SHA-256
         shell: bash
         run: |
           mkdir -p release
-          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "release/${{ matrix.asset }}"
-          python -c "import hashlib,pathlib; p=pathlib.Path('release/${{ matrix.asset }}'); pathlib.Path(str(p)+'.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\\n')"
+          cp "target/${ matrix.target }/release/${ matrix.binary }" "release/${ matrix.asset }"
+          python -c "import hashlib,pathlib; p=pathlib.Path('release/${ matrix.asset }'); pathlib.Path(str(p)+'.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\\n')"
+
+      - name: Setup Node.js for desktop app
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install desktop frontend dependencies
+        working-directory: apps/desktop
+        run: npm install
+
+      - name: Build native desktop installers
+        working-directory: apps/desktop
+        run: npx tauri build --bundles "${ matrix.bundles }"
+
+      - name: Collect desktop installer artifacts
+        shell: bash
+        run: |
+          find apps/desktop/src-tauri/target/release/bundle -type f \
+            \\( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.msi' -o -name '*.dmg' -o -name '*-setup.exe' \\) \
+            -exec cp {} release/ \\;
+          test "$(find release -maxdepth 1 -type f | wc -l)" -gt 2
+
       - name: Upload platform assets
         uses: actions/upload-artifact@v4
         with:
-          name: release-assets-${{ matrix.target }}
+          name: release-assets-${ matrix.target }
           path: release/*
           if-no-files-found: error
 
@@ -67,22 +109,35 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           pattern: release-assets-*
           path: release
           merge-multiple: true
+
+      - name: Generate SHA-256 checksums for desktop installers
+        run: |
+          cd release
+          for file in *.deb *.rpm *.AppImage *.msi *.dmg *-setup.exe; do
+            [ -f "$file" ] || continue
+            sha256sum "$file" > "$file.sha256"
+          done
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Package Visual Studio Code extension
         working-directory: vscode-extension
         run: |
           npm install --global @vscode/vsce@^4.0.2
           vsce package --out ../release/void-memingo-vscode.vsix
+
       - name: Publish Visual Studio Code extension
         working-directory: vscode-extension
         run: vsce publish --oidc
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
