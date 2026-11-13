@@ -7,7 +7,9 @@ fn main() {
             commands::workspace::app_version,
             commands::workspace::list_directory,
             commands::workspace::read_text_file,
-            commands::workspace::write_text_file
+            commands::workspace::write_text_file,
+            commands::workspace::resolve_terminal_directory,
+            commands::workspace::run_terminal_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running Void Memingo");
