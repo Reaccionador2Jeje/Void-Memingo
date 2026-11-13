@@ -115,13 +115,15 @@ Implemented in the desktop branch:
 - Rust data model for the OS project manifest.
 - TOML parsing and initial validation.
 - Explicit base capability registry containing only Debian, Ubuntu and Arch Linux.
-- OS Builder workbench entry, base selection, starter manifest creation and validation UI.
+- OS Builder workbench entry, base/release/desktop selection, package input, starter manifest creation and validation UI.
+- Initial Debian Live preparation: creates an isolated live-build workspace, writes the package list, copies a validated root filesystem overlay without following symlinks, and generates a reviewable build script.
 
 Not implemented yet:
 
-- Debian Live, Ubuntu live-image and Archiso build backends.
+- Executing the Debian Live build and validating its resulting ISO.
+- Ubuntu live-image and Archiso build backends.
 - Real package resolution and repository management.
 - Desktop environment installation and theme application.
 - Bootable ISO generation, checksum validation and QEMU boot testing.
 
-The UI intentionally keeps Build ISO disabled until a backend can create and validate a real image. Base capability entries currently describe planned support, not verified build compatibility. The existing desktop editor and PTY terminal remain separate features.
+The UI intentionally keeps Build ISO disabled until a backend can create and validate a real image. Debian's preparation action only creates the build workspace and a reviewable script; it does not execute privileged commands or claim to have produced an ISO. Base capability entries currently describe planned support, not verified build compatibility. The existing desktop editor and PTY terminal remain separate features.
