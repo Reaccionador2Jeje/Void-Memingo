@@ -56,8 +56,8 @@ The currently connected Supabase project named `Atdev OpenWeb Linux` is reported
 
 ## Planned milestones
 
-1. Public catalogue, project pages, Google/GitHub sign-in and owner-managed project metadata.
-2. Release publishing, screenshot upload, SHA-256 verification and download statistics.
+1. Public catalogue, Google/GitHub sign-in, owner-managed project metadata and optional first-release publishing with an external artifact URL and SHA-256 metadata.
+2. Project detail pages, screenshot upload, server-side artifact checksum verification and download statistics.
 3. Comments, stars, follows and moderation/reporting.
 4. Void Memingo publishing workflow: prepare build metadata, attach source revision, publish release entry and link the ISO artifact.
 5. Optional GitHub / GitLab repository import and CI build provenance.
