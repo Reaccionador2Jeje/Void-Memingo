@@ -250,3 +250,19 @@ pub fn git_fetch_all(root: String) -> Result<GitSnapshot, String> {
     run_git(&root, &["fetch", "--all", "--prune"])?;
     snapshot(&root)
 }
+
+
+#[tauri::command]
+pub fn git_pull_ff_only(root: String) -> Result<GitSnapshot, String> {
+    let root = canonical_root(&root)?;
+    // Solo permite avance rápido: evita crear merges inesperados en el workspace.
+    run_git(&root, &["pull", "--ff-only"])?;
+    snapshot(&root)
+}
+
+#[tauri::command]
+pub fn git_push(root: String) -> Result<GitSnapshot, String> {
+    let root = canonical_root(&root)?;
+    run_git(&root, &["push"])?;
+    snapshot(&root)
+}
