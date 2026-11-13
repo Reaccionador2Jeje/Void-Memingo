@@ -71,6 +71,8 @@ jobs:
         working-directory: apps/desktop
         run: npm run build
 
+      # Generate platform-specific assets before Cargo compiles tauri-build.
+      # Windows requires icon.ico during the native build script.
       - name: Generate platform application icons
         working-directory: apps/desktop
         run: npx tauri icon src-tauri/icons/icon.png
@@ -81,6 +83,14 @@ jobs:
       - name: Build native desktop installer
         working-directory: apps/desktop
         run: npx tauri build --bundles "${{ matrix.bundle }}"
+
+      - name: Upload desktop installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-memingo-desktop-${{ matrix.platform }}
+          path: apps/desktop/src-tauri/target/release/bundle/**/*
+          if-no-files-found: error
+          retention-days: 14
 
   cli:
     name: Preserve CLI compatibility
