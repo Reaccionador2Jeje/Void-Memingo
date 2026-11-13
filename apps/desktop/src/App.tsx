@@ -423,7 +423,7 @@ directory = ${quote(osOutputDir)}
     const quoteShell = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
     const command = 'cd ' + quoteShell(buildPreparation.buildDirectory) + ' && sudo ' + quoteShell(buildPreparation.scriptPath);
     const confirmed = window.confirm(
-      'Se ejecutará el script revisado en la terminal integrada con permisos de administrador.\\n\\n' +
+      'Se ejecutará el script revisado en la terminal integrada con permisos de administrador.\n\n' +
       command + '\n\nNo se sobrescribirán ISOs existentes. ¿Continuar?'
     );
     if (!confirmed) return;
