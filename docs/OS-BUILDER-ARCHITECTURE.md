@@ -37,16 +37,25 @@ Filesystem overlays must be confined to the OS project's own directory. The buil
 
 Do not force all distributions through one tool. Use a backend interface with explicit capability declarations and separate implementations.
 
-### First implementation targets
+### Supported base distributions
 
-- Debian Live: use live-build to assemble a live ISO from a selected Debian release, package lists and a root filesystem overlay.
-- Arch Linux: use archiso profiles, package lists and the airootfs/ overlay.
+Void Memingo has exactly three official Linux bases:
 
-The app must detect whether the relevant builder and required host dependencies are installed before enabling Build. Unsupported combinations must be disabled with an explanation, not silently approximated.
+1. **Debian**
+2. **Ubuntu**
+3. **Arch Linux**
 
-### Later backend targets
+Do not show Fedora, openSUSE or other distributions as selectable bases unless the product scope is explicitly changed later.
 
-Ubuntu, Fedora and openSUSE require their own validated build paths. Add them only after booting and validating generated images in CI or a documented test environment. Do not mark them supported merely because a package manager can install their packages.
+Each base has its own backend implementation and capability table:
+
+- **Debian:** use Debian Live and live-build, with Debian Live configuration, package lists and root filesystem overlays.
+- **Ubuntu:** use an Ubuntu-specific build path based on Ubuntu's livecd-rootfs configuration and live-build integration, with casper for live boot behavior. For workflows that customize an existing official Ubuntu installer image, evaluate livefs-editor as a distinct image-editing mode; do not pretend that editing an existing ISO and building a new image from a clean project are identical workflows.
+- **Arch Linux:** use archiso profiles, package lists and the airootfs/ overlay.
+
+The backend interface must expose supported releases, architectures, desktop profiles, boot modes, installer capabilities and required host dependencies for each base. The UI must derive its available options from that capability table.
+
+The app must detect whether the relevant builder and required host dependencies are installed before enabling Build. Unsupported combinations must be disabled with an explanation, not silently approximated. A distribution is not considered supported until its backend can create and validate a bootable ISO in an automated or documented test environment.
 
 ## Desktop profiles
 
@@ -90,13 +99,14 @@ The first practical development and test host is a supported Linux desktop such 
 
 ## Delivery milestones
 
-1. Project schema, validation and backend capability model.
+1. Project schema, validation and capability model for Debian, Ubuntu and Arch Linux.
 2. OS Builder workbench UI and project persistence.
 3. Debian Live backend with a minimal bootable ISO.
-4. Root filesystem overlays, package customization and desktop profiles.
-5. Archiso backend and capability-specific desktop profiles.
-6. ISO inspection, checksums, cancellation and optional QEMU boot test.
-7. CI validation and release documentation.
+4. Ubuntu backend using Ubuntu-specific live image configuration and casper boot integration.
+5. Archiso backend with a minimal bootable ISO.
+6. Shared filesystem overlays, package customization and validated desktop profiles for all three bases.
+7. ISO inspection, checksums, cancellation and optional QEMU boot tests.
+8. CI validation and release documentation.
 
 ## Current status
 
