@@ -399,6 +399,39 @@ directory = ${quote(osOutputDir)}
     }
   }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osIconTheme, osIsoName, osLocale, osOutputDir, osOverlay, osPackages, osRelease, osServices, osStorageFs, osTheme, osTimezone, osWallpaper, refreshWorkspace, workspace]);
 
+  const cloneGitRepository = useCallback(async () => {
+    const url = window.prompt('URL Git (GitHub, GitLab o servidor compatible):');
+    if (!url?.trim()) return;
+    const parent = await open({
+      directory: true,
+      multiple: false,
+      title: 'Seleccionar carpeta donde clonar'
+    });
+    if (typeof parent !== 'string') return;
+    const suggested = url.trim().split(/[/:]/).pop()?.replace(/\\.git$/i, '') || 'repository';
+    const folderName = window.prompt('Nombre de la carpeta del repositorio:', suggested);
+    if (!folderName?.trim()) return;
+    setGitBusy(true);
+    try {
+      const clonedPath = await invoke<string>('git_clone_repository', {
+        destinationParent: parent,
+        url: url.trim(),
+        folderName: folderName.trim()
+      });
+      await refreshWorkspace(clonedPath);
+      setWorkspace(clonedPath);
+      setTabs([]);
+      setActivePath(null);
+      setSidebarView('source');
+      setSidebarOpen(true);
+      addLog('Repositorio clonado: ' + clonedPath);
+    } catch (error) {
+      addLog('No se pudo clonar el repositorio: ' + String(error));
+    } finally {
+      setGitBusy(false);
+    }
+  }, [addLog, refreshWorkspace]);
+
   const openFile = useCallback(async (entry: FileEntry) => {
     const existing = tabs.find((tab) => tab.path === entry.path);
     if (existing) {
@@ -634,7 +667,7 @@ directory = ${quote(osOutputDir)}
                   <button className="subtle-icon" onClick={() => workspace && void refreshGitSnapshot(workspace).catch((error) => addLog('Git: ' + String(error)))} disabled={!workspace || gitBusy} title="Actualizar Git"><Activity size={14} /></button>
                 </div>
                 {!workspace ? (
-                  <div className="sidebar-empty"><GitBranch size={25} /><p>Abre un proyecto para administrar su repositorio Git.</p><button className="text-action" onClick={() => void openWorkspace()}>Abrir carpeta</button></div>
+                  <div className="sidebar-empty"><GitBranch size={25} /><p>Abre un proyecto o clona un repositorio Git para comenzar.</p><button className="text-action" onClick={() => void openWorkspace()}>Abrir carpeta</button><button className="text-action" disabled={gitBusy} onClick={() => void cloneGitRepository()}>Clonar repositorio</button></div>
                 ) : gitSnapshot === null ? (
                   <div className="sidebar-empty"><GitBranch size={25} /><p>No se pudo consultar el repositorio. Comprueba que Git esté instalado.</p></div>
                 ) : !gitSnapshot.initialized ? (
