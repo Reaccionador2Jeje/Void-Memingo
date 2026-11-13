@@ -71,11 +71,11 @@ jobs:
         working-directory: apps/desktop
         run: npm run build
 
-      # Generate platform-specific assets before Cargo compiles tauri-build.
-      # Windows requires icon.ico during the native build script.
+      # Tauri defaults its icon output to ./icons. Point it at src-tauri/icons,
+      # which is the directory consumed by tauri-build during native packaging.
       - name: Generate platform application icons
         working-directory: apps/desktop
-        run: npx tauri icon src-tauri/icons/icon.png
+        run: npx tauri icon src-tauri/icons/icon.png --output src-tauri/icons
 
       - name: Test native workspace security
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
