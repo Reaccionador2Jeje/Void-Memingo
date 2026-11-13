@@ -586,6 +586,7 @@ directory = "dist"
                 <div className="welcome-version">VOID MEMINGO DESKTOP <span>v{version}</span></div>
               </div>
             </section>
+          )}
 
           <section className="bottom-panel" style={{ display: bottomOpen ? 'flex' : 'none' }}>
               <div className="panel-tabs">
