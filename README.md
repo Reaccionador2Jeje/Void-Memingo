@@ -28,7 +28,7 @@ npm run tauri dev
 Build a Debian package on Linux:
 
 \`\`\`sh
-npm run tauri build -- --bundles deb
+npx tauri build --bundles deb
 \`\`\`
 
 Release automation is being extended to publish Linux \`.deb\` / \`.rpm\` / AppImage, Windows \`.msi\` / \`.exe\`, and macOS \`.dmg\` installers. Actual release availability depends on successful platform CI builds.
