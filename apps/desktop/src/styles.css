@@ -356,3 +356,85 @@ button:disabled {
   color: #858d9d;
   background: transparent;
 }
+
+
+/* Integrated terminal */
+.terminal-panel {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: -11px -16px;
+  background: #11141a;
+  color: #d7dce7;
+  font: 11px/1.55 "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+.terminal-toolbar {
+  height: 29px;
+  flex: 0 0 29px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid #252a34;
+  background: #171a21;
+  color: #8f98aa;
+  font: 10px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+}
+.terminal-location, .terminal-toolbar-actions { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.terminal-location > svg:first-child { color: #a99eff; }
+.terminal-location > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.terminal-cwd { color: #b9b1ff; }
+.terminal-output { flex: 1; min-height: 0; overflow: auto; padding: 9px 14px 7px; }
+.terminal-hint { color: #788294; font-size: 10px; }
+.terminal-hint code { color: #c3baff; background: #242333; padding: 1px 4px; border-radius: 3px; }
+.terminal-entry { margin-bottom: 9px; }
+.terminal-command-line { display: flex; align-items: center; gap: 8px; color: #e0e3eb; white-space: pre-wrap; overflow-wrap: anywhere; }
+.terminal-prompt { color: #a99aff; font-weight: 800; flex: 0 0 auto; }
+.terminal-success { color: #79d6ad; }
+.terminal-failure { color: #e58c91; }
+.terminal-stdout, .terminal-stderr {
+  margin: 4px 0 0 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+.terminal-stdout { color: #aeb8c8; }
+.terminal-stderr { color: #e59a9e; }
+.terminal-exit { margin: 3px 0 0 18px; color: #667184; font: 9px/1.4 Inter, ui-sans-serif, system-ui, sans-serif; }
+.terminal-running { display: flex; align-items: center; gap: 7px; color: #b9b1ff; font-size: 10px; }
+.terminal-running svg { animation: spin .8s linear infinite; }
+.terminal-input-row {
+  height: 34px;
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 14px;
+  border-top: 1px solid #252a34;
+  background: #171a21;
+}
+.terminal-input-row input {
+  min-width: 0;
+  flex: 1;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #e4e7ef;
+  font: inherit;
+}
+.terminal-input-row input::placeholder { color: #697284; }
+.terminal-input-row button {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #49416f;
+  border-radius: 5px;
+  background: #28243e;
+  color: #c2baff;
+  cursor: pointer;
+}
+.terminal-input-row button:hover:not(:disabled) { background: #393257; color: white; }
+.terminal-input-row button:disabled { opacity: .35; cursor: not-allowed; }
