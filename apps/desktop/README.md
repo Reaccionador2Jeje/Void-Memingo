@@ -16,7 +16,7 @@ From this directory:
 
 \`\`\`sh
 npm install
-npm run tauri dev
+npx tauri dev
 \`\`\`
 
 ## Production build
