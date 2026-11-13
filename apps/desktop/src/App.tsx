@@ -574,6 +574,63 @@ directory = ${quote(osOutputDir)}
     setTerminalCommand(command);
     addLog('Build solicitado desde OS Builder; salida en la terminal integrada.');
   }, [addLog, buildPreparation]);
+  const publishToOsHub = useCallback(async () => {
+    if (!workspace) {
+      addLog('Abre primero la carpeta del proyecto OS.');
+      return;
+    }
+    const publishableKey = window.prompt('Pega la clave pública (publishable key) de Supabase. No uses la secret/service_role key:');
+    if (!publishableKey?.trim()) return;
+    const token = window.prompt('Pega tu token personal de Atdev OS Hub. Se usará solo en esta sesión y no se guardará en void-os.toml:');
+    if (!token?.trim()) return;
+    const slug = osProjectId.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!slug) {
+      addLog('Define un ID válido para el proyecto antes de publicarlo.');
+      return;
+    }
+    const summary = osProjectDescription.trim().slice(0, 180);
+    if (summary.length < 5) {
+      addLog('La descripción debe tener al menos 5 caracteres para publicar en OS Hub.');
+      return;
+    }
+    const remoteUrl = gitSnapshot?.remotes.find((remote) => remote.name === 'origin')?.url ?? '';
+    const sourceUrl = remoteUrl.startsWith('https://') ? remoteUrl : null;
+    setOsBusy(true);
+    try {
+      const response = await fetch('https://pzfvpvioxpcjkxdawnsq.supabase.co/functions/v1/void-memingo-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: publishableKey.trim(),
+          Authorization: 'Bearer ' + token.trim()
+        },
+        body: JSON.stringify({
+          action: 'publish_project',
+          project: {
+            id: osProjectId.trim(),
+            name: osProjectName.trim(),
+            slug,
+            summary,
+            description: osProjectDescription.trim(),
+            baseDistribution: osBaseId,
+            baseRelease: osRelease,
+            desktopEnvironments: [osDesktop],
+            architectures: [osBaseId === 'arch' ? 'x86_64' : 'amd64'],
+            sourceUrl,
+            version: osProjectVersion.trim()
+          }
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || 'HTTP ' + response.status);
+      addLog('Proyecto publicado/sincronizado en Atdev OS Hub: ' + result.slug);
+    } catch (error) {
+      addLog('No se pudo publicar en Atdev OS Hub: ' + String(error));
+    } finally {
+      setOsBusy(false);
+    }
+  }, [addLog, gitSnapshot, osBaseId, osDesktop, osProjectDescription, osProjectId, osProjectName, osProjectVersion, osRelease, workspace]);
+
   const language = activeTab?.name.split('.').pop()?.toUpperCase() || 'PLAIN TEXT';
   const lineCount = activeTab?.content.split('\n').length ?? 1;
 
@@ -868,6 +925,9 @@ directory = ${quote(osOutputDir)}
                 </button>
                 <button className="secondary-button" onClick={runOsBuild} disabled={osBusy || !isLinuxHost || !workspace || !buildPreparation || !osValidation?.valid} title="Ejecutar el script revisado en la terminal integrada">
                   <Disc3 size={15} /> Build ISO
+                </button>
+                <button className="secondary-button" onClick={() => void publishToOsHub()} disabled={osBusy || !workspace} title="Sincronizar el manifiesto del sistema con Atdev OS Hub">
+                  <Layers3 size={15} /> Publicar en OS Hub
                 </button>
               </div>
               {buildPreparation && (
