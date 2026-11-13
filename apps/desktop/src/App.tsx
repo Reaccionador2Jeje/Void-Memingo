@@ -631,6 +631,66 @@ directory = ${quote(osOutputDir)}
     }
   }, [addLog, gitSnapshot, osBaseId, osDesktop, osProjectDescription, osProjectId, osProjectName, osProjectVersion, osRelease, workspace]);
 
+  const registerOsHubBuild = useCallback(async () => {
+    if (!workspace) {
+      addLog('Abre primero la carpeta del proyecto OS.');
+      return;
+    }
+    const publishableKey = window.prompt('Pega la clave pública (publishable key) de Supabase:');
+    if (!publishableKey?.trim()) return;
+    const token = window.prompt('Pega tu token personal de Atdev OS Hub:');
+    if (!token?.trim()) return;
+    const status = window.prompt('Estado de la compilación: succeeded o failed', 'succeeded')?.trim().toLowerCase();
+    if (!status || !['succeeded', 'failed', 'cancelled'].includes(status)) {
+      addLog('Estado de compilación no válido.');
+      return;
+    }
+    const artifactUrl = window.prompt('URL HTTPS del artefacto (opcional; déjalo vacío si no se publicó):')?.trim() ?? '';
+    const sha256 = window.prompt('SHA-256 del artefacto (opcional):')?.trim().toLowerCase() ?? '';
+    if (artifactUrl && !artifactUrl.startsWith('https://')) {
+      addLog('El enlace del artefacto debe usar HTTPS.');
+      return;
+    }
+    if (sha256 && !/^[a-f0-9]{64}$/.test(sha256)) {
+      addLog('El SHA-256 debe contener exactamente 64 caracteres hexadecimales.');
+      return;
+    }
+    setOsBusy(true);
+    try {
+      const response = await fetch('https://pzfvpvioxpcjkxdawnsq.supabase.co/functions/v1/void-memingo-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: publishableKey.trim(),
+          Authorization: 'Bearer ' + token.trim()
+        },
+        body: JSON.stringify({
+          action: 'build_event',
+          external_project_id: osProjectId.trim(),
+          version: osProjectVersion.trim(),
+          status,
+          artifact_url: artifactUrl || null,
+          sha256: sha256 || null,
+          metadata: {
+            builder_version: version,
+            base_distribution: osBaseId,
+            architecture: osBaseId === 'arch' ? 'x86_64' : 'amd64',
+            desktop_environment: osDesktop,
+            iso_label: osIsoLabel,
+            target_filesystem: osStorageFs
+          }
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || 'HTTP ' + response.status);
+      addLog('Build registrado en Atdev OS Hub: ' + result.build_status + '.');
+    } catch (error) {
+      addLog('No se pudo registrar el build en Atdev OS Hub: ' + String(error));
+    } finally {
+      setOsBusy(false);
+    }
+  }, [addLog, osBaseId, osDesktop, osIsoLabel, osProjectId, osProjectVersion, osStorageFs, version, workspace]);
+
   const language = activeTab?.name.split('.').pop()?.toUpperCase() || 'PLAIN TEXT';
   const lineCount = activeTab?.content.split('\n').length ?? 1;
 
@@ -928,6 +988,9 @@ directory = ${quote(osOutputDir)}
                 </button>
                 <button className="secondary-button" onClick={() => void publishToOsHub()} disabled={osBusy || !workspace} title="Sincronizar el manifiesto del sistema con Atdev OS Hub">
                   <Layers3 size={15} /> Publicar en OS Hub
+                </button>
+                <button className="secondary-button" onClick={() => void registerOsHubBuild()} disabled={osBusy || !workspace} title="Registrar manualmente una compilación en Atdev OS Hub">
+                  <Disc3 size={15} /> Registrar build
                 </button>
               </div>
               {buildPreparation && (
