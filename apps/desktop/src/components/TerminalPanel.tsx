@@ -149,7 +149,7 @@ export default function TerminalPanel({ workspace, onLog }: Props) {
         {!workspace ? (
           <div className="terminal-hint">Abre una carpeta de proyecto para utilizar la terminal.</div>
         ) : entries.length === 0 ? (
-          <div className="terminal-hint">Terminal lista. Los comandos se ejecutan en el workspace seleccionado. Escribe <code>help</code> o <code>ls</code> para comenzar.</div>
+          <div className="terminal-hint">Terminal lista. Los comandos se ejecutan con los permisos de tu usuario, usando el workspace como directorio inicial. Ejecuta solo comandos de confianza. Escribe <code>help</code> o <code>ls</code> para comenzar.</div>
         ) : entries.map((entry) => (
           <div className="terminal-entry" key={entry.id}>
             <div className="terminal-command-line">
