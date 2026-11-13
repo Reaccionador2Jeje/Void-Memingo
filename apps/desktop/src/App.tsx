@@ -113,6 +113,7 @@ function App() {
   const [sidebarView, setSidebarView] = useState<SidebarView>('explorer');
   const [bottomView, setBottomView] = useState<BottomView>('output');
   const [bottomOpen, setBottomOpen] = useState(true);
+  const [terminalMounted, setTerminalMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [logs, setLogs] = useState<string[]>(['Void Memingo Desktop iniciado.']);
   const [busy, setBusy] = useState(false);
@@ -427,14 +428,12 @@ function App() {
                 <div className="welcome-version">VOID MEMINGO DESKTOP <span>v{version}</span></div>
               </div>
             </section>
-          )}
 
-          {bottomOpen && (
-            <section className="bottom-panel">
+          <section className="bottom-panel" style={{ display: bottomOpen ? 'flex' : 'none' }}>
               <div className="panel-tabs">
                 <button className={bottomView === 'problems' ? 'selected' : ''} onClick={() => setBottomView('problems')}>PROBLEMAS</button>
                 <button className={bottomView === 'output' ? 'selected' : ''} onClick={() => setBottomView('output')}>SALIDA</button>
-                <button className={bottomView === 'terminal' ? 'selected' : ''} onClick={() => setBottomView('terminal')}>TERMINAL</button>
+                <button className={bottomView === 'terminal' ? 'selected' : ''} onClick={() => { setBottomView('terminal'); setTerminalMounted(true); }}>TERMINAL</button>
                 <div className="panel-spacer" />
                 <button className="subtle-icon" onClick={() => setBottomOpen(false)} title="Cerrar panel"><X size={14} /></button>
               </div>
@@ -447,8 +446,10 @@ function App() {
                     {logs.map((line, index) => <div key={index} className="output-line">{line}</div>)}
                   </div>
                 )}
-                {bottomView === 'terminal' && (
-                  <TerminalPanel workspace={workspace} onLog={addLog} />
+                {terminalMounted && (
+                  <div className="terminal-panel-host" style={{ display: bottomView === 'terminal' ? 'block' : 'none' }}>
+                    <TerminalPanel workspace={workspace} onLog={addLog} />
+                  </div>
                 )}
               </div>
             </section>
