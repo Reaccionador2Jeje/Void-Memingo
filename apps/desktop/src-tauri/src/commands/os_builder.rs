@@ -356,6 +356,14 @@ fn safe_create_project_directory(root: &Path, relative: &str) -> Result<PathBuf,
     Ok(current)
 }
 
+fn reject_existing_output(path: &Path) -> Result<(), String> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Err(format!("Output already exists and will not be overwritten: {}", path.display())),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("Cannot inspect output path: {error}")),
+    }
+}
+
 fn reject_symlink_target(path: &Path) -> Result<(), String> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
@@ -443,9 +451,9 @@ pub fn prepare_debian_live_project(
         return Err("Generated ISO filename is invalid.".into());
     }
     let output_file = output_root.join(&output_name);
-    reject_symlink_target(&output_file)?;
+    reject_existing_output(&output_file)?;
     let output_checksum = output_root.join(format!("{output_name}.sha256"));
-    reject_symlink_target(&output_checksum)?;
+    reject_existing_output(&output_checksum)?;
     let config_root = safe_create_project_directory(&root, &format!("{build_relative}/config"))?;
     let package_list_root = safe_create_project_directory(&root, &format!("{build_relative}/config/package-lists"))?;
     let package_list = package_list_root.join("void-memingo.list.chroot");
