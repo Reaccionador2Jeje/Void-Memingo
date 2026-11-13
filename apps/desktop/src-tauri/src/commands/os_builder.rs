@@ -464,7 +464,7 @@ fn apply_common_filesystem_defaults(overlay: &Path, project: &OsProject) -> Resu
     }
     if !project.filesystem.locale.is_empty() {
         let defaults = safe_create_project_directory(overlay, "etc/default")?;
-        fs::write(defaults.join("locale"), format!("LANG={}\\n", project.filesystem.locale))
+        fs::write(defaults.join("locale"), format!("LANG={}\n", project.filesystem.locale))
             .map_err(|error| format!("Cannot write locale defaults: {error}"))?;
         let etc = safe_create_project_directory(overlay, "etc")?;
         fs::write(etc.join("locale.conf"), format!("LANG={}\\n", project.filesystem.locale))
