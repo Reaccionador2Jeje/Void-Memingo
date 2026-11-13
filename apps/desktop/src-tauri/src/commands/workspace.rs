@@ -207,7 +207,7 @@ fn truncate_output(value: String) -> String {
     while !value.is_char_boundary(end) {
         end -= 1;
     }
-    format!("{}\\n\\n[Output truncated at 1 MiB]", &value[..end])
+    format!("{}\n\n[Output truncated at 1 MiB]", &value[..end])
 }
 
 fn terminal_directory(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -248,7 +248,7 @@ pub fn resolve_terminal_directory(
     let relative = canonical
         .strip_prefix(&root)
         .map_err(|_| "Terminal directory escaped the workspace.".to_string())?;
-    Ok(relative.to_string_lossy().replace('\\\\', "/"))
+    Ok(relative.to_string_lossy().replace('\\', "/"))
 }
 
 #[tauri::command]
