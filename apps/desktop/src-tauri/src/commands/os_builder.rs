@@ -401,6 +401,9 @@ pub fn prepare_debian_live_project(
     if project.base.distribution != "debian" {
         return Err("This preparation backend currently supports Debian only.".into());
     }
+    if !project.boot.uefi || !project.boot.bios || !project.boot.live_session || project.boot.installer {
+        return Err("The initial Debian Live profile requires UEFI + BIOS hybrid boot, a live session, and no installer. Installer support is a later milestone.".into());
+    }
     if project.filesystem.overlay.is_empty() {
         return Err("Set filesystem.overlay in void-os.toml before preparing the Debian image.".into());
     }
