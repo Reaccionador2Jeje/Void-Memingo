@@ -15,6 +15,8 @@ The first desktop foundation provides:
 
 The integrated terminal, Git operations, language server, debugger, build system, and OS-development tooling are future modules. Their panels are visibly marked as not implemented rather than pretending to work.
 
+Void Memingo Desktop targets **PC operating systems**: Windows 10/11, mainstream Linux distributions, and macOS. It is not an Android application.
+
 ### Run the desktop application
 
 Requires Node.js 20.19+ or 22.12+, Rust stable, and the platform-specific Tauri 2 prerequisites.
@@ -35,7 +37,7 @@ Release automation is being extended to publish Linux \`.deb\` / \`.rpm\` / AppI
 
 ## Supported platforms
 
-Release builds are provided for Linux x86_64, Windows x86_64, macOS Intel (x86_64), and macOS Apple Silicon (ARM64).
+Desktop release targets are Linux x86_64, Windows x86_64, macOS Intel (x86_64), and macOS Apple Silicon (ARM64). The same desktop codebase and feature set are shared across these PC platforms; installers are generated on native runners.
 
 Download the matching executable and SHA-256 file from the [GitHub Releases](https://github.com/Reaccionador2Jeje/Void-Memingo/releases) page.
 
