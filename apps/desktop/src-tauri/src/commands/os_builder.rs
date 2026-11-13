@@ -868,6 +868,9 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     let mut packages = project.packages.install.clone();
     packages.extend(project.desktop.applications.iter().cloned());
     packages.extend(desktop_packages_for(distribution, &project.desktop.environment).iter().map(|p| p.to_string()));
+    if project.filesystem.services_enabled.iter().any(|service| service == "NetworkManager.service") {
+        packages.push(if distribution == "arch" { "networkmanager".into() } else { "network-manager".into() });
+    }
     if distribution == "ubuntu" {
         packages.push("casper".into());
         packages.push("discover".into());
@@ -893,6 +896,49 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     copy_overlay_tree(&source_overlay, &overlay_target)?;
     apply_common_filesystem_defaults(&overlay_target, project)?;
     apply_desktop_defaults(root, &overlay_target, project)?;
+
+    if distribution == "ubuntu" {
+        let hook_root = safe_create_project_directory(root, &format!("{build_relative}/config/hooks/normal"))?;
+        if !project.packages.remove.is_empty() {
+            let remove_hook = hook_root.join("015-void-memingo-remove-packages.hook.chroot");
+            let names = project.packages.remove.iter().map(|name| shell_quote(name)).collect::<Vec<_>>().join(" ");
+            fs::write(&remove_hook, format!("#!/bin/sh\\nset -eu\\napt-get purge --yes -- {names}\\napt-get autoremove --yes\\n"))
+                .map_err(|error| format!("Cannot write Ubuntu package removal hook: {error}"))?;
+        }
+        let service_hook = hook_root.join("020-void-memingo-services.hook.chroot");
+        let mut hook = String::from("#!/bin/sh\\nset -eu\\n");
+        for service in &project.filesystem.services_enabled {
+            hook.push_str(&format!("systemctl enable {}\\n", shell_quote(service)));
+        }
+        fs::write(&service_hook, hook).map_err(|error| format!("Cannot write Ubuntu service hook: {error}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            for path in [hook_root.join("015-void-memingo-remove-packages.hook.chroot"), service_hook] {
+                if path.exists() {
+                    let mut permissions = fs::metadata(&path).map_err(|error| format!("Cannot inspect Ubuntu hook: {error}"))?.permissions();
+                    permissions.set_mode(0o755);
+                    fs::set_permissions(&path, permissions).map_err(|error| format!("Cannot mark Ubuntu hook executable: {error}"))?;
+                }
+            }
+        }
+    } else if distribution == "arch" && !project.filesystem.services_enabled.is_empty() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let wants = safe_create_project_directory(&overlay_target, "etc/systemd/system/multi-user.target.wants")?;
+            for service in &project.filesystem.services_enabled {
+                let link = wants.join(service);
+                if fs::symlink_metadata(&link).is_ok() {
+                    return Err(format!("Service link already exists in overlay: {service}"));
+                }
+                symlink(format!("/usr/lib/systemd/system/{service}"), link)
+                    .map_err(|error| format!("Cannot enable Arch service {service}: {error}"))?;
+            }
+        }
+        #[cfg(not(unix))]
+        return Err("Arch service enablement requires generating the profile on a Unix host.".into());
+    }
 
 
 
