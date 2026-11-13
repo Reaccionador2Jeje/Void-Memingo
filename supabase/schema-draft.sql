@@ -207,7 +207,13 @@ create policy "Authenticated users comment on public projects"
 create policy "Authors update their comments"
   on public.os_comments for update to authenticated
   using (author_id = (select auth.uid()))
-  with check (author_id = (select auth.uid()));
+  with check (
+    author_id = (select auth.uid())
+    and exists (
+      select 1 from public.os_projects p
+      where p.id = project_id and p.visibility = 'public' and p.status = 'published'
+    )
+  );
 create policy "Authors delete their comments"
   on public.os_comments for delete to authenticated
   using (author_id = (select auth.uid()));
