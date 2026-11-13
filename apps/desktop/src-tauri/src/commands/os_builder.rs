@@ -276,6 +276,52 @@ pub struct BuildPreparation {
     pub notes: Vec<String>,
 }
 
+fn safe_create_project_directory(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    if !safe_project_relative_path(relative) || relative.is_empty() {
+        return Err("Generated directory must be a safe path inside the OS project.".into());
+    }
+    let mut current = root.to_path_buf();
+    for component in Path::new(relative).components() {
+        let Component::Normal(part) = component else {
+            return Err("Generated directory contains an unsafe path component.".into());
+        };
+        current.push(part);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) => {
+                if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                    return Err("Generated build path contains a symlink or non-directory.".into());
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                fs::create_dir(&current)
+                    .map_err(|error| format!("Cannot create build directory: {error}"))?;
+            }
+            Err(error) => return Err(format!("Cannot inspect build directory: {error}")),
+        }
+        let canonical = fs::canonicalize(&current)
+            .map_err(|error| format!("Cannot resolve build directory: {error}"))?;
+        if !canonical.starts_with(root) {
+            return Err("Generated build directory escaped the OS project.".into());
+        }
+        current = canonical;
+    }
+    Ok(current)
+}
+
+fn reject_symlink_target(path: &Path) -> Result<(), String> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            Err("Generated build files cannot overwrite symbolic links.".into())
+        }
+        Ok(metadata) if !metadata.is_file() => {
+            Err("Generated build file target is not a regular file.".into())
+        }
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("Cannot inspect generated file target: {error}")),
+    }
+}
+
 fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
@@ -285,6 +331,11 @@ fn copy_overlay_tree(source: &Path, destination: &Path) -> Result<(), String> {
         .map_err(|error| format!("Cannot inspect filesystem overlay: {error}"))?;
     if metadata.file_type().is_symlink() {
         return Err("Filesystem overlay cannot contain symbolic links.".into());
+    }
+    if let Ok(destination_metadata) = fs::symlink_metadata(destination) {
+        if destination_metadata.file_type().is_symlink() {
+            return Err("Generated overlay destination cannot be a symbolic link.".into());
+        }
     }
     if metadata.is_dir() {
         fs::create_dir_all(destination)
@@ -328,14 +379,12 @@ pub fn prepare_debian_live_project(
         return Err("Filesystem overlay must stay inside the OS project.".into());
     }
 
-    let build_root = root.join(".void-memingo").join("debian-live").join(&project.project.id);
-    fs::create_dir_all(&build_root)
-        .map_err(|error| format!("Cannot create Debian build directory: {error}"))?;
-
-    let package_list = build_root.join("config").join("package-lists").join("void-memingo.list.chroot");
-    if let Some(parent) = package_list.parent() {
-        fs::create_dir_all(parent).map_err(|error| format!("Cannot create package list directory: {error}"))?;
-    }
+    let build_relative = format!(".void-memingo/debian-live/{}", project.project.id);
+    let build_root = safe_create_project_directory(&root, &build_relative)?;
+    let config_root = safe_create_project_directory(&root, &format!("{build_relative}/config"))?;
+    let package_list_root = safe_create_project_directory(&root, &format!("{build_relative}/config/package-lists"))?;
+    let package_list = package_list_root.join("void-memingo.list.chroot");
+    reject_symlink_target(&package_list)?;
     let mut packages = project.packages.install.clone();
     if project.desktop.environment != "none" {
         let desktop_packages: &[&str] = match project.desktop.environment.as_str() {
@@ -355,7 +404,12 @@ pub fn prepare_debian_live_project(
         .map_err(|error| format!("Cannot write Debian package list: {error}"))?;
 
     let overlay_source = root.join(overlay_relative);
-    let overlay_target = build_root.join("config").join("includes.chroot");
+    let overlay_target = config_root.join("includes.chroot");
+    if let Ok(metadata) = fs::symlink_metadata(&overlay_target) {
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err("Generated root filesystem overlay target is not a safe directory.".into());
+        }
+    }
     match fs::symlink_metadata(&overlay_source) {
         Ok(metadata) => {
             if metadata.file_type().is_symlink() {
@@ -392,6 +446,7 @@ pub fn prepare_debian_live_project(
         "#!/bin/sh\nset -eu\n\n# Generated by Void Memingo. Review before running.\nlb config --distribution {distro} --architectures {arch} --binary-images iso-hybrid --archive-areas 'main contrib non-free non-free-firmware' --bootappend-live \"boot=live components hostname={hostname}\" --iso-volume {label}\nlb build\n"
     );
     let script_path = build_root.join("build.sh");
+    reject_symlink_target(&script_path)?;
     fs::write(&script_path, script)
         .map_err(|error| format!("Cannot write Debian build script: {error}"))?;
 
