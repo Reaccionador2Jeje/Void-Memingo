@@ -147,6 +147,11 @@ function App() {
   const [osBuilderOpen, setOsBuilderOpen] = useState(false);
   const [osBases, setOsBases] = useState<OsBase[]>([]);
   const [osBaseId, setOsBaseId] = useState('debian');
+  const [osProjectName, setOsProjectName] = useState('Atdev OS');
+  const [osProjectId, setOsProjectId] = useState('atdev-os');
+  const [osProjectVersion, setOsProjectVersion] = useState('0.1.0');
+  const [osProjectDescription, setOsProjectDescription] = useState('A custom Linux distribution built with Void Memingo');
+  const [osIsoLabel, setOsIsoLabel] = useState('ATDEV_OS');
   const [osRelease, setOsRelease] = useState('stable');
   const [osDesktop, setOsDesktop] = useState('xfce');
   const [osTheme, setOsTheme] = useState('');
@@ -334,12 +339,12 @@ function App() {
     const packageList = osPackages.split(',').map((item) => item.trim()).filter(Boolean);
     const quote = (value: string) => JSON.stringify(value);
     const template = `[project]
-name = "Atdev OS"
-id = "atdev-os"
-version = "0.1.0"
+name = ${quote(osProjectName)}
+id = ${quote(osProjectId)}
+version = ${quote(osProjectVersion)}
 publisher = "Atdev Dev"
-description = "A custom Linux distribution built with Void Memingo"
-iso_label = "ATDEV_OS"
+description = ${quote(osProjectDescription)}
+iso_label = ${quote(osIsoLabel)}
 
 [base]
 distribution = ${quote(osBaseId)}
@@ -397,7 +402,7 @@ directory = ${quote(osOutputDir)}
     } finally {
       setOsBusy(false);
     }
-  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osIconTheme, osIsoName, osLocale, osOutputDir, osOverlay, osPackages, osRelease, osServices, osStorageFs, osTheme, osTimezone, osWallpaper, refreshWorkspace, workspace]);
+  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osIconTheme, osIsoLabel, osIsoName, osLocale, osOutputDir, osOverlay, osPackages, osProjectDescription, osProjectId, osProjectName, osProjectVersion, osRelease, osServices, osStorageFs, osTheme, osTimezone, osWallpaper, refreshWorkspace, workspace]);
 
   const cloneGitRepository = useCallback(async () => {
     const url = window.prompt('URL Git (GitHub, GitLab o servidor compatible):');
@@ -737,7 +742,26 @@ directory = ${quote(osOutputDir)}
                   <h1>OS Builder</h1>
                   <p>Diseña tu distribución Linux y prepara su configuración de construcción.</p>
                 </div>
-                <span className="os-builder-state"><Disc3 size={14} /> ISO builder en desarrollo</span>
+                <div className="os-builder-header-actions">
+                  <span className="os-builder-state"><Disc3 size={14} /> ISO builder en desarrollo</span>
+                  <button className="secondary-button" onClick={() => {
+                    setOsProjectName('PondOS'); setOsProjectId('pondos'); setOsProjectVersion('0.1.0');
+                    setOsProjectDescription('A friendly Ubuntu-based desktop operating system with an LXQt desktop and a natural pond-inspired identity.');
+                    setOsIsoLabel('PONDOS_01'); setOsBaseId('ubuntu'); setOsRelease('24.04 LTS'); setOsDesktop('lxqt');
+                    setOsTheme('PondOS-Green'); setOsIconTheme('Papirus'); setOsWallpaper('usr/share/backgrounds/pondos/pondos-wallpaper.png');
+                    setOsPackages('lxqt, lightdm, network-manager, git, curl, sudo, papirus-icon-theme');
+                    setOsOverlay('filesystem'); setOsLocale('es_CL.UTF-8'); setOsTimezone('America/Santiago'); setOsHostname('pondos');
+                    setOsServices('NetworkManager.service'); setOsStorageFs('ext4'); setOsOutputDir('dist'); setOsIsoName('pondos-0.1.0.iso');
+                    setOsValidation(null); setBuildPreparation(null); addLog('Perfil PondOS cargado en OS Builder.');
+                  }}><Layers3 size={14} /> Cargar perfil PondOS</button>
+                </div>
+              </div>
+              <div className="os-builder-controls pondos-project-fields">
+                <label><span>Nombre del sistema</span><input value={osProjectName} onChange={(event) => setOsProjectName(event.target.value)} /></label>
+                <label><span>ID del proyecto</span><input value={osProjectId} onChange={(event) => setOsProjectId(event.target.value)} /></label>
+                <label><span>Versión</span><input value={osProjectVersion} onChange={(event) => setOsProjectVersion(event.target.value)} /></label>
+                <label><span>Etiqueta ISO</span><input value={osIsoLabel} onChange={(event) => setOsIsoLabel(event.target.value)} /></label>
+                <label className="os-packages-field"><span>Descripción</span><input value={osProjectDescription} onChange={(event) => setOsProjectDescription(event.target.value)} /></label>
               </div>
               <div className="os-builder-section-title"><HardDrive size={16} /> BASE DEL SISTEMA</div>
               <div className="os-base-grid">
