@@ -137,6 +137,9 @@ function App() {
   const [osBaseId, setOsBaseId] = useState('debian');
   const [osRelease, setOsRelease] = useState('stable');
   const [osDesktop, setOsDesktop] = useState('xfce');
+  const [osTheme, setOsTheme] = useState('');
+  const [osIconTheme, setOsIconTheme] = useState('');
+  const [osWallpaper, setOsWallpaper] = useState('');
   const [osPackages, setOsPackages] = useState('');
   const [osOverlay, setOsOverlay] = useState('filesystem');
   const [osLocale, setOsLocale] = useState('es_CL.UTF-8');
@@ -168,6 +171,55 @@ function App() {
       .then(setOsBases)
       .catch((error) => addLog('No se pudieron cargar las bases OS: ' + String(error)));
   }, [addLog]);
+
+  const validateOsProject = useCallback(async () => {
+    if (!workspace) {
+      addLog('Abre primero la carpeta del proyecto OS.');
+      return;
+    }
+    setOsBusy(true);
+    try {
+      const projectToml = await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
+      const report = await invoke<OsValidation>('validate_os_project', { projectToml });
+      setOsValidation(report);
+      addLog(report.valid ? 'Configuración OS válida.' : 'La configuración OS contiene errores.');
+    } catch (error) {
+      setOsValidation({ valid: false, errors: [String(error)], warnings: [] });
+      addLog('Error al validar el proyecto OS: ' + String(error));
+    } finally {
+      setOsBusy(false);
+    }
+  }, [addLog, workspace]);
+
+  const refreshWorkspace = useCallback(async (root: string) => {
+    const result = await invoke<FileEntry[]>('list_directory', {
+      root,
+      relativePath: ''
+    });
+    setFiles(result);
+  }, []);
+
+  const openWorkspace = useCallback(async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: 'Abrir carpeta de proyecto'
+    });
+    if (typeof selected !== 'string') return;
+
+    setBusy(true);
+    try {
+      await refreshWorkspace(selected);
+      setWorkspace(selected);
+      setTabs([]);
+      setActivePath(null);
+      addLog('Workspace abierto: ' + selected);
+    } catch (error) {
+      addLog('Error al abrir workspace: ' + String(error));
+    } finally {
+      setBusy(false);
+    }
+  }, [addLog, refreshWorkspace]);
 
   const createOsProject = useCallback(async () => {
     if (!workspace) {
@@ -240,56 +292,7 @@ directory = ${quote(osOutputDir)}
     } finally {
       setOsBusy(false);
     }
-  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osIsoName, osLocale, osOutputDir, osOverlay, osPackages, osRelease, osServices, osStorageFs, osTimezone, refreshWorkspace, workspace]);
-
-  const validateOsProject = useCallback(async () => {
-    if (!workspace) {
-      addLog('Abre primero la carpeta del proyecto OS.');
-      return;
-    }
-    setOsBusy(true);
-    try {
-      const projectToml = await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
-      const report = await invoke<OsValidation>('validate_os_project', { projectToml });
-      setOsValidation(report);
-      addLog(report.valid ? 'Configuración OS válida.' : 'La configuración OS contiene errores.');
-    } catch (error) {
-      setOsValidation({ valid: false, errors: [String(error)], warnings: [] });
-      addLog('Error al validar el proyecto OS: ' + String(error));
-    } finally {
-      setOsBusy(false);
-    }
-  }, [addLog, workspace]);
-
-  const refreshWorkspace = useCallback(async (root: string) => {
-    const result = await invoke<FileEntry[]>('list_directory', {
-      root,
-      relativePath: ''
-    });
-    setFiles(result);
-  }, []);
-
-  const openWorkspace = useCallback(async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Abrir carpeta de proyecto'
-    });
-    if (typeof selected !== 'string') return;
-
-    setBusy(true);
-    try {
-      await refreshWorkspace(selected);
-      setWorkspace(selected);
-      setTabs([]);
-      setActivePath(null);
-      addLog('Workspace abierto: ' + selected);
-    } catch (error) {
-      addLog('Error al abrir workspace: ' + String(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [addLog, refreshWorkspace]);
+  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osIconTheme, osIsoName, osLocale, osOutputDir, osOverlay, osPackages, osRelease, osServices, osStorageFs, osTheme, osTimezone, osWallpaper, refreshWorkspace, workspace]);
 
   const openFile = useCallback(async (entry: FileEntry) => {
     const existing = tabs.find((tab) => tab.path === entry.path);
@@ -394,16 +397,16 @@ directory = ${quote(osOutputDir)}
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [openWorkspace, saveActiveFile]);
 
-  const prepareDebianBuild = useCallback(async () => {
+  const prepareOsBuild = useCallback(async () => {
     if (!workspace) return;
     setOsBusy(true);
     try {
       const projectToml = await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
-      const result = await invoke<BuildPreparation>('prepare_debian_live_project', { workspace, projectToml });
+      const result = await invoke<BuildPreparation>('prepare_os_build_project', { workspace, projectToml });
       setBuildPreparation(result);
-      addLog('Entorno Debian Live preparado en ' + result.buildDirectory);
+      addLog(result.backend + ' preparado en ' + result.buildDirectory);
     } catch (error) {
-      addLog('No se pudo preparar Debian Live: ' + String(error));
+      addLog('No se pudo preparar el backend: ' + String(error));
       setBuildPreparation(null);
     } finally {
       setOsBusy(false);
@@ -596,6 +599,18 @@ directory = ${quote(osOutputDir)}
                   <span>Servicios a habilitar (separados por coma)</span>
                   <input value={osServices} onChange={(event) => setOsServices(event.target.value)} placeholder="NetworkManager.service" />
                 </label>
+                <label>
+                  <span>Tema GTK / escritorio</span>
+                  <input value={osTheme} onChange={(event) => setOsTheme(event.target.value)} placeholder="Adwaita-dark" />
+                </label>
+                <label>
+                  <span>Tema de iconos</span>
+                  <input value={osIconTheme} onChange={(event) => setOsIconTheme(event.target.value)} placeholder="Papirus-Dark" />
+                </label>
+                <label>
+                  <span>Wallpaper (ruta dentro del overlay)</span>
+                  <input value={osWallpaper} onChange={(event) => setOsWallpaper(event.target.value)} placeholder="usr/share/backgrounds/atdev.jpg" />
+                </label>
               </div>
               <div className="os-builder-controls os-output-controls">
                 <label>
@@ -626,8 +641,8 @@ directory = ${quote(osOutputDir)}
                 <button className="secondary-button" onClick={() => void validateOsProject()} disabled={osBusy || !workspace}>
                   <ShieldCheck size={15} /> Validar configuración
                 </button>
-                <button className="secondary-button" onClick={() => void prepareDebianBuild()} disabled={osBusy || !workspace || osBaseId !== 'debian'}>
-                  <HardDrive size={15} /> Preparar Debian Live
+                <button className="secondary-button" onClick={() => void prepareOsBuild()} disabled={osBusy || !workspace}>
+                  <HardDrive size={15} /> Preparar backend
                 </button>
                 <button className="secondary-button" disabled title="La generación final de ISO todavía requiere completar y validar el backend">
                   <Disc3 size={15} /> Build ISO
@@ -649,7 +664,7 @@ directory = ${quote(osOutputDir)}
                   {osValidation.warnings.map((warning, index) => <p key={'w'+index}>Aviso: {warning}</p>)}
                 </div>
               )}
-              <div className="os-builder-footnote">La selección de base, versión, escritorio y paquetes y la validación del proyecto ya están conectadas. La creación de ISO se habilitará cuando el backend correspondiente esté implementado y comprobado.</div>
+              <div className="os-builder-footnote">Los tres backends preparan perfiles específicos y scripts revisables. La creación de la ISO requiere ejecutar el script en Linux con las herramientas de la distribución; la app no eleva privilegios silenciosamente.</div>
             </section>
           ) : activeTab ? (
             <section className="editor-area">
