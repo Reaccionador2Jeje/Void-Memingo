@@ -464,8 +464,11 @@ fn apply_common_filesystem_defaults(overlay: &Path, project: &OsProject) -> Resu
     }
     if !project.filesystem.locale.is_empty() {
         let defaults = safe_create_project_directory(overlay, "etc/default")?;
-        fs::write(defaults.join("locale"), format!("LANG={}\n", project.filesystem.locale))
+        fs::write(defaults.join("locale"), format!("LANG={}\\n", project.filesystem.locale))
             .map_err(|error| format!("Cannot write locale defaults: {error}"))?;
+        let etc = safe_create_project_directory(overlay, "etc")?;
+        fs::write(etc.join("locale.conf"), format!("LANG={}\\n", project.filesystem.locale))
+            .map_err(|error| format!("Cannot write locale.conf: {error}"))?;
         let etc = safe_create_project_directory(overlay, "etc")?;
         fs::write(etc.join("locale.gen"), format!("{} UTF-8\\n", project.filesystem.locale))
             .map_err(|error| format!("Cannot write locale generation config: {error}"))?;
@@ -1001,7 +1004,8 @@ set -eu
 command -v mkarchiso >/dev/null 2>&1 || {{ echo "Install archiso first." >&2; exit 127; }}
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
-install -m 0644 {packages} {profile}/packages.x86_64
+cat {packages} >> {profile}/packages.x86_64
+sort -u {profile}/packages.x86_64 -o {profile}/packages.x86_64
 if [ -s {remove_packages} ]; then grep -Fvx -f {remove_packages} {profile}/packages.x86_64 > {profile}/packages.tmp || true; mv {profile}/packages.tmp {profile}/packages.x86_64; fi
 mkdir -p {profile}/airootfs
 cp -a {custom_overlay}/. {profile}/airootfs/
