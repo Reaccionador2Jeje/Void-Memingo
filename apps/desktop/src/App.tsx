@@ -6,7 +6,7 @@ import {
   Activity, AlertCircle, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Code2, Command, Cpu, FileCode2, FilePlus2, Folder, FolderOpen,
   GitBranch, LayoutDashboard, PanelBottom, PanelLeftClose, Plus, Search,
-  Settings, ShieldCheck, X, Zap
+  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3
 } from 'lucide-react';
 
 type FileEntry = {
@@ -25,6 +25,20 @@ type OpenTab = {
 
 type SidebarView = 'explorer' | 'search' | 'source';
 type BottomView = 'problems' | 'output' | 'terminal';
+
+type OsBase = {
+  id: string;
+  name: string;
+  backend: string;
+  backendStatus: string;
+  releases: string[];
+  architectures: string[];
+  desktops: string[];
+  bootModes: string[];
+  notes: string;
+};
+
+type OsValidation = { valid: boolean; errors: string[]; warnings: string[] };
 
 function FileNode({
   root,
@@ -117,6 +131,11 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [logs, setLogs] = useState<string[]>(['Void Memingo Desktop iniciado.']);
   const [busy, setBusy] = useState(false);
+  const [osBuilderOpen, setOsBuilderOpen] = useState(false);
+  const [osBases, setOsBases] = useState<OsBase[]>([]);
+  const [osBaseId, setOsBaseId] = useState('debian');
+  const [osValidation, setOsValidation] = useState<OsValidation | null>(null);
+  const [osBusy, setOsBusy] = useState(false);
 
   const activeTab = useMemo(
     () => tabs.find((tab) => tab.path === activePath) ?? null,
@@ -130,7 +149,90 @@ function App() {
 
   useEffect(() => {
     invoke<string>('app_version').then(setVersion).catch(() => undefined);
-  }, []);
+    invoke<OsBase[]>('list_os_base_capabilities')
+      .then(setOsBases)
+      .catch((error) => addLog('No se pudieron cargar las bases OS: ' + String(error)));
+  }, [addLog]);
+
+  const createOsProject = useCallback(async () => {
+    if (!workspace) {
+      await openWorkspace();
+      return;
+    }
+    const template = `[project]
+name = "Atdev OS"
+id = "atdev-os"
+version = "0.1.0"
+publisher = "Atdev Dev"
+description = "A custom Linux distribution built with Void Memingo"
+iso_label = "ATDEV_OS"
+
+[base]
+distribution = "${osBaseId}"
+release = "${osBaseId === 'debian' ? 'stable' : osBaseId === 'ubuntu' ? '24.04 LTS' : 'rolling'}"
+architecture = "${osBaseId === 'arch' ? 'x86_64' : 'amd64'}"
+
+[packages]
+install = []
+remove = []
+
+[filesystem]
+overlay = "filesystem"
+locale = "es_CL.UTF-8"
+timezone = "America/Santiago"
+hostname = "atdev-os"
+storage_filesystem = "ext4"
+services_enabled = []
+
+[desktop]
+environment = "xfce"
+display_manager = "lightdm"
+applications = []
+theme = ""
+icon_theme = ""
+wallpaper = ""
+
+[boot]
+uefi = true
+bios = true
+live_session = true
+installer = false
+
+[output]
+iso_name = "atdev-os-0.1.0.iso"
+directory = "dist"
+`;
+    setOsBusy(true);
+    try {
+      await invoke('write_text_file', { root: workspace, relativePath: 'void-os.toml', contents: template });
+      await refreshWorkspace(workspace);
+      addLog('Proyecto OS creado: void-os.toml');
+      setOsValidation(null);
+    } catch (error) {
+      addLog('No se pudo crear void-os.toml: ' + String(error));
+    } finally {
+      setOsBusy(false);
+    }
+  }, [addLog, openWorkspace, osBaseId, refreshWorkspace, workspace]);
+
+  const validateOsProject = useCallback(async () => {
+    if (!workspace) {
+      addLog('Abre primero la carpeta del proyecto OS.');
+      return;
+    }
+    setOsBusy(true);
+    try {
+      const projectToml = await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
+      const report = await invoke<OsValidation>('validate_os_project', { projectToml });
+      setOsValidation(report);
+      addLog(report.valid ? 'Configuración OS válida.' : 'La configuración OS contiene errores.');
+    } catch (error) {
+      setOsValidation({ valid: false, errors: [String(error)], warnings: [] });
+      addLog('Error al validar el proyecto OS: ' + String(error));
+    } finally {
+      setOsBusy(false);
+    }
+  }, [addLog, workspace]);
 
   const refreshWorkspace = useCallback(async (root: string) => {
     const result = await invoke<FileEntry[]>('list_directory', {
@@ -290,17 +392,20 @@ function App() {
       <div className="workspace-layout">
         <nav className="activity-rail" aria-label="Activity bar">
           <div className="rail-group">
-            <button className={'rail-button ' + (sidebarView === 'explorer' ? 'active' : '')} onClick={() => { setSidebarView('explorer'); setSidebarOpen(true); }} title="Explorador">
+            <button className={'rail-button ' + (sidebarView === 'explorer' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('explorer'); setSidebarOpen(true); }} title="Explorador">
               <LayoutDashboard size={20} />
             </button>
-            <button className={'rail-button ' + (sidebarView === 'search' ? 'active' : '')} onClick={() => { setSidebarView('search'); setSidebarOpen(true); }} title="Buscar">
+            <button className={'rail-button ' + (sidebarView === 'search' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('search'); setSidebarOpen(true); }} title="Buscar">
               <Search size={20} />
             </button>
-            <button className={'rail-button ' + (sidebarView === 'source' ? 'active' : '')} onClick={() => { setSidebarView('source'); setSidebarOpen(true); }} title="Control de código fuente">
+            <button className={'rail-button ' + (sidebarView === 'source' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('source'); setSidebarOpen(true); }} title="Control de código fuente">
               <GitBranch size={20} />
             </button>
             <button className="rail-button" onClick={() => setBottomOpen(!bottomOpen)} title="Panel inferior">
               <PanelBottom size={20} />
+            </button>
+            <button className={'rail-button ' + (osBuilderOpen ? 'active' : '')} onClick={() => { setOsBuilderOpen(true); setSidebarOpen(false); }} title="OS Builder">
+              <Layers3 size={20} />
             </button>
           </div>
           <div className="rail-group rail-bottom">
@@ -380,7 +485,60 @@ function App() {
             </div>
           </div>
 
-          {activeTab ? (
+          {osBuilderOpen ? (
+            <section className="os-builder-view">
+              <div className="os-builder-header">
+                <div>
+                  <div className="eyebrow">VOID MEMINGO <span>•</span> DISTRIBUTION WORKBENCH</div>
+                  <h1>OS Builder</h1>
+                  <p>Diseña tu distribución Linux y prepara su configuración de construcción.</p>
+                </div>
+                <span className="os-builder-state"><Disc3 size={14} /> ISO builder en desarrollo</span>
+              </div>
+              <div className="os-builder-section-title"><HardDrive size={16} /> BASE DEL SISTEMA</div>
+              <div className="os-base-grid">
+                {osBases.map((base) => (
+                  <button key={base.id} className={'os-base-card ' + (osBaseId === base.id ? 'selected' : '')} onClick={() => { setOsBaseId(base.id); setOsValidation(null); }}>
+                    <span className="os-base-mark">{base.id === 'debian' ? 'D' : base.id === 'ubuntu' ? 'U' : 'A'}</span>
+                    <b>{base.name}</b>
+                    <small>{base.backend}</small>
+                    <span className="os-base-status">Backend: {base.backendStatus === 'ready' ? 'Disponible' : 'Pendiente'}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="os-builder-grid">
+                <div className="os-builder-card">
+                  <div className="os-builder-card-heading"><HardDrive size={16} /> Sistema de archivos</div>
+                  <p>Paquetes, overlay del sistema raíz, servicios, hostname, idioma, zona horaria y sistema de archivos de instalación.</p>
+                  <div className="os-builder-meta">Configuración declarativa · void-os.toml</div>
+                </div>
+                <div className="os-builder-card">
+                  <div className="os-builder-card-heading"><Monitor size={16} /> Escritorio</div>
+                  <p>GNOME, KDE Plasma, Xfce, LXQt, Cinnamon, MATE o una instalación mínima sin entorno gráfico.</p>
+                  <div className="os-builder-meta">Perfiles según capacidades de cada base</div>
+                </div>
+              </div>
+              <div className="os-builder-actions">
+                <button className="primary-button" onClick={() => void createOsProject()} disabled={osBusy}>
+                  <FilePlus2 size={15} /> Crear void-os.toml
+                </button>
+                <button className="secondary-button" onClick={() => void validateOsProject()} disabled={osBusy || !workspace}>
+                  <ShieldCheck size={15} /> Validar configuración
+                </button>
+                <button className="secondary-button" disabled title="El motor ISO todavía no está implementado">
+                  <Disc3 size={15} /> Build ISO
+                </button>
+              </div>
+              {osValidation && (
+                <div className={'os-validation ' + (osValidation.valid ? 'valid' : 'invalid')}>
+                  <b>{osValidation.valid ? 'Configuración válida' : 'Hay errores de configuración'}</b>
+                  {osValidation.errors.map((error, index) => <p key={'e'+index}>• {error}</p>)}
+                  {osValidation.warnings.map((warning, index) => <p key={'w'+index}>Aviso: {warning}</p>)}
+                </div>
+              )}
+              <div className="os-builder-footnote">La selección de una base y la validación del proyecto ya están conectadas. La creación de ISO se habilitará cuando el backend correspondiente esté implementado y comprobado.</div>
+            </section>
+          ) : activeTab ? (
             <section className="editor-area">
               <div className="breadcrumb">
                 <span>{workspace?.split(/[\\\\/]/).filter(Boolean).pop()}</span>
