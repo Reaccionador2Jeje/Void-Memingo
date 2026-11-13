@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import TerminalPanel from './components/TerminalPanel';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
   Activity, AlertCircle, Box, Check, ChevronDown, ChevronRight, CircleHelp,
@@ -447,10 +448,7 @@ function App() {
                   </div>
                 )}
                 {bottomView === 'terminal' && (
-                  <div className="terminal-placeholder">
-                    <TerminalSquare size={18} />
-                    <div><b>Terminal integrada</b><span>La ejecución de procesos y la terminal interactiva se incorporarán en el siguiente módulo. Esta vista todavía no ejecuta comandos.</span></div>
-                  </div>
+                  <TerminalPanel workspace={workspace} onLog={addLog} />
                 )}
               </div>
             </section>
