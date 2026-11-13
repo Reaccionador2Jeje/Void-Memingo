@@ -299,6 +299,53 @@ mod tests {
     }
 
     #[test]
+    fn parses_the_documented_toml_manifest() {
+        let manifest = r#"
+[project]
+name = "Atdev OS"
+id = "atdev-os"
+version = "0.1.0"
+publisher = "Atdev Dev"
+description = "Example"
+iso_label = "ATDEV_OS"
+
+[base]
+distribution = "debian"
+release = "stable"
+architecture = "amd64"
+
+[packages]
+install = ["firefox", "git"]
+remove = []
+
+[filesystem]
+overlay = "filesystem"
+locale = "es_CL.UTF-8"
+timezone = "America/Santiago"
+hostname = "atdev-os"
+storage_filesystem = "ext4"
+services_enabled = []
+
+[desktop]
+environment = "xfce"
+display_manager = "lightdm"
+
+[boot]
+uefi = true
+bios = true
+live_session = true
+installer = false
+
+[output]
+iso_name = "atdev-os.iso"
+directory = "dist"
+"#;
+        let parsed: OsProject = toml::from_str(manifest).expect("manifest should parse");
+        let report = validate_project(&parsed);
+        assert!(report.valid, "{:?}", report.errors);
+    }
+
+    #[test]
     fn rejects_unknown_distribution() {
         let mut project = sample();
         project.base.distribution = "fedora".into();
