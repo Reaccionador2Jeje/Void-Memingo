@@ -23,7 +23,7 @@ npm run tauri dev
 
 \`\`\`sh
 npm install
-npm run tauri build -- --bundles deb
+npx tauri build --bundles deb
 \`\`\`
 
 Tauri can produce Linux DEB/RPM/AppImage, Windows MSI/NSIS, and macOS DMG bundles. CI and release workflows select the native formats for each runner.
