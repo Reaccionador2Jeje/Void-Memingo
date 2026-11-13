@@ -918,7 +918,7 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         };
         let package_list_root = safe_create_project_directory(root, &format!("{build_relative}/config/package-lists"))?;
         let package_file = package_list_root.join("void-memingo.list.chroot");
-        fs::write(&package_file, format!("{}\n", packages.join("\n"))
+        fs::write(&package_file, format!("{}\n", packages.join("\n")))
             .map_err(|error| format!("Cannot write Ubuntu package list: {error}"))?;
         let hostname = if project.filesystem.hostname.is_empty() { "void-memingo" } else { &project.filesystem.hostname };
         format!(r#"#!/bin/sh
