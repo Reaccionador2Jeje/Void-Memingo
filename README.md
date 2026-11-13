@@ -13,7 +13,7 @@ The first desktop foundation provides:
 - A Rust filesystem backend that blocks path traversal and avoids following symbolic links.
 - A modular VS Code-inspired workbench layout.
 
-The integrated terminal, native Git source-control panel, and OS Builder are now part of the desktop foundation. The Git panel supports local repositories, branches, commits, remotes, cloning, and fetch; GitHub and GitLab work through standard Git HTTPS/SSH remotes and the user's system credential helper. GitVoid is treated as experimental until its remote service protocol is ready.
+The integrated terminal, native Git source-control panel, OS Builder, and initial Atdev OS Hub publishing integration are now part of the desktop foundation. See [Atdev OS Hub integration](docs/ATDEV_OS_HUB.md). The Git panel supports local repositories, branches, commits, remotes, cloning, and fetch; GitHub and GitLab work through standard Git HTTPS/SSH remotes and the user's system credential helper. GitVoid is treated as experimental until its remote service protocol is ready.
 
 Void Memingo Desktop targets **PC operating systems**: Windows 10/11, mainstream Linux distributions, and macOS. It is not an Android application.
 
