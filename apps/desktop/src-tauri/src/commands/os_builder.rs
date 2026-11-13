@@ -734,3 +734,246 @@ directory = "dist"
         assert!(!safe_iso_filename(".iso"));
     }
 }
+
+
+fn desktop_packages_for(distribution: &str, environment: &str) -> Vec<&'static str> {
+    match (distribution, environment) {
+        (_, "none") => vec![],
+        ("debian", "gnome") => vec!["task-gnome-desktop"],
+        ("debian", "kde-plasma") => vec!["task-kde-desktop"],
+        ("debian", "xfce") => vec!["task-xfce-desktop"],
+        ("debian", "lxqt") => vec!["task-lxqt-desktop"],
+        ("debian", "cinnamon") => vec!["task-cinnamon-desktop"],
+        ("debian", "mate") => vec!["task-mate-desktop"],
+        ("ubuntu", "gnome") => vec!["ubuntu-desktop-minimal"],
+        ("ubuntu", "kde-plasma") => vec!["kubuntu-desktop"],
+        ("ubuntu", "xfce") => vec!["xubuntu-desktop"],
+        ("ubuntu", "lxqt") => vec!["lubuntu-desktop"],
+        ("ubuntu", "cinnamon") => vec!["ubuntu-cinnamon-desktop"],
+        ("ubuntu", "mate") => vec!["ubuntu-mate-desktop"],
+        ("arch", "gnome") => vec!["gnome", "gnome-extra"],
+        ("arch", "kde-plasma") => vec!["plasma", "konsole"],
+        ("arch", "xfce") => vec!["xfce4", "xfce4-goodies"],
+        ("arch", "lxqt") => vec!["lxqt"],
+        ("arch", "cinnamon") => vec!["cinnamon"],
+        ("arch", "mate") => vec!["mate", "mate-extra"],
+        _ => vec![],
+    }
+}
+
+fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildPreparation, String> {
+    let distribution = project.base.distribution.as_str();
+    let backend = match distribution {
+        "ubuntu" => "Ubuntu Live / casper",
+        "arch" => "Archiso",
+        _ => return Err("Unsupported Linux image backend.".into()),
+    };
+    if !project.boot.uefi || !project.boot.bios || !project.boot.live_session || project.boot.installer {
+        return Err("The current live profile requires UEFI + BIOS hybrid boot, live session enabled and installer disabled.".into());
+    }
+    if project.filesystem.overlay.is_empty() || !safe_project_relative_path(&project.filesystem.overlay) {
+        return Err("Configure a safe filesystem.overlay path inside the OS project.".into());
+    }
+
+    let backend_slug = if distribution == "ubuntu" { "ubuntu-live" } else { "archiso" };
+    let build_relative = format!(".void-memingo/{backend_slug}/{}", project.project.id);
+    let build_root = safe_create_project_directory(root, &build_relative)?;
+    let output_relative = if project.output.directory.is_empty() { "dist" } else { &project.output.directory };
+    let output_root = safe_create_project_directory(root, output_relative)?;
+    let output_name = if project.output.iso_name.is_empty() {
+        format!("{}-{}.iso", project.project.id, project.project.version)
+    } else {
+        project.output.iso_name.clone()
+    };
+    if !safe_iso_filename(&output_name) {
+        return Err("Generated ISO filename is invalid.".into());
+    }
+    let output_file = output_root.join(&output_name);
+    reject_existing_output(&output_file)?;
+    let checksum_file = output_root.join(format!("{output_name}.sha256"));
+    reject_existing_output(&checksum_file)?;
+
+    let source_overlay = resolve_project_path_no_symlinks(root, &project.filesystem.overlay)?
+        .ok_or_else(|| format!("Filesystem overlay '{}' does not exist.", project.filesystem.overlay))?;
+    let profile_root = if distribution == "arch" {
+        safe_create_project_directory(root, &format!("{build_relative}/profile"))?
+    } else {
+        safe_create_project_directory(root, &format!("{build_relative}/config"))?
+    };
+
+    let mut packages = project.packages.install.clone();
+    packages.extend(project.desktop.applications.iter().cloned());
+    packages.extend(desktop_packages_for(distribution, &project.desktop.environment).iter().map(|p| p.to_string()));
+    if distribution == "ubuntu" {
+        packages.push("casper".into());
+        packages.push("discover".into());
+        packages.push("locales".into());
+    } else if distribution == "arch" {
+        packages.extend(["linux", "linux-firmware", "mkinitcpio", "sudo"].iter().map(|p| p.to_string()));
+        if !project.filesystem.locale.is_empty() { packages.push("glibc".into()); }
+        match project.desktop.environment.as_str() {
+            "gnome" => packages.push("gdm".into()),
+            "kde-plasma" => packages.push("sddm".into()),
+            "xfce" | "lxqt" | "cinnamon" | "mate" => packages.push("lightdm".into()),
+            _ => {}
+        }
+    }
+    packages.sort();
+    packages.dedup();
+
+    let overlay_target = if distribution == "arch" {
+        safe_create_project_directory(root, &format!("{build_relative}/profile/airootfs"))?
+    } else {
+        safe_create_project_directory(root, &format!("{build_relative}/config/includes.chroot"))?
+    };
+    copy_overlay_tree(&source_overlay, &overlay_target)?;
+
+    // Keep user-selected appearance defaults in the image's /etc/skel.
+    if !project.desktop.theme.is_empty() || !project.desktop.icon_theme.is_empty() {
+        let gtk_dir = safe_create_project_directory(&overlay_target, "etc/skel/.config/gtk-3.0")?;
+        let mut settings = String::from("[Settings]\n");
+        if !project.desktop.theme.is_empty() {
+            settings.push_str(&format!("gtk-theme-name={}\n", project.desktop.theme));
+        }
+        if !project.desktop.icon_theme.is_empty() {
+            settings.push_str(&format!("gtk-icon-theme-name={}\n", project.desktop.icon_theme));
+        }
+        fs::write(gtk_dir.join("settings.ini"), settings)
+            .map_err(|error| format!("Cannot write desktop GTK defaults: {error}"))?;
+    }
+    if !project.desktop.wallpaper.is_empty() && !safe_project_relative_path(&project.desktop.wallpaper) {
+        return Err("Wallpaper path must be relative to the project and cannot contain traversal.".into());
+    }
+    if !project.desktop.wallpaper.is_empty() {
+        let wallpaper_source = resolve_project_path_no_symlinks(root, &project.desktop.wallpaper)?
+            .ok_or_else(|| format!("Wallpaper '{}' does not exist.", project.desktop.wallpaper))?;
+        if !wallpaper_source.is_file() {
+            return Err("Wallpaper must point to a regular image file.".into());
+        }
+        let wallpaper_dir = safe_create_project_directory(&overlay_target, "usr/share/backgrounds/void-memingo")?;
+        let extension = wallpaper_source.extension().and_then(|e| e.to_str()).unwrap_or("img");
+        let wallpaper_name = format!("wallpaper.{extension}");
+        fs::copy(&wallpaper_source, wallpaper_dir.join(&wallpaper_name))
+            .map_err(|error| format!("Cannot copy desktop wallpaper: {error}"))?;
+        let profile_dir = safe_create_project_directory(&overlay_target, "etc/skel/.config/void-memingo")?;
+        fs::write(profile_dir.join("desktop-profile.conf"), format!(
+            "theme={}\nicon_theme={}\nwallpaper=/usr/share/backgrounds/void-memingo/{wallpaper_name}\n",
+            project.desktop.theme, project.desktop.icon_theme
+        )).map_err(|error| format!("Cannot write desktop profile: {error}"))?;
+    }
+
+    let script_path = build_root.join("build.sh");
+    reject_symlink_target(&script_path)?;
+    let output_q = shell_quote(&output_file.to_string_lossy());
+    let checksum_q = shell_quote(&checksum_file.to_string_lossy());
+    let output_dir_q = shell_quote(&output_root.to_string_lossy());
+    let iso_label = if project.project.iso_label.is_empty() { "VOIDMEMINGO" } else { &project.project.iso_label };
+    let script = if distribution == "ubuntu" {
+        let codename = match project.base.release.as_str() {
+            "24.04 LTS" => "noble",
+            "26.04 LTS" => "resolute",
+            other => return Err(format!("Unsupported Ubuntu release: {other}")),
+        };
+        let package_file = profile_root.join("void-memingo.list.chroot");
+        fs::write(&package_file, format!("{}\n", packages.join("\n")))
+            .map_err(|error| format!("Cannot write Ubuntu package list: {error}"))?;
+        let hostname = if project.filesystem.hostname.is_empty() { "void-memingo" } else { &project.filesystem.hostname };
+        format!(r#"#!/bin/sh
+set -eu
+command -v lb >/dev/null 2>&1 || {{ echo "Install live-build and Ubuntu live image dependencies first." >&2; exit 127; }}
+cd {build_dir}
+lb config --distribution {codename} --architectures amd64 --binary-images iso-hybrid --archive-areas "main universe restricted multiverse" --bootappend-live "boot=casper hostname={hostname}" --iso-volume {label}
+lb build
+count=0
+image=""
+for candidate in ./*.iso; do [ -f "$candidate" ] || continue; count=$((count + 1)); image="$candidate"; done
+[ "$count" -eq 1 ] || {{ echo "Expected exactly one ISO from Ubuntu live-build." >&2; exit 1; }}
+mkdir -p {output_dir}
+[ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
+install -m 0644 "$image" {output}
+sha256sum {output} > {checksum}
+echo "Ubuntu live ISO and SHA-256 checksum created."
+"#,
+            build_dir = shell_quote(&build_root.to_string_lossy()),
+            codename = codename,
+            hostname = hostname,
+            label = shell_quote(iso_label),
+            output_dir = output_dir_q,
+            output = output_q,
+            checksum = checksum_q,
+        )
+    } else {
+        let package_file = profile_root.join("packages.x86_64");
+        let arch_profile = profile_root.join("archiso-profile");
+        fs::create_dir_all(&arch_profile).map_err(|error| format!("Cannot create Archiso profile: {error}"))?;
+        fs::write(&package_file, format!("{}\n", packages.join("\n")))
+            .map_err(|error| format!("Cannot write Arch package list: {error}"))?;
+        let profile_path = arch_profile.to_string_lossy().to_string();
+        let packages_path = package_file.to_string_lossy().to_string();
+        format!(r#"#!/bin/sh
+set -eu
+command -v mkarchiso >/dev/null 2>&1 || {{ echo "Install archiso first." >&2; exit 127; }}
+[ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
+cp -a /usr/share/archiso/configs/releng/. {profile}/
+install -m 0644 {packages} {profile}/packages.x86_64
+mkarchiso -v -w {work}/work -o {output_dir} {profile}
+count=0
+image=""
+for candidate in {output_dir}/*.iso; do [ -f "$candidate" ] || continue; count=$((count + 1)); image="$candidate"; done
+[ "$count" -ge 1 ] || {{ echo "Archiso did not create an ISO." >&2; exit 1; }}
+mkdir -p {final_dir}
+[ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
+install -m 0644 "$image" {output}
+sha256sum {output} > {checksum}
+echo "Arch Linux ISO and SHA-256 checksum created."
+"#,
+            profile = shell_quote(&profile_path),
+            packages = shell_quote(&packages_path),
+            work = shell_quote(&build_root.to_string_lossy()),
+            output_dir = shell_quote(&build_root.join("output").to_string_lossy()),
+            final_dir = output_dir_q,
+            output = output_q,
+            checksum = checksum_q,
+        )
+    };
+    fs::write(&script_path, script).map_err(|error| format!("Cannot write build script: {error}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&script_path).map_err(|error| format!("Cannot inspect build script: {error}"))?.permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&script_path, permissions).map_err(|error| format!("Cannot set build script permissions: {error}"))?;
+    }
+    Ok(BuildPreparation {
+        backend: backend.into(),
+        build_directory: build_root.to_string_lossy().into_owned(),
+        script_path: script_path.to_string_lossy().into_owned(),
+        commands: vec![
+            format!("cd {}", shell_quote(&build_root.to_string_lossy())),
+            format!("sudo {}", shell_quote(&script_path.to_string_lossy())),
+        ],
+        notes: vec![
+            "This creates a distribution-specific build profile and script; it does not run the build.".into(),
+            "Review build.sh and the generated package/overlay files before execution.".into(),
+            "Ubuntu uses live-build with casper; Arch uses the upstream archiso releng profile and mkarchiso.".into(),
+            "Local ISO creation currently requires a Linux host and the matching distribution build tools.".into(),
+            "Theme and icon defaults are written to the GTK user profile; wallpaper assets are copied into the target filesystem. Some desktop environments may require additional session-specific wallpaper configuration.".into(),
+        ],
+    })
+}
+
+#[tauri::command]
+pub fn prepare_os_build_project(workspace: String, project_toml: String) -> Result<BuildPreparation, String> {
+    let root = super::workspace::canonical_root(&workspace)?;
+    let project: OsProject = toml::from_str(&project_toml)
+        .map_err(|error| format!("Invalid void-os.toml: {error}"))?;
+    let report = validate_project(&project);
+    if !report.valid {
+        return Err(format!("Project validation failed: {}", report.errors.join("; ")));
+    }
+    match project.base.distribution.as_str() {
+        "debian" => prepare_debian_live_project(workspace, project_toml),
+        "ubuntu" | "arch" => prepare_non_debian_project(&root, &project),
+        _ => Err("Unsupported Linux distribution.".into()),
+    }
+}
