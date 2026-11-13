@@ -26,7 +26,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             asset: void-windows-x86_64.exe
             binary: void.exe
-            bundles: msi
+            bundles: msi,nsis
           - name: macOS Intel
             os: macos-26-intel
             target: x86_64-apple-darwin
@@ -94,7 +94,7 @@ jobs:
         run: |
           find apps/desktop/src-tauri/target/release/bundle -type f | while IFS= read -r file; do
             case "$file" in
-              *.deb|*.msi|*.dmg) cp "$file" release/ ;;
+              *.deb|*.msi|*.exe|*.dmg) cp "$file" release/ ;;
             esac
           done
           test "$(find release -maxdepth 1 -type f | wc -l)" -gt 2
@@ -125,7 +125,7 @@ jobs:
       - name: Generate SHA-256 checksums for desktop installers
         run: |
           cd release
-          for file in *.deb *.msi *.dmg; do
+          for file in *.deb *.msi *.exe *.dmg; do
             [ -f "$file" ] || continue
             sha256sum "$file" > "$file.sha256"
           done
