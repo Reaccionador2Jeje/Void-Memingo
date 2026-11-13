@@ -187,3 +187,105 @@ mod tests {
         assert!(safe_relative_path("README.md").is_ok());
     }
 }
+
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalResult {
+    stdout: String,
+    stderr: String,
+    exit_code: Option<i32>,
+    success: bool,
+}
+
+fn truncate_output(value: String) -> String {
+    const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
+    if value.len() <= MAX_OUTPUT_BYTES {
+        return value;
+    }
+    let mut end = MAX_OUTPUT_BYTES;
+    while !value.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}\\n\\n[Output truncated at 1 MiB]", &value[..end])
+}
+
+fn terminal_directory(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let safe = safe_relative_path(relative)?;
+    let path = fs::canonicalize(root.join(safe))
+        .map_err(|error| format!("Cannot access terminal directory: {error}"))?;
+    if !path.starts_with(root) {
+        return Err("Terminal directory must stay inside the workspace.".into());
+    }
+    if !path.is_dir() {
+        return Err("Terminal working directory is not a directory.".into());
+    }
+    Ok(path)
+}
+
+#[tauri::command]
+pub fn resolve_terminal_directory(
+    root: String,
+    current_directory: String,
+    target: String,
+) -> Result<String, String> {
+    let root = canonical_root(&root)?;
+    let current = terminal_directory(&root, &current_directory)?;
+    let target_path = Path::new(target.trim());
+    let joined = if target_path.is_absolute() {
+        target_path.to_path_buf()
+    } else {
+        current.join(target_path)
+    };
+    let canonical = fs::canonicalize(&joined)
+        .map_err(|error| format!("Cannot change directory: {error}"))?;
+    if !canonical.starts_with(&root) {
+        return Err("Changing directory outside the workspace is blocked.".into());
+    }
+    if !canonical.is_dir() {
+        return Err("The requested path is not a directory.".into());
+    }
+    let relative = canonical
+        .strip_prefix(&root)
+        .map_err(|_| "Terminal directory escaped the workspace.".to_string())?;
+    Ok(relative.to_string_lossy().replace('\\\\', "/"))
+}
+
+#[tauri::command]
+pub fn run_terminal_command(
+    root: String,
+    current_directory: String,
+    command: String,
+) -> Result<TerminalResult, String> {
+    let root = canonical_root(&root)?;
+    let cwd = terminal_directory(&root, &current_directory)?;
+    let command = command.trim();
+    if command.is_empty() {
+        return Err("Enter a command first.".into());
+    }
+    if command.len() > 8192 {
+        return Err("Command is too long (maximum 8192 bytes).".into());
+    }
+
+    #[cfg(windows)]
+    let output = std::process::Command::new("cmd")
+        .args(["/C", command])
+        .current_dir(&cwd)
+        .output();
+
+    #[cfg(not(windows))]
+    let output = std::process::Command::new("sh")
+        .args(["-lc", command])
+        .current_dir(&cwd)
+        .output();
+
+    let output = output.map_err(|error| format!("Could not start command: {error}"))?;
+    let stdout = truncate_output(String::from_utf8_lossy(&output.stdout).into_owned());
+    let stderr = truncate_output(String::from_utf8_lossy(&output.stderr).into_owned());
+    Ok(TerminalResult {
+        stdout,
+        stderr,
+        exit_code: output.status.code(),
+        success: output.status.success(),
+    })
+}
