@@ -252,40 +252,44 @@ pub fn resolve_terminal_directory(
 }
 
 #[tauri::command]
-pub fn run_terminal_command(
+pub async fn run_terminal_command(
     root: String,
     current_directory: String,
     command: String,
 ) -> Result<TerminalResult, String> {
-    let root = canonical_root(&root)?;
-    let cwd = terminal_directory(&root, &current_directory)?;
-    let command = command.trim();
-    if command.is_empty() {
-        return Err("Enter a command first.".into());
-    }
-    if command.len() > 8192 {
-        return Err("Command is too long (maximum 8192 bytes).".into());
-    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = canonical_root(&root)?;
+        let cwd = terminal_directory(&root, &current_directory)?;
+        let command = command.trim();
+        if command.is_empty() {
+            return Err("Enter a command first.".into());
+        }
+        if command.len() > 8192 {
+            return Err("Command is too long (maximum 8192 bytes).".into());
+        }
 
-    #[cfg(windows)]
-    let output = std::process::Command::new("cmd")
-        .args(["/C", command])
-        .current_dir(&cwd)
-        .output();
+        #[cfg(windows)]
+        let output = std::process::Command::new("cmd")
+            .args(["/C", command])
+            .current_dir(&cwd)
+            .output();
 
-    #[cfg(not(windows))]
-    let output = std::process::Command::new("sh")
-        .args(["-lc", command])
-        .current_dir(&cwd)
-        .output();
+        #[cfg(not(windows))]
+        let output = std::process::Command::new("sh")
+            .args(["-lc", command])
+            .current_dir(&cwd)
+            .output();
 
-    let output = output.map_err(|error| format!("Could not start command: {error}"))?;
-    let stdout = truncate_output(String::from_utf8_lossy(&output.stdout).into_owned());
-    let stderr = truncate_output(String::from_utf8_lossy(&output.stderr).into_owned());
-    Ok(TerminalResult {
-        stdout,
-        stderr,
-        exit_code: output.status.code(),
-        success: output.status.success(),
+        let output = output.map_err(|error| format!("Could not start command: {error}"))?;
+        let stdout = truncate_output(String::from_utf8_lossy(&output.stdout).into_owned());
+        let stderr = truncate_output(String::from_utf8_lossy(&output.stderr).into_owned());
+        Ok(TerminalResult {
+            stdout,
+            stderr,
+            exit_code: output.status.code(),
+            success: output.status.success(),
+        })
     })
+    .await
+    .map_err(|error| format!("Terminal worker failed: {error}"))?
 }
