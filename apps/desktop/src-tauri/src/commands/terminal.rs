@@ -3,7 +3,6 @@ use serde::Serialize;
 use std::{
     collections::HashMap,
     io::{Read, Write},
-    path::Path,
     sync::{
         atomic::{AtomicU64, Ordering},
         Mutex,
