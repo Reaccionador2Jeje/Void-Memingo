@@ -14,7 +14,9 @@ fn main() {
             commands::terminal::start_terminal,
             commands::terminal::write_terminal_input,
             commands::terminal::resize_terminal,
-            commands::terminal::close_terminal
+            commands::terminal::close_terminal,
+            commands::os_builder::list_os_base_capabilities,
+            commands::os_builder::validate_os_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running Void Memingo");
