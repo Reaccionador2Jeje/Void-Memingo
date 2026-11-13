@@ -39,6 +39,7 @@ type OsBase = {
 };
 
 type OsValidation = { valid: boolean; errors: string[]; warnings: string[] };
+type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; commands: string[]; notes: string[] };
 
 function FileNode({
   root,
@@ -138,6 +139,7 @@ function App() {
   const [osDesktop, setOsDesktop] = useState('xfce');
   const [osPackages, setOsPackages] = useState('');
   const [osValidation, setOsValidation] = useState<OsValidation | null>(null);
+  const [buildPreparation, setBuildPreparation] = useState<BuildPreparation | null>(null);
   const [osBusy, setOsBusy] = useState(false);
 
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
@@ -374,6 +376,22 @@ directory = "dist"
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [openWorkspace, saveActiveFile]);
 
+  const prepareDebianBuild = useCallback(async () => {
+    if (!workspace) return;
+    setOsBusy(true);
+    try {
+      const projectToml = await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
+      const result = await invoke<BuildPreparation>('prepare_debian_live_project', { workspace, projectToml });
+      setBuildPreparation(result);
+      addLog('Entorno Debian Live preparado en ' + result.buildDirectory);
+    } catch (error) {
+      addLog('No se pudo preparar Debian Live: ' + String(error));
+      setBuildPreparation(null);
+    } finally {
+      setOsBusy(false);
+    }
+  }, [addLog, workspace]);
+
   const language = activeTab?.name.split('.').pop()?.toUpperCase() || 'PLAIN TEXT';
   const lineCount = activeTab?.content.split('\n').length ?? 1;
 
@@ -550,10 +568,22 @@ directory = "dist"
                 <button className="secondary-button" onClick={() => void validateOsProject()} disabled={osBusy || !workspace}>
                   <ShieldCheck size={15} /> Validar configuración
                 </button>
-                <button className="secondary-button" disabled title="El motor ISO todavía no está implementado">
+                <button className="secondary-button" onClick={() => void prepareDebianBuild()} disabled={osBusy || !workspace || osBaseId !== 'debian'}>
+                  <HardDrive size={15} /> Preparar Debian Live
+                </button>
+                <button className="secondary-button" disabled title="La generación final de ISO todavía requiere completar y validar el backend">
                   <Disc3 size={15} /> Build ISO
                 </button>
               </div>
+              {buildPreparation && (
+                <div className="os-validation valid">
+                  <b>{buildPreparation.backend} preparado</b>
+                  <p>Directorio: {buildPreparation.buildDirectory}</p>
+                  <p>Script generado: {buildPreparation.scriptPath}</p>
+                  {buildPreparation.commands.map((command, index) => <p key={index}><code>{command}</code></p>)}
+                  {buildPreparation.notes.map((note, index) => <p key={'n'+index}>Aviso: {note}</p>)}
+                </div>
+              )}
               {osValidation && (
                 <div className={'os-validation ' + (osValidation.valid ? 'valid' : 'invalid')}>
                   <b>{osValidation.valid ? 'Configuración válida' : 'Hay errores de configuración'}</b>
