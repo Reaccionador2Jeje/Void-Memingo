@@ -33,8 +33,9 @@ Review `../../supabase/schema-draft.sql` and apply it only after selecting an ac
 
 - Public OS catalogue and search.
 - GitHub and Google sign-in buttons.
-- Authenticated project metadata publishing.\n- Optional first-release publishing with an external ISO URL, release channel, notes and SHA-256 metadata.
+- Authenticated project metadata publishing.
+- Optional first-release publishing with an external ISO URL, release channel, notes and SHA-256 metadata.
 - Source repository links.
 - Green/blue pond-inspired Atdev visual identity.
 
-Release management, screenshot uploads, stars, comments, moderation, and verified build provenance are planned next. ISO binaries are linked from release hosts rather than uploaded into the database service.
+Project detail pages, screenshot uploads, stars, comments, moderation, and server-side checksum verification are planned next. ISO binaries are linked from release hosts rather than uploaded into the database service.
