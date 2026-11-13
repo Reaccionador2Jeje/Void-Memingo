@@ -129,6 +129,7 @@ function App() {
   const [bottomView, setBottomView] = useState<BottomView>('output');
   const [bottomOpen, setBottomOpen] = useState(true);
   const [terminalMounted, setTerminalMounted] = useState(false);
+  const [terminalCommand, setTerminalCommand] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [logs, setLogs] = useState<string[]>(['Void Memingo Desktop iniciado.']);
   const [busy, setBusy] = useState(false);
@@ -257,9 +258,9 @@ services_enabled = [${osServices.split(',').map((item) => item.trim()).filter(Bo
 environment = ${quote(osDesktop)}
 display_manager = ${quote(osDesktop === 'none' ? '' : osDesktop === 'gnome' ? 'gdm3' : osDesktop === 'kde-plasma' ? 'sddm' : 'lightdm')}
 applications = []
-theme = ""
-icon_theme = ""
-wallpaper = ""
+theme = ${quote(osTheme)}
+icon_theme = ${quote(osIconTheme)}
+wallpaper = ${quote(osWallpaper)}
 
 [boot]
 uefi = true
@@ -413,6 +414,24 @@ directory = ${quote(osOutputDir)}
     }
   }, [addLog, workspace]);
 
+  const runOsBuild = useCallback(() => {
+    if (!buildPreparation) {
+      addLog('Prepara primero el backend y revisa el script generado.');
+      return;
+    }
+    const quoteShell = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
+    const command = 'cd ' + quoteShell(buildPreparation.buildDirectory) + ' && sudo ' + quoteShell(buildPreparation.scriptPath);
+    const confirmed = window.confirm(
+      'Se ejecutará el script revisado en la terminal integrada con permisos de administrador.\\n\\n' +
+      command + '\\n\\nNo se sobrescribirán ISOs existentes. ¿Continuar?'
+    );
+    if (!confirmed) return;
+    setTerminalMounted(true);
+    setBottomOpen(true);
+    setBottomView('terminal');
+    setTerminalCommand(command);
+    addLog('Build solicitado desde OS Builder; salida en la terminal integrada.');
+  }, [addLog, buildPreparation]);
   const language = activeTab?.name.split('.').pop()?.toUpperCase() || 'PLAIN TEXT';
   const lineCount = activeTab?.content.split('\n').length ?? 1;
 
@@ -644,7 +663,7 @@ directory = ${quote(osOutputDir)}
                 <button className="secondary-button" onClick={() => void prepareOsBuild()} disabled={osBusy || !workspace}>
                   <HardDrive size={15} /> Preparar backend
                 </button>
-                <button className="secondary-button" disabled title="La generación final de ISO todavía requiere completar y validar el backend">
+                <button className="secondary-button" onClick={runOsBuild} disabled={osBusy || !workspace || !buildPreparation || !osValidation?.valid} title="Ejecutar el script revisado en la terminal integrada">
                   <Disc3 size={15} /> Build ISO
                 </button>
               </div>
@@ -735,7 +754,7 @@ directory = ${quote(osOutputDir)}
                 )}
                 {terminalMounted && (
                   <div className="terminal-panel-host" style={{ display: bottomView === 'terminal' ? 'block' : 'none' }}>
-                    <TerminalPanel workspace={workspace} onLog={addLog} />
+                    <TerminalPanel workspace={workspace} onLog={addLog} command={terminalCommand} onCommandConsumed={() => setTerminalCommand(null)} />
                   </div>
                 )}
               </div>
