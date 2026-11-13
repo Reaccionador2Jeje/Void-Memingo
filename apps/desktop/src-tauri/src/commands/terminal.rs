@@ -66,6 +66,7 @@ pub fn start_terminal(
     current_directory: String,
     cols: u16,
     rows: u16,
+    shell: String,
 ) -> Result<String, String> {
     let root = super::workspace::canonical_root(&root)?;
     let cwd = super::workspace::terminal_directory(&root, &current_directory)?;
@@ -82,11 +83,23 @@ pub fn start_terminal(
         .map_err(|error| format!("Could not create terminal: {error}"))?;
 
     #[cfg(windows)]
-    let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
+    let shell_program = match shell.as_str() {
+        "default" | "cmd" => std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string()),
+        "powershell" => "powershell.exe".to_string(),
+        "pwsh" => "pwsh.exe".to_string(),
+        _ => return Err("Unsupported Windows shell selection.".into()),
+    };
     #[cfg(not(windows))]
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    let shell_program = match shell.as_str() {
+        "default" => std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()),
+        "sh" => "/bin/sh".to_string(),
+        "bash" => "bash".to_string(),
+        "zsh" => "zsh".to_string(),
+        "fish" => "fish".to_string(),
+        _ => return Err("Unsupported Unix shell selection.".into()),
+    };
 
-    let mut command = CommandBuilder::new(shell);
+    let mut command = CommandBuilder::new(shell_program);
     command.cwd(&cwd);
     command.env("TERM", "xterm-256color");
     command.env("COLORTERM", "truecolor");
