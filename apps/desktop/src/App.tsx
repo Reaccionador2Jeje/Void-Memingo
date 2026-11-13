@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import {
   Activity, AlertCircle, Box, Check, ChevronDown, ChevronRight, CircleHelp,
-  Code2, Command, Cpu, File, FileCode2, FilePlus2, Folder, FolderOpen,
+  Code2, Command, Cpu, FileCode2, FilePlus2, Folder, FolderOpen,
   GitBranch, LayoutDashboard, PanelBottom, PanelLeftClose, Plus, Search,
   Settings, ShieldCheck, TerminalSquare, X, Zap
 } from 'lucide-react';
@@ -24,13 +24,6 @@ type OpenTab = {
 
 type SidebarView = 'explorer' | 'search' | 'source';
 type BottomView = 'problems' | 'output' | 'terminal';
-
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
 
 function FileNode({
   root,
@@ -231,7 +224,7 @@ function App() {
         contents: ''
       });
       await refreshWorkspace(workspace);
-      const path = name.trim().replace(/\\\\/g, '/');
+      const path = name.trim().replaceAll('\\', '/');
       const entry: FileEntry = {
         name: path.split('/').pop() || path,
         path,
