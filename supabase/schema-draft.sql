@@ -104,7 +104,7 @@ create policy "Users update their own profile"
 create policy "Read published projects or owned drafts"
   on public.os_projects for select to anon, authenticated
   using (
-    (visibility = 'public' and status = 'published')
+    (visibility = 'public' and os_releases.status = 'published')
     or owner_id = (select auth.uid())
   );
 create policy "Owners publish projects"
