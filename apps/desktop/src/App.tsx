@@ -192,8 +192,8 @@ storage_filesystem = "ext4"
 services_enabled = []
 
 [desktop]
-environment = "xfce"
-display_manager = "lightdm"
+environment = ${quote(osDesktop)}
+display_manager = ${quote(osDesktop === 'none' ? '' : osDesktop === 'gnome' ? 'gdm' : osDesktop === 'kde-plasma' ? 'sddm' : 'lightdm')}
 applications = []
 theme = ""
 icon_theme = ""
@@ -220,7 +220,7 @@ directory = "dist"
     } finally {
       setOsBusy(false);
     }
-  }, [addLog, openWorkspace, osBaseId, osPackages, osRelease, refreshWorkspace, workspace]);
+  }, [addLog, openWorkspace, osBaseId, osDesktop, osPackages, osRelease, refreshWorkspace, workspace]);
 
   const validateOsProject = useCallback(async () => {
     if (!workspace) {
