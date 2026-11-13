@@ -138,6 +138,12 @@ function App() {
   const [osRelease, setOsRelease] = useState('stable');
   const [osDesktop, setOsDesktop] = useState('xfce');
   const [osPackages, setOsPackages] = useState('');
+  const [osOverlay, setOsOverlay] = useState('filesystem');
+  const [osLocale, setOsLocale] = useState('es_CL.UTF-8');
+  const [osTimezone, setOsTimezone] = useState('America/Santiago');
+  const [osHostname, setOsHostname] = useState('atdev-os');
+  const [osServices, setOsServices] = useState('NetworkManager.service');
+  const [osStorageFs, setOsStorageFs] = useState('ext4');
   const [osValidation, setOsValidation] = useState<OsValidation | null>(null);
   const [buildPreparation, setBuildPreparation] = useState<BuildPreparation | null>(null);
   const [osBusy, setOsBusy] = useState(false);
@@ -186,12 +192,12 @@ install = [${packageList.map(quote).join(', ')}]
 remove = []
 
 [filesystem]
-overlay = "filesystem"
-locale = "es_CL.UTF-8"
-timezone = "America/Santiago"
-hostname = "atdev-os"
-storage_filesystem = "ext4"
-services_enabled = []
+overlay = ${quote(osOverlay)}
+locale = ${quote(osLocale)}
+timezone = ${quote(osTimezone)}
+hostname = ${quote(osHostname)}
+storage_filesystem = ${quote(osStorageFs)}
+services_enabled = [${osServices.split(',').map((item) => item.trim()).filter(Boolean).map(quote).join(', ')}]
 
 [desktop]
 environment = ${quote(osDesktop)}
@@ -222,7 +228,7 @@ directory = "dist"
     } finally {
       setOsBusy(false);
     }
-  }, [addLog, openWorkspace, osBaseId, osDesktop, osPackages, osRelease, refreshWorkspace, workspace]);
+  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osLocale, osOverlay, osPackages, osRelease, osServices, osStorageFs, osTimezone, refreshWorkspace, workspace]);
 
   const validateOsProject = useCallback(async () => {
     if (!workspace) {
@@ -547,6 +553,36 @@ directory = "dist"
                 <label className="os-packages-field">
                   <span>Paquetes adicionales (separados por coma)</span>
                   <input value={osPackages} onChange={(event) => setOsPackages(event.target.value)} placeholder="firefox, git, htop" />
+                </label>
+              </div>
+              <div className="os-builder-controls os-filesystem-controls">
+                <label>
+                  <span>Overlay del sistema raíz</span>
+                  <input value={osOverlay} onChange={(event) => setOsOverlay(event.target.value)} placeholder="filesystem" />
+                </label>
+                <label>
+                  <span>Hostname</span>
+                  <input value={osHostname} onChange={(event) => setOsHostname(event.target.value)} placeholder="atdev-os" />
+                </label>
+                <label>
+                  <span>Locale</span>
+                  <input value={osLocale} onChange={(event) => setOsLocale(event.target.value)} placeholder="es_CL.UTF-8" />
+                </label>
+                <label>
+                  <span>Zona horaria</span>
+                  <input value={osTimezone} onChange={(event) => setOsTimezone(event.target.value)} placeholder="America/Santiago" />
+                </label>
+                <label>
+                  <span>Sistema de archivos de instalación</span>
+                  <select value={osStorageFs} onChange={(event) => setOsStorageFs(event.target.value)}>
+                    <option value="ext4">ext4</option>
+                    <option value="btrfs">Btrfs</option>
+                    <option value="xfs">XFS</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Servicios a habilitar (separados por coma)</span>
+                  <input value={osServices} onChange={(event) => setOsServices(event.target.value)} placeholder="NetworkManager.service" />
                 </label>
               </div>
               <div className="os-builder-grid">
