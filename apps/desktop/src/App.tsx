@@ -38,6 +38,17 @@ type OsBase = {
   notes: string;
 };
 
+type GitRemote = { name: string; url: string; provider: string };
+type GitSnapshot = {
+  initialized: boolean;
+  branch: string;
+  status: string;
+  stagedSummary: string;
+  remotes: GitRemote[];
+  branches: string[];
+  recentCommits: string[];
+};
+
 type OsValidation = { valid: boolean; errors: string[]; warnings: string[] };
 type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; commands: string[]; notes: string[] };
 
@@ -153,6 +164,12 @@ function App() {
   const [osValidation, setOsValidation] = useState<OsValidation | null>(null);
   const [buildPreparation, setBuildPreparation] = useState<BuildPreparation | null>(null);
   const [osBusy, setOsBusy] = useState(false);
+  const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null);
+  const [gitBusy, setGitBusy] = useState(false);
+  const [gitCommitMessage, setGitCommitMessage] = useState('');
+  const [gitBranchName, setGitBranchName] = useState('');
+  const [gitRemoteName, setGitRemoteName] = useState('origin');
+  const [gitRemoteUrl, setGitRemoteUrl] = useState('');
 
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
   const isLinuxHost = typeof navigator !== 'undefined' && /Linux/i.test(navigator.userAgent);
@@ -167,12 +184,98 @@ function App() {
     setLogs((current) => [...current.slice(-99), '[' + stamp + '] ' + message]);
   }, []);
 
+  const refreshGitSnapshot = useCallback(async (root: string) => {
+    const snapshot = await invoke<GitSnapshot>('git_snapshot', { root });
+    setGitSnapshot(snapshot);
+    return snapshot;
+  }, []);
+
+  const runGitAction = useCallback(async (action: () => Promise<GitSnapshot>, message: string) => {
+    if (!workspace) {
+      addLog('Abre una carpeta antes de usar Git.');
+      return;
+    }
+    setGitBusy(true);
+    try {
+      setGitSnapshot(await action());
+      addLog(message);
+    } catch (error) {
+      addLog('Git: ' + String(error));
+    } finally {
+      setGitBusy(false);
+    }
+  }, [addLog, workspace]);
+
+  const initializeGit = useCallback(() => runGitAction(
+    () => invoke<GitSnapshot>('git_init', { root: workspace! }),
+    'Repositorio Git inicializado.'
+  ), [runGitAction, workspace]);
+
+  const stageGitChanges = useCallback(() => runGitAction(
+    () => invoke<GitSnapshot>('git_stage_all', { root: workspace! }),
+    'Cambios preparados (stage all).'
+  ), [runGitAction, workspace]);
+
+  const commitGitChanges = useCallback(() => {
+    if (!gitCommitMessage.trim()) return;
+    void runGitAction(
+      () => invoke<GitSnapshot>('git_commit', { root: workspace!, message: gitCommitMessage }),
+      'Commit creado.'
+    ).then(() => setGitCommitMessage(''));
+  }, [gitCommitMessage, runGitAction, workspace]);
+
+  const addGitRemote = useCallback(() => {
+    if (!gitRemoteUrl.trim()) return;
+    void runGitAction(
+      () => invoke<GitSnapshot>('git_add_remote', { root: workspace!, name: gitRemoteName, url: gitRemoteUrl }),
+      'Remote ' + gitRemoteName + ' añadido.'
+    ).then(() => setGitRemoteUrl(''));
+  }, [gitRemoteName, gitRemoteUrl, runGitAction, workspace]);
+
+  const createGitBranch = useCallback(() => {
+    if (!gitBranchName.trim()) return;
+    void runGitAction(
+      () => invoke<GitSnapshot>('git_create_branch', { root: workspace!, branch: gitBranchName }),
+      'Rama creada: ' + gitBranchName
+    ).then(() => setGitBranchName(''));
+  }, [gitBranchName, runGitAction, workspace]);
+
+  const checkoutGitBranch = useCallback((branch: string) => runGitAction(
+    () => invoke<GitSnapshot>('git_checkout_branch', { root: workspace!, branch }),
+    'Rama activa: ' + branch
+  ), [runGitAction, workspace]);
+
+  const fetchGitRemotes = useCallback(() => runGitAction(
+    () => invoke<GitSnapshot>('git_fetch_all', { root: workspace! }),
+    'Fetch completado.'
+  ), [runGitAction, workspace]);
+
+  const runGitInTerminal = useCallback((command: string) => {
+    if (!workspace) return;
+    setTerminalMounted(true);
+    setBottomOpen(true);
+    setBottomView('terminal');
+    setTerminalCommand(command);
+    addLog('Git enviado a la terminal: ' + command);
+  }, [addLog, workspace]);
+
   useEffect(() => {
     invoke<string>('app_version').then(setVersion).catch(() => undefined);
     invoke<OsBase[]>('list_os_base_capabilities')
       .then(setOsBases)
       .catch((error) => addLog('No se pudieron cargar las bases OS: ' + String(error)));
   }, [addLog]);
+
+  useEffect(() => {
+    if (!workspace) {
+      setGitSnapshot(null);
+      return;
+    }
+    refreshGitSnapshot(workspace).catch((error) => {
+      setGitSnapshot(null);
+      addLog('No se pudo consultar Git: ' + String(error));
+    });
+  }, [addLog, refreshGitSnapshot, workspace]);
 
   const validateOsProject = useCallback(async () => {
     if (!workspace) {
@@ -525,9 +628,51 @@ directory = ${quote(osOutputDir)}
             )}
 
             {sidebarView === 'source' && (
-              <div className="sidebar-empty">
-                <GitBranch size={25} />
-                <p>La integración Git se añadirá como módulo nativo. No se muestra un estado falso.</p>
+              <div className="git-sidebar">
+                <div className="git-toolbar">
+                  <span>REPOSITORIO</span>
+                  <button className="subtle-icon" onClick={() => workspace && void refreshGitSnapshot(workspace).catch((error) => addLog('Git: ' + String(error)))} disabled={!workspace || gitBusy} title="Actualizar Git"><Activity size={14} /></button>
+                </div>
+                {!workspace ? (
+                  <div className="sidebar-empty"><GitBranch size={25} /><p>Abre un proyecto para administrar su repositorio Git.</p><button className="text-action" onClick={() => void openWorkspace()}>Abrir carpeta</button></div>
+                ) : gitSnapshot === null ? (
+                  <div className="sidebar-empty"><GitBranch size={25} /><p>No se pudo consultar el repositorio. Comprueba que Git esté instalado.</p></div>
+                ) : !gitSnapshot.initialized ? (
+                  <div className="sidebar-empty"><GitBranch size={25} /><p>Esta carpeta todavía no tiene un repositorio Git.</p><button className="primary-button" disabled={gitBusy} onClick={() => void initializeGit()}>Inicializar repositorio</button></div>
+                ) : (
+                  <>
+                    <div className="git-current-branch"><GitBranch size={14} /><strong>{gitSnapshot.branch || 'HEAD separado'}</strong></div>
+                    <div className="git-section-label">CAMBIOS</div>
+                    <pre className="git-status-output">{gitSnapshot.status || 'Working tree limpio.'}</pre>
+                    {gitSnapshot.stagedSummary && <pre className="git-status-output git-staged">{gitSnapshot.stagedSummary}</pre>}
+                    <div className="git-actions">
+                      <button className="secondary-button" disabled={gitBusy} onClick={() => void stageGitChanges()}>Preparar todos</button>
+                      <button className="secondary-button" disabled={gitBusy || gitSnapshot.remotes.length === 0} onClick={() => runGitInTerminal('git pull --ff-only')}>Pull</button>
+                      <button className="secondary-button" disabled={gitBusy || gitSnapshot.remotes.length === 0} onClick={() => runGitInTerminal('git push')}>Push</button>
+                      <button className="secondary-button" disabled={gitBusy || gitSnapshot.remotes.length === 0} onClick={() => void fetchGitRemotes()}>Fetch</button>
+                    </div>
+                    <div className="git-commit-box">
+                      <input value={gitCommitMessage} onChange={(event) => setGitCommitMessage(event.target.value)} placeholder="Mensaje del commit" maxLength={512} />
+                      <button className="primary-button" disabled={gitBusy || !gitCommitMessage.trim()} onClick={() => commitGitChanges()}>Commit</button>
+                    </div>
+                    <div className="git-section-label">RAMAS</div>
+                    <div className="git-branch-create">
+                      <input value={gitBranchName} onChange={(event) => setGitBranchName(event.target.value)} placeholder="nueva-rama" />
+                      <button className="subtle-icon" disabled={gitBusy || !gitBranchName.trim()} onClick={() => createGitBranch()} title="Crear y cambiar de rama"><Plus size={15} /></button>
+                    </div>
+                    {gitSnapshot.branches.map((branch) => <button key={branch} className={'git-branch-row ' + (branch === gitSnapshot.branch ? 'active' : '')} onClick={() => branch !== gitSnapshot.branch && void checkoutGitBranch(branch)} disabled={gitBusy}><GitBranch size={12} />{branch}</button>)}
+                    <div className="git-section-label">REMOTOS</div>
+                    {gitSnapshot.remotes.map((remote) => <div className="git-remote-row" key={remote.name}><strong>{remote.name}</strong><span>{remote.provider}</span><small title={remote.url}>{remote.url}</small></div>)}
+                    <div className="git-remote-form">
+                      <input value={gitRemoteName} onChange={(event) => setGitRemoteName(event.target.value)} placeholder="origin" aria-label="Nombre del remoto" />
+                      <input value={gitRemoteUrl} onChange={(event) => setGitRemoteUrl(event.target.value)} placeholder="https://... o git@..." aria-label="URL Git remota" />
+                      <button className="secondary-button" disabled={gitBusy || !gitRemoteUrl.trim()} onClick={() => addGitRemote()}>Añadir remoto</button>
+                    </div>
+                    <div className="git-section-label">COMMITS RECIENTES</div>
+                    {gitSnapshot.recentCommits.map((commit) => <div className="git-commit-row" key={commit}>{commit}</div>)}
+                    <p className="git-provider-note">GitHub, GitLab y servidores Git compatibles funcionan mediante Git y las credenciales del sistema. GitVoid se reconoce como experimental hasta que su servicio remoto esté disponible.</p>
+                  </>
+                )}
               </div>
             )}
           </aside>
