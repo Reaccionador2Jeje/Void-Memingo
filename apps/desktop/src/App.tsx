@@ -134,8 +134,13 @@ function App() {
   const [osBuilderOpen, setOsBuilderOpen] = useState(false);
   const [osBases, setOsBases] = useState<OsBase[]>([]);
   const [osBaseId, setOsBaseId] = useState('debian');
+  const [osRelease, setOsRelease] = useState('stable');
+  const [osDesktop, setOsDesktop] = useState('xfce');
+  const [osPackages, setOsPackages] = useState('');
   const [osValidation, setOsValidation] = useState<OsValidation | null>(null);
   const [osBusy, setOsBusy] = useState(false);
+
+  const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
 
   const activeTab = useMemo(
     () => tabs.find((tab) => tab.path === activePath) ?? null,
@@ -159,6 +164,8 @@ function App() {
       await openWorkspace();
       return;
     }
+    const packageList = osPackages.split(',').map((item) => item.trim()).filter(Boolean);
+    const quote = (value: string) => JSON.stringify(value);
     const template = `[project]
 name = "Atdev OS"
 id = "atdev-os"
@@ -168,12 +175,12 @@ description = "A custom Linux distribution built with Void Memingo"
 iso_label = "ATDEV_OS"
 
 [base]
-distribution = "${osBaseId}"
-release = "${osBaseId === 'debian' ? 'stable' : osBaseId === 'ubuntu' ? '24.04 LTS' : 'rolling'}"
+distribution = ${quote(osBaseId)}
+release = ${quote(osRelease)}
 architecture = "${osBaseId === 'arch' ? 'x86_64' : 'amd64'}"
 
 [packages]
-install = []
+install = [${packageList.map(quote).join(', ')}]
 remove = []
 
 [filesystem]
@@ -213,7 +220,7 @@ directory = "dist"
     } finally {
       setOsBusy(false);
     }
-  }, [addLog, openWorkspace, osBaseId, refreshWorkspace, workspace]);
+  }, [addLog, openWorkspace, osBaseId, osPackages, osRelease, refreshWorkspace, workspace]);
 
   const validateOsProject = useCallback(async () => {
     if (!workspace) {
@@ -498,13 +505,31 @@ directory = "dist"
               <div className="os-builder-section-title"><HardDrive size={16} /> BASE DEL SISTEMA</div>
               <div className="os-base-grid">
                 {osBases.map((base) => (
-                  <button key={base.id} className={'os-base-card ' + (osBaseId === base.id ? 'selected' : '')} onClick={() => { setOsBaseId(base.id); setOsValidation(null); }}>
+                  <button key={base.id} className={'os-base-card ' + (osBaseId === base.id ? 'selected' : '')} onClick={() => { setOsBaseId(base.id); setOsRelease(base.releases[0]); setOsDesktop(base.desktops.includes('xfce') ? 'xfce' : 'none'); setOsValidation(null); }}>
                     <span className="os-base-mark">{base.id === 'debian' ? 'D' : base.id === 'ubuntu' ? 'U' : 'A'}</span>
                     <b>{base.name}</b>
                     <small>{base.backend}</small>
                     <span className="os-base-status">Backend: {base.backendStatus === 'ready' ? 'Disponible' : 'Pendiente'}</span>
                   </button>
                 ))}
+              </div>
+              <div className="os-builder-controls">
+                <label>
+                  <span>Versión base</span>
+                  <select value={osRelease} onChange={(event) => setOsRelease(event.target.value)}>
+                    {(selectedOsBase?.releases ?? []).map((release) => <option key={release} value={release}>{release}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Entorno de escritorio</span>
+                  <select value={osDesktop} onChange={(event) => setOsDesktop(event.target.value)}>
+                    {(selectedOsBase?.desktops ?? []).map((desktop) => <option key={desktop} value={desktop}>{desktop === 'none' ? 'Sin escritorio' : desktop}</option>)}
+                  </select>
+                </label>
+                <label className="os-packages-field">
+                  <span>Paquetes adicionales (separados por coma)</span>
+                  <input value={osPackages} onChange={(event) => setOsPackages(event.target.value)} placeholder="firefox, git, htop" />
+                </label>
               </div>
               <div className="os-builder-grid">
                 <div className="os-builder-card">
@@ -536,7 +561,7 @@ directory = "dist"
                   {osValidation.warnings.map((warning, index) => <p key={'w'+index}>Aviso: {warning}</p>)}
                 </div>
               )}
-              <div className="os-builder-footnote">La selección de una base y la validación del proyecto ya están conectadas. La creación de ISO se habilitará cuando el backend correspondiente esté implementado y comprobado.</div>
+              <div className="os-builder-footnote">La selección de base, versión, escritorio y paquetes y la validación del proyecto ya están conectadas. La creación de ISO se habilitará cuando el backend correspondiente esté implementado y comprobado.</div>
             </section>
           ) : activeTab ? (
             <section className="editor-area">
