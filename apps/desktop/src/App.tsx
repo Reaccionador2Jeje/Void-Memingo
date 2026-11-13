@@ -967,7 +967,7 @@ directory = ${quote(osOutputDir)}
 
       <footer className="statusbar">
         <div className="status-left">
-          <span className="status-branch"><GitBranch size={12} /> Git no conectado</span>
+          <span className="status-branch"><GitBranch size={12} /> {gitSnapshot?.initialized ? (gitSnapshot.branch || 'HEAD separado') : 'Git no conectado'}</span>
           <span><AlertCircle size={12} /> 0</span>
           <span><Check size={12} /> Workspace local</span>
         </div>
