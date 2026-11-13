@@ -51,7 +51,11 @@ function TerminalView({ sessionId, active }: { sessionId: string; active: boolea
           terminal.writeln('\x1b[90m[Shell exited with code ' + (event.payload.code ?? 'unknown') + ']\x1b[0m');
         }
       });
-      if (disposed) return;
+      if (disposed) {
+        outputUnlisten?.();
+        exitUnlisten?.();
+        return;
+      }
       fit.fit();
       const dimensions = fit.proposeDimensions();
       if (dimensions) void invoke('resize_terminal', {
