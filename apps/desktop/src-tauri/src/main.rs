@@ -14,6 +14,8 @@ fn main() {
             commands::git::git_create_branch,
             commands::git::git_checkout_branch,
             commands::git::git_fetch_all,
+            commands::git::git_pull_ff_only,
+            commands::git::git_push,
             commands::workspace::app_version,
             commands::workspace::list_directory,
             commands::workspace::read_text_file,
