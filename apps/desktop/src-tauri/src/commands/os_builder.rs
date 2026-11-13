@@ -262,6 +262,14 @@ pub fn validate_project(project: &OsProject) -> ValidationReport {
     {
         errors.push("Timezone must be a safe zoneinfo name such as America/Santiago.".into());
     }
+    for (label, value) in [("Desktop theme", &project.desktop.theme), ("Icon theme", &project.desktop.icon_theme)] {
+        if value.len() > 128 || !value.bytes().all(|b| b.is_ascii_alphanumeric() || b" _.-".contains(&b)) {
+            errors.push(format!("{label} contains unsupported characters."));
+        }
+    }
+    if !project.desktop.wallpaper.is_empty() && !safe_project_relative_path(&project.desktop.wallpaper) {
+        errors.push("Wallpaper must be a safe path relative to the OS project.".into());
+    }
     if !project.filesystem.storage_filesystem.is_empty()
         && !["ext4", "btrfs", "xfs"].contains(&project.filesystem.storage_filesystem.as_str())
     {
@@ -441,6 +449,39 @@ fn copy_overlay_tree(source: &Path, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
+
+fn apply_desktop_defaults(root: &Path, overlay: &Path, project: &OsProject) -> Result<(), String> {
+    if !project.desktop.theme.is_empty() || !project.desktop.icon_theme.is_empty() {
+        let gtk_dir = safe_create_project_directory(overlay, "etc/skel/.config/gtk-3.0")?;
+        let mut settings = String::from("[Settings]\n");
+        if !project.desktop.theme.is_empty() {
+            settings.push_str(&format!("gtk-theme-name={}\n", project.desktop.theme));
+        }
+        if !project.desktop.icon_theme.is_empty() {
+            settings.push_str(&format!("gtk-icon-theme-name={}\n", project.desktop.icon_theme));
+        }
+        fs::write(gtk_dir.join("settings.ini"), settings)
+            .map_err(|error| format!("Cannot write GTK desktop defaults: {error}"))?;
+    }
+    if !project.desktop.wallpaper.is_empty() {
+        let source = resolve_project_path_no_symlinks(root, &project.desktop.wallpaper)?
+            .ok_or_else(|| format!("Wallpaper '{}' does not exist.", project.desktop.wallpaper))?;
+        if !source.is_file() {
+            return Err("Wallpaper must point to a regular file.".into());
+        }
+        let extension = source.extension().and_then(|value| value.to_str()).unwrap_or("img");
+        let name = format!("wallpaper.{extension}");
+        let destination = safe_create_project_directory(overlay, "usr/share/backgrounds/void-memingo")?.join(&name);
+        fs::copy(source, destination).map_err(|error| format!("Cannot copy wallpaper into image: {error}"))?;
+        let profile = safe_create_project_directory(overlay, "etc/skel/.config/void-memingo")?;
+        fs::write(profile.join("desktop-profile.conf"), format!(
+            "theme={}\nicon_theme={}\nwallpaper=/usr/share/backgrounds/void-memingo/{name}\n",
+            project.desktop.theme, project.desktop.icon_theme
+        )).map_err(|error| format!("Cannot write desktop profile: {error}"))?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn prepare_debian_live_project(
     workspace: String,
@@ -527,6 +568,7 @@ pub fn prepare_debian_live_project(
                 .map_err(|error| format!("Cannot create empty root filesystem overlay: {error}"))?;
         }
     }
+    apply_desktop_defaults(&root, &overlay_target, &project)?;
 
     let iso_label = if project.project.iso_label.is_empty() {
         "VOIDMEMINGO".to_string()
@@ -822,7 +864,7 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     packages.dedup();
 
     let overlay_target = if distribution == "arch" {
-        safe_create_project_directory(root, &format!("{build_relative}/profile/airootfs"))?
+        safe_create_project_directory(root, &format!("{build_relative}/profile/archiso-profile/airootfs"))?
     } else {
         safe_create_project_directory(root, &format!("{build_relative}/config/includes.chroot"))?
     };
@@ -874,8 +916,9 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
             "26.04 LTS" => "resolute",
             other => return Err(format!("Unsupported Ubuntu release: {other}")),
         };
-        let package_file = profile_root.join("void-memingo.list.chroot");
-        fs::write(&package_file, format!("{}\n", packages.join("\n")))
+        let package_list_root = safe_create_project_directory(root, &format!("{build_relative}/config/package-lists"))?;
+        let package_file = package_list_root.join("void-memingo.list.chroot");
+        fs::write(&package_file, format!("{}\n", packages.join("\n"))
             .map_err(|error| format!("Cannot write Ubuntu package list: {error}"))?;
         let hostname = if project.filesystem.hostname.is_empty() { "void-memingo" } else { &project.filesystem.hostname };
         format!(r#"#!/bin/sh
@@ -916,7 +959,7 @@ command -v mkarchiso >/dev/null 2>&1 || {{ echo "Install archiso first." >&2; ex
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
 install -m 0644 {packages} {profile}/packages.x86_64
-mkarchiso -v -w {work}/work -o {output_dir} {profile}
+mkdir -p {output_dir}\nmkarchiso -v -w {work}/work -o {output_dir} {profile}
 count=0
 image=""
 for candidate in {output_dir}/*.iso; do [ -f "$candidate" ] || continue; count=$((count + 1)); image="$candidate"; done
