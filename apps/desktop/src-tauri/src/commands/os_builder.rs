@@ -450,6 +450,28 @@ fn copy_overlay_tree(source: &Path, destination: &Path) -> Result<(), String> {
 }
 
 
+
+fn apply_common_filesystem_defaults(overlay: &Path, project: &OsProject) -> Result<(), String> {
+    if !project.filesystem.hostname.is_empty() {
+        let etc = safe_create_project_directory(overlay, "etc")?;
+        fs::write(etc.join("hostname"), format!("{}\\n", project.filesystem.hostname))
+            .map_err(|error| format!("Cannot write hostname: {error}"))?;
+    }
+    if !project.filesystem.timezone.is_empty() {
+        let etc = safe_create_project_directory(overlay, "etc")?;
+        fs::write(etc.join("timezone"), format!("{}\\n", project.filesystem.timezone))
+            .map_err(|error| format!("Cannot write timezone: {error}"))?;
+    }
+    if !project.filesystem.locale.is_empty() {
+        let defaults = safe_create_project_directory(overlay, "etc/default")?;
+        fs::write(defaults.join("locale"), format!("LANG={}\\n", project.filesystem.locale))
+            .map_err(|error| format!("Cannot write locale defaults: {error}"))?;
+        let etc = safe_create_project_directory(overlay, "etc")?;
+        fs::write(etc.join("locale.gen"), format!("{} UTF-8\\n", project.filesystem.locale))
+            .map_err(|error| format!("Cannot write locale generation config: {error}"))?;
+    }
+    Ok(())
+}
 fn apply_desktop_defaults(root: &Path, overlay: &Path, project: &OsProject) -> Result<(), String> {
     if !project.desktop.theme.is_empty() || !project.desktop.icon_theme.is_empty() {
         let gtk_dir = safe_create_project_directory(overlay, "etc/skel/.config/gtk-3.0")?;
@@ -869,40 +891,10 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         safe_create_project_directory(root, &format!("{build_relative}/config/includes.chroot"))?
     };
     copy_overlay_tree(&source_overlay, &overlay_target)?;
+    apply_common_filesystem_defaults(&overlay_target, project)?;
+    apply_desktop_defaults(root, &overlay_target, project)?;
 
-    // Keep user-selected appearance defaults in the image's /etc/skel.
-    if !project.desktop.theme.is_empty() || !project.desktop.icon_theme.is_empty() {
-        let gtk_dir = safe_create_project_directory(&overlay_target, "etc/skel/.config/gtk-3.0")?;
-        let mut settings = String::from("[Settings]\n");
-        if !project.desktop.theme.is_empty() {
-            settings.push_str(&format!("gtk-theme-name={}\n", project.desktop.theme));
-        }
-        if !project.desktop.icon_theme.is_empty() {
-            settings.push_str(&format!("gtk-icon-theme-name={}\n", project.desktop.icon_theme));
-        }
-        fs::write(gtk_dir.join("settings.ini"), settings)
-            .map_err(|error| format!("Cannot write desktop GTK defaults: {error}"))?;
-    }
-    if !project.desktop.wallpaper.is_empty() && !safe_project_relative_path(&project.desktop.wallpaper) {
-        return Err("Wallpaper path must be relative to the project and cannot contain traversal.".into());
-    }
-    if !project.desktop.wallpaper.is_empty() {
-        let wallpaper_source = resolve_project_path_no_symlinks(root, &project.desktop.wallpaper)?
-            .ok_or_else(|| format!("Wallpaper '{}' does not exist.", project.desktop.wallpaper))?;
-        if !wallpaper_source.is_file() {
-            return Err("Wallpaper must point to a regular image file.".into());
-        }
-        let wallpaper_dir = safe_create_project_directory(&overlay_target, "usr/share/backgrounds/void-memingo")?;
-        let extension = wallpaper_source.extension().and_then(|e| e.to_str()).unwrap_or("img");
-        let wallpaper_name = format!("wallpaper.{extension}");
-        fs::copy(&wallpaper_source, wallpaper_dir.join(&wallpaper_name))
-            .map_err(|error| format!("Cannot copy desktop wallpaper: {error}"))?;
-        let profile_dir = safe_create_project_directory(&overlay_target, "etc/skel/.config/void-memingo")?;
-        fs::write(profile_dir.join("desktop-profile.conf"), format!(
-            "theme={}\nicon_theme={}\nwallpaper=/usr/share/backgrounds/void-memingo/{wallpaper_name}\n",
-            project.desktop.theme, project.desktop.icon_theme
-        )).map_err(|error| format!("Cannot write desktop profile: {error}"))?;
-    }
+
 
     let script_path = build_root.join("build.sh");
     reject_symlink_target(&script_path)?;
