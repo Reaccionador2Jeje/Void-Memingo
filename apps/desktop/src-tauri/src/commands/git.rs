@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::{path::Path, process::Command};
+use std::{fs, path::Path, process::Command};
 
 use super::workspace::canonical_root;
 
