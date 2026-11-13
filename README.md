@@ -22,7 +22,7 @@ Requires Node.js 20.19+ or 22.12+, Rust stable, and the platform-specific Tauri 
 \`\`\`sh
 cd apps/desktop
 npm install
-npm run tauri dev
+npx tauri dev
 \`\`\`
 
 Build a Debian package on Linux:
