@@ -30,7 +30,10 @@ jobs:
             bundle: deb
           - platform: Windows x86_64
             os: windows-latest
-            bundle: msi
+            bundle: msi,nsis
+          - platform: macOS Intel
+            os: macos-26-intel
+            bundle: dmg
           - platform: macOS Apple Silicon
             os: macos-26
             bundle: dmg
