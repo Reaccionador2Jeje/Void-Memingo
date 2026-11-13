@@ -566,6 +566,19 @@ button:disabled {
   padding: 34px clamp(22px, 4vw, 58px) 42px;
   background: radial-gradient(ellipse at 78% 4%, rgba(91, 77, 170, .10), transparent 38%), #11141a;
 }
+.os-builder-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pondos-project-fields {
+  margin-top: 16px;
+}
+.pondos-project-fields label input {
+  min-width: 0;
+}
 .os-builder-header {
   display: flex;
   align-items: flex-start;
