@@ -71,12 +71,12 @@ jobs:
         working-directory: apps/desktop
         run: npm run build
 
-      - name: Test native workspace security
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
-
       - name: Generate platform application icons
         working-directory: apps/desktop
         run: npx tauri icon src-tauri/icons/icon.png
+
+      - name: Test native workspace security
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
       - name: Build native desktop installer
         working-directory: apps/desktop
