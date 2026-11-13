@@ -1,0 +1,42 @@
+[project]
+name = "PondOS"
+id = "pondos"
+version = "0.1.0"
+publisher = "Atdev Dev"
+description = "A friendly Ubuntu-based desktop operating system with an LXQt desktop and a natural pond-inspired identity."
+iso_label = "PONDOS_01"
+
+[base]
+distribution = "ubuntu"
+release = "24.04 LTS"
+architecture = "amd64"
+
+[packages]
+install = ["lxqt", "lightdm", "network-manager", "git", "curl", "sudo", "papirus-icon-theme"]
+remove = []
+
+[filesystem]
+overlay = "filesystem"
+locale = "es_CL.UTF-8"
+timezone = "America/Santiago"
+hostname = "pondos"
+storage_filesystem = "ext4"
+services_enabled = ["NetworkManager.service"]
+
+[desktop]
+environment = "lxqt"
+display_manager = "lightdm"
+applications = []
+theme = "PondOS-Green"
+icon_theme = "Papirus"
+wallpaper = "usr/share/backgrounds/pondos/pondos-wallpaper.png"
+
+[boot]
+uefi = true
+bios = true
+live_session = true
+installer = false
+
+[output]
+iso_name = "pondos-0.1.0.iso"
+directory = "dist"
