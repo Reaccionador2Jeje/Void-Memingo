@@ -39,7 +39,7 @@ The API token is stored in Supabase only as a SHA-256 hash and has `os:publish` 
 
 ## Build provenance
 
-The server also accepts `build_event` requests with the external project ID, version, status, source commit, artifact HTTPS URL and SHA-256. It records build history but does not treat a client-submitted checksum as server-side artifact verification. A build artifact is not automatically promoted to a public release; publishing a release remains a separate explicit action.
+The OS Builder also offers **Registrar build** after a compilation. It asks for the result status and optional HTTPS artifact URL and SHA-256, then submits a `build_event` with project version and non-secret build metadata. The server records build history but does not treat a client-submitted checksum as server-side artifact verification. A build artifact is not automatically promoted to a public release; publishing a release remains a separate explicit action.
 
 ## Security
 
