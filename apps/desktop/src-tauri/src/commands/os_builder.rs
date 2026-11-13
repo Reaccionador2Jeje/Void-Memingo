@@ -951,7 +951,10 @@ command -v mkarchiso >/dev/null 2>&1 || {{ echo "Install archiso first." >&2; ex
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
 install -m 0644 {packages} {profile}/packages.x86_64
-mkdir -p {output_dir}\nmkarchiso -v -w {work}/work -o {output_dir} {profile}
+mkdir -p {profile}/airootfs
+cp -a {custom_overlay}/. {profile}/airootfs/
+mkdir -p {output_dir}
+mkarchiso -v -w {work}/work -o {output_dir} {profile}
 count=0
 image=""
 for candidate in {output_dir}/*.iso; do [ -f "$candidate" ] || continue; count=$((count + 1)); image="$candidate"; done
