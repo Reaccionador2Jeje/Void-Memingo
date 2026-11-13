@@ -22,12 +22,19 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://localhost:1420 ws://localhost:1421"
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://localhost:1420 ws://localhost:1421 https://pzfvpvioxpcjkxdawnsq.supabase.co"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "rpm", "appimage", "nsis", "msi", "dmg"],
+    "targets": [
+      "deb",
+      "rpm",
+      "appimage",
+      "nsis",
+      "msi",
+      "dmg"
+    ],
     "category": "Development",
     "shortDescription": "Desktop environment for operating-system development",
     "longDescription": "Void Memingo is a cross-platform desktop workspace for building and exploring operating-system projects."
