@@ -202,7 +202,7 @@ function App() {
                     <div className="project-card-top"><h3>{project.name}</h3><span className="project-status"><CheckCircle2 size={12} /> Publicado</span></div>
                     <p>{project.summary}</p>
                     <div className="tag-list"><span>{project.base_distribution}</span>{project.desktop_environments.map((item) => <span key={item}>{item}</span>)}{project.architectures.map((item) => <span key={item}>{item}</span>)}</div>
-                    <div className="project-card-footer">{project.source_url ? <a href={project.source_url} target="_blank" rel="noreferrer">Código fuente <ArrowUpRight size={13} /></a> : <span>Sin repositorio enlazado'}<span className="project-date">{new Date(project.created_at).toLocaleDateString()}</span></div>
+                    <div className="project-card-footer">{project.source_url ? <a href={project.source_url} target="_blank" rel="noreferrer">Código fuente <ArrowUpRight size={13} /></a> : <span>Sin repositorio enlazado</span>}<span className="project-date">{new Date(project.created_at).toLocaleDateString()}</span></div>
                   </div>
                 </article>
               ))}
