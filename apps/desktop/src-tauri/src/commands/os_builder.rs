@@ -116,7 +116,7 @@ pub struct FilesystemConfig {
     pub storage_filesystem: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DesktopConfig {
     #[serde(default = "default_desktop")]
     pub environment: String,
@@ -133,6 +133,20 @@ pub struct DesktopConfig {
 }
 
 fn default_desktop() -> String { "none".into() }
+
+// Keep Rust-created defaults consistent with the TOML deserialization default.
+impl Default for DesktopConfig {
+    fn default() -> Self {
+        Self {
+            environment: default_desktop(),
+            display_manager: String::new(),
+            applications: Vec::new(),
+            theme: String::new(),
+            icon_theme: String::new(),
+            wallpaper: String::new(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct BootConfig {
