@@ -13,7 +13,7 @@ pub struct FileEntry {
     size: Option<u64>,
 }
 
-fn canonical_root(root: &str) -> Result<PathBuf, String> {
+pub(super) fn canonical_root(root: &str) -> Result<PathBuf, String> {
     let path = fs::canonicalize(root)
         .map_err(|error| format!("Cannot open workspace: {error}"))?;
     if !path.is_dir() {
@@ -210,7 +210,7 @@ fn truncate_output(value: String) -> String {
     format!("{}\n\n[Output truncated at 1 MiB]", &value[..end])
 }
 
-fn terminal_directory(root: &Path, relative: &str) -> Result<PathBuf, String> {
+pub(super) fn terminal_directory(root: &Path, relative: &str) -> Result<PathBuf, String> {
     let safe = safe_relative_path(relative)?;
     let path = fs::canonicalize(root.join(safe))
         .map_err(|error| format!("Cannot access terminal directory: {error}"))?;
