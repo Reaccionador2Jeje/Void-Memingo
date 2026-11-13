@@ -32,4 +32,10 @@ Tauri produces Linux `.deb`, Windows `.msi` / `.exe` (NSIS), and macOS `.dmg` bu
 
 The Rust backend only reads and writes files within the folder selected by the user. It rejects parent-directory traversal and does not follow symbolic links while listing the workspace. The first milestone includes directory browsing, UTF-8 text editing, creating files, and saving changes.
 
-## Integrated command panel (initial implementation)\n\nThe bottom-panel terminal runs commands through the native Rust backend in the selected workspace directory. It captures standard output, standard error, and the exit code; supports a workspace-confined `cd` command and command history; and limits captured output to 1 MiB per stream. Commands run with the current user's operating-system permissions, so only execute commands you trust. This first version is command-oriented rather than a persistent interactive PTY: long-running interactive programs, terminal UI applications, live streaming, and Ctrl+C cancellation are not supported yet.\n\nGit operations, language services, build orchestration, and the debugger remain planned modules.
+## Integrated terminal
+
+The bottom panel now uses a native cross-platform PTY through `portable-pty` and renders it with xterm.js. Shell sessions stay open between commands, stream output as it arrives, accept interactive input, support terminal resize signals, and can be interrupted with Ctrl+C. Multiple terminal sessions can be opened in tabs and closed independently.
+
+The terminal starts in the selected workspace, but it is **not a security sandbox**: commands run with the current user's operating-system permissions and can access files and tools available to that user outside the workspace. Only run commands you understand and trust. Closing a terminal ends its shell session; child-process cleanup behavior depends on the operating system and shell.
+
+Git operations, language services, build orchestration, and the debugger remain planned modules.
