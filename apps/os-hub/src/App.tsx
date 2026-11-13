@@ -20,6 +20,27 @@ const supabase: SupabaseClient | null = supabaseUrl && publishableKey
   ? createClient(supabaseUrl, publishableKey)
   : null;
 
+async function ensureProfile(account: User) {
+  if (!supabase) return;
+  const metadata = account.user_metadata ?? {};
+  const candidate = typeof metadata.user_name === 'string'
+    ? metadata.user_name
+    : typeof metadata.name === 'string'
+      ? metadata.name
+      : account.email?.split('@')[0] || 'member';
+  const baseUsername = candidate.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'member';
+  const avatar = typeof metadata.avatar_url === 'string'
+    ? metadata.avatar_url
+    : typeof metadata.picture === 'string' ? metadata.picture : null;
+  const { error } = await supabase.from('profiles').upsert({
+    id: account.id,
+    username: baseUsername + '-' + account.id.slice(0, 6),
+    display_name: typeof metadata.name === 'string' ? metadata.name.slice(0, 80) : candidate.slice(0, 80),
+    avatar_url: avatar
+  }, { onConflict: 'id', ignoreDuplicates: true });
+  if (error) console.warn('Could not initialize public profile:', error.message);
+}
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<OsProject[]>([]);
@@ -62,9 +83,9 @@ function App() {
       setLoading(false);
       return;
     }
-    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    supabase.auth.getSession().then(({ data }) => { const account = data.session?.user ?? null; setUser(account); if (account) void ensureProfile(account); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      setUser(session?.user ?? null); if (session?.user) void ensureProfile(session.user);
     });
     return () => subscription.unsubscribe();
   }, []);
