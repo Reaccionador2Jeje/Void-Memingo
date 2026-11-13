@@ -28,13 +28,13 @@ jobs:
             binary: void.exe
             bundles: msi,nsis
           - name: macOS Intel
-            os: macos-13
+            os: macos-26-intel
             target: x86_64-apple-darwin
             asset: void-macos-x86_64
             binary: void
             bundles: dmg
           - name: macOS Apple Silicon
-            os: macos-latest
+            os: macos-26
             target: aarch64-apple-darwin
             asset: void-macos-aarch64
             binary: void
@@ -83,7 +83,7 @@ jobs:
 
       - name: Build native desktop installers
         working-directory: apps/desktop
-        run: npx tauri build --bundles "${{ matrix.bundles }}"
+        run: npx tauri build --target "${{ matrix.target }}" --bundles "${{ matrix.bundles }}"
 
       - name: Collect desktop installer artifacts
         shell: bash
