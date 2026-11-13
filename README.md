@@ -13,7 +13,7 @@ The first desktop foundation provides:
 - A Rust filesystem backend that blocks path traversal and avoids following symbolic links.
 - A modular VS Code-inspired workbench layout.
 
-The integrated terminal, Git operations, language server, debugger, build system, and OS-development tooling are future modules. Their panels are visibly marked as not implemented rather than pretending to work.
+The integrated terminal, native Git source-control panel, and OS Builder are now part of the desktop foundation. The Git panel supports local repositories, branches, commits, remotes, cloning, and fetch; GitHub and GitLab work through standard Git HTTPS/SSH remotes and the user's system credential helper. GitVoid is treated as experimental until its remote service protocol is ready.
 
 Void Memingo Desktop targets **PC operating systems**: Windows 10/11, mainstream Linux distributions, and macOS. It is not an Android application.
 
@@ -34,6 +34,31 @@ npx tauri build --bundles deb
 \`\`\`
 
 Release automation is being extended to publish Linux \`.deb\` / \`.rpm\` / AppImage, Windows \`.msi\` / \`.exe\`, and macOS \`.dmg\` installers. Actual release availability depends on successful platform CI builds.
+
+## OS development and publishing
+
+Void Memingo includes an OS Builder for Debian, Ubuntu, and Arch Linux profile preparation, filesystem overlays, package customization, desktop selection, and local build-script execution. These backends remain profile previews until reproducible ISO builds and boot tests have passed.
+
+[PondOS](examples/pondos/README.md) is the first showcase project: an Ubuntu-based system with LXQt, a green/blue pond-inspired identity, and a minimalist frog-and-leaf logo.
+
+### Git provider support
+
+The desktop source-control panel uses the system Git engine. It supports local Git repositories and standard Git remotes hosted on GitHub, GitLab, or other Git-compatible servers. Credentials stay in the user's OS credential helper or SSH agent. GitVoid is an experimental remote target pending a stable server/API contract.
+
+### Atdev OS Hub
+
+A separate web app is being developed at `apps/os-hub/` for discovering and publishing operating systems. It includes the initial catalogue, GitHub/Google OAuth entry points, and project metadata publishing. Supabase is the planned Auth and database backend; deployment remains blocked until an active project and OAuth provider credentials are configured.
+
+Run the OS Hub locally:
+```sh
+cd apps/os-hub
+cp .env.example .env.local
+# Set the Supabase URL and publishable key in .env.local
+npm install
+npm run dev
+```
+
+Review `docs/GIT-INTEGRATION.md`, `docs/ATDEV-OS-HUB.md`, and `supabase/schema-draft.sql` before connecting production services.
 
 ## Supported platforms
 
