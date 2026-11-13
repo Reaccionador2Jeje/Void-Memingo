@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build ${ matrix.name }
+    name: Build ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
@@ -39,7 +39,7 @@ jobs:
             asset: void-macos-aarch64
             binary: void
             bundles: dmg
-    runs-on: ${ matrix.os }
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,19 +58,19 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${ matrix.target }
+          targets: ${{ matrix.target }}
 
       - name: Build CLI release
         run: |
-          cargo test --target ${ matrix.target }
-          cargo build --release --target ${ matrix.target }
+          cargo test --target ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }}
 
       - name: Prepare CLI binary and SHA-256
         shell: bash
         run: |
           mkdir -p release
-          cp "target/${ matrix.target }/release/${ matrix.binary }" "release/${ matrix.asset }"
-          python -c "import hashlib,pathlib; p=pathlib.Path('release/${ matrix.asset }'); pathlib.Path(str(p)+'.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\\n')"
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "release/${{ matrix.asset }}"
+          python -c "import hashlib,pathlib; p=pathlib.Path('release/${{ matrix.asset }}'); pathlib.Path(str(p)+'.sha256').write_text(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\\n')"
 
       - name: Setup Node.js for desktop app
         uses: actions/setup-node@v4
@@ -83,20 +83,22 @@ jobs:
 
       - name: Build native desktop installers
         working-directory: apps/desktop
-        run: npx tauri build --bundles "${ matrix.bundles }"
+        run: npx tauri build --bundles "${{ matrix.bundles }}"
 
       - name: Collect desktop installer artifacts
         shell: bash
         run: |
-          find apps/desktop/src-tauri/target/release/bundle -type f \
-            \\( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.msi' -o -name '*.dmg' -o -name '*-setup.exe' \\) \
-            -exec cp {} release/ \\;
+          find apps/desktop/src-tauri/target/release/bundle -type f | while IFS= read -r file; do
+            case "$file" in
+              *.deb|*.rpm|*.AppImage|*.msi|*.dmg|*-setup.exe) cp "$file" release/ ;;
+            esac
+          done
           test "$(find release -maxdepth 1 -type f | wc -l)" -gt 2
 
       - name: Upload platform assets
         uses: actions/upload-artifact@v4
         with:
-          name: release-assets-${ matrix.target }
+          name: release-assets-${{ matrix.target }}
           path: release/*
           if-no-files-found: error
 
