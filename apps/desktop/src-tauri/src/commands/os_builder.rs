@@ -324,6 +324,35 @@ pub struct BuildPreparation {
     pub notes: Vec<String>,
 }
 
+fn resolve_project_path_no_symlinks(root: &Path, relative: &str) -> Result<Option<PathBuf>, String> {
+    if !safe_project_relative_path(relative) || relative.is_empty() {
+        return Err("Overlay path must be a safe relative path inside the OS project.".into());
+    }
+    let mut current = root.to_path_buf();
+    for component in Path::new(relative).components() {
+        let Component::Normal(part) = component else {
+            return Err("Overlay path contains an unsafe component.".into());
+        };
+        current.push(part);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) => {
+                if metadata.file_type().is_symlink() {
+                    return Err("Filesystem overlay paths cannot traverse symbolic links.".into());
+                }
+                let canonical = fs::canonicalize(&current)
+                    .map_err(|error| format!("Cannot resolve overlay path: {error}"))?;
+                if !canonical.starts_with(root) {
+                    return Err("Filesystem overlay resolves outside the OS project.".into());
+                }
+                current = canonical;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(format!("Cannot inspect overlay path: {error}")),
+        }
+    }
+    Ok(Some(current))
+}
+
 fn safe_create_project_directory(root: &Path, relative: &str) -> Result<PathBuf, String> {
     if !safe_project_relative_path(relative) || relative.is_empty() {
         return Err("Generated directory must be a safe path inside the OS project.".into());
@@ -433,7 +462,6 @@ pub fn prepare_debian_live_project(
         return Err("Set filesystem.overlay in void-os.toml before preparing the Debian image.".into());
     }
 
-    let overlay_relative = Path::new(&project.filesystem.overlay);
     if !safe_project_relative_path(&project.filesystem.overlay) {
         return Err("Filesystem overlay must stay inside the OS project.".into());
     }
@@ -483,30 +511,18 @@ pub fn prepare_debian_live_project(
     fs::write(&package_list, format!("{}\n", packages.join("\n")))
         .map_err(|error| format!("Cannot write Debian package list: {error}"))?;
 
-    let overlay_source = root.join(overlay_relative);
     let overlay_target = config_root.join("includes.chroot");
     if let Ok(metadata) = fs::symlink_metadata(&overlay_target) {
         if metadata.file_type().is_symlink() || !metadata.is_dir() {
             return Err("Generated root filesystem overlay target is not a safe directory.".into());
         }
     }
-    match fs::symlink_metadata(&overlay_source) {
-        Ok(metadata) => {
-            if metadata.file_type().is_symlink() {
-                return Err("Filesystem overlay cannot be a symbolic link.".into());
-            }
-            let canonical_overlay = fs::canonicalize(&overlay_source)
-                .map_err(|error| format!("Cannot resolve filesystem overlay: {error}"))?;
-            if !canonical_overlay.starts_with(&root) {
-                return Err("Filesystem overlay resolves outside the OS project.".into());
-            }
-            copy_overlay_tree(&canonical_overlay, &overlay_target)?;
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+    match resolve_project_path_no_symlinks(&root, &project.filesystem.overlay)? {
+        Some(canonical_overlay) => copy_overlay_tree(&canonical_overlay, &overlay_target)?,
+        None => {
             fs::create_dir_all(&overlay_target)
                 .map_err(|error| format!("Cannot create empty root filesystem overlay: {error}"))?;
         }
-        Err(error) => return Err(format!("Cannot inspect filesystem overlay: {error}")),
     }
 
     let iso_label = if project.project.iso_label.is_empty() {
