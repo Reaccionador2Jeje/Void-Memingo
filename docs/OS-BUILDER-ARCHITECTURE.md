@@ -108,6 +108,20 @@ The first practical development and test host is a supported Linux desktop such 
 7. ISO inspection, checksums, cancellation and optional QEMU boot tests.
 8. CI validation and release documentation.
 
-## Current status
+## Implementation status
 
-This document defines the target architecture and acceptance criteria. It does not claim that OS Builder, distro backends or ISO generation have already been implemented. The existing desktop editor and PTY terminal remain separate, working-in-progress features.
+Implemented in the desktop branch:
+
+- Rust data model for the OS project manifest.
+- TOML parsing and initial validation.
+- Explicit base capability registry containing only Debian, Ubuntu and Arch Linux.
+- OS Builder workbench entry, base selection, starter manifest creation and validation UI.
+
+Not implemented yet:
+
+- Debian Live, Ubuntu live-image and Archiso build backends.
+- Real package resolution and repository management.
+- Desktop environment installation and theme application.
+- Bootable ISO generation, checksum validation and QEMU boot testing.
+
+The UI intentionally keeps Build ISO disabled until a backend can create and validate a real image. Base capability entries currently describe planned support, not verified build compatibility. The existing desktop editor and PTY terminal remain separate features.
