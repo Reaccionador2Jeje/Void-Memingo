@@ -516,6 +516,8 @@ pub fn prepare_debian_live_project(
         if metadata.file_type().is_symlink() || !metadata.is_dir() {
             return Err("Generated root filesystem overlay target is not a safe directory.".into());
         }
+        fs::remove_dir_all(&overlay_target)
+            .map_err(|error| format!("Cannot refresh generated root filesystem overlay: {error}"))?;
     }
     match resolve_project_path_no_symlinks(&root, &project.filesystem.overlay)? {
         Some(canonical_overlay) => copy_overlay_tree(&canonical_overlay, &overlay_target)?,
@@ -624,7 +626,7 @@ pub fn prepare_debian_live_project(
         notes: vec![
             "This step prepares the live-build configuration; it does not create an ISO yet.".into(),
             "Review build.sh before running it. live-build may require administrator privileges.".into(),
-            "The generated script only runs lb config and lb build; no project-provided scripts are executed.".into(),
+            "The generated script only invokes lb config and lb build. Review any custom live-build hooks in config/hooks before running; those hooks execute inside the target chroot.".into(),
         ],
     })
 }
