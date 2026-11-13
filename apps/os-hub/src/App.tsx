@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
 import { ArrowUpRight, CheckCircle2, Download, Github, Leaf, LogOut, Plus, Search, ShieldCheck, Sprout } from 'lucide-react';
 
@@ -121,7 +121,7 @@ function App() {
     if (error) setNotice('No se pudo cerrar sesión: ' + error.message);
   };
 
-  const publishProject = async (event: React.FormEvent<HTMLFormElement>) => {
+  const publishProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || !user) return;
     const normalizedSlug = slug.toLowerCase().trim();
