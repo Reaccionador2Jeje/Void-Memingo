@@ -864,7 +864,7 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     packages.dedup();
 
     let overlay_target = if distribution == "arch" {
-        safe_create_project_directory(root, &format!("{build_relative}/profile/archiso-profile/airootfs"))?
+        safe_create_project_directory(root, &format!("{build_relative}/profile/custom-airootfs"))?
     } else {
         safe_create_project_directory(root, &format!("{build_relative}/config/includes.chroot"))?
     };
@@ -971,6 +971,7 @@ sha256sum {output} > {checksum}
 echo "Arch Linux ISO and SHA-256 checksum created."
 "#,
             profile = shell_quote(&profile_path),
+            custom_overlay = shell_quote(&overlay_target.to_string_lossy()),
             packages = shell_quote(&packages_path),
             work = shell_quote(&build_root.to_string_lossy()),
             output_dir = shell_quote(&build_root.join("output").to_string_lossy()),
