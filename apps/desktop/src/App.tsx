@@ -408,7 +408,7 @@ directory = ${quote(osOutputDir)}
       title: 'Seleccionar carpeta donde clonar'
     });
     if (typeof parent !== 'string') return;
-    const suggested = url.trim().split(/[/:]/).pop()?.replace(/\\.git$/i, '') || 'repository';
+    const suggested = url.trim().split(/[/:]/).pop()?.replace(/\.git$/i, '') || 'repository';
     const folderName = window.prompt('Nombre de la carpeta del repositorio:', suggested);
     if (!folderName?.trim()) return;
     setGitBusy(true);
