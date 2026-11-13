@@ -112,19 +112,27 @@ The first practical development and test host is a supported Linux desktop such 
 
 Implemented in the desktop branch:
 
-- Rust data model for the OS project manifest.
-- TOML parsing and initial validation.
-- Explicit base capability registry containing only Debian, Ubuntu and Arch Linux.
-- OS Builder workbench entry, base/release/desktop selection, package input, starter manifest creation and validation UI.
-- Initial Debian Live preparation: creates an isolated live-build workspace, writes package installation lists, adds selected desktop task packages and applications, copies a validated root filesystem overlay without following symlinks, and generates chroot hooks for package removal, hostname, timezone, locale and service enablement.
-- The generated Debian build script runs live-build, requires exactly one resulting ISO, copies it to the configured output directory and writes a SHA-256 checksum. It is generated for review and is not executed by the app yet.
+- Rust data model for the OS project manifest, TOML parsing and validation.
+- Explicit capability registry containing only Debian, Ubuntu and Arch Linux.
+- OS Builder workbench with base/release/desktop selection, package list, root overlay, services, locale, timezone, hostname, target storage filesystem, ISO output settings, GTK theme, icon theme and wallpaper.
+- Project creation and validation through `void-os.toml`.
+- **Debian Live profile preparation:** creates an isolated live-build workspace, package lists, removal and system configuration hooks, root filesystem overlay and a reviewable build script.
+- **Ubuntu profile preparation:** maps supported releases to Ubuntu codenames, prepares a live-build package list including casper, root filesystem overlay and a build script.
+- **Archiso profile preparation:** stages the upstream releng profile, custom package list and airootfs overlay, then generates an `mkarchiso` build script.
+- GTK theme and icon defaults are written into `/etc/skel`; wallpaper files can be supplied from inside the project overlay and copied into the image.
+- The OS Builder can send a prepared build command to the integrated PTY terminal. The user explicitly confirms before the command is sent; `sudo` prompts in the terminal rather than being invoked invisibly. Terminal output streams live and Ctrl+C can interrupt the foreground build.
+- Existing output files are protected from overwrite by the generated scripts. The scripts write SHA-256 checksum files.
+- The desktop TypeScript initialization-order issue found by CI was corrected by moving project creation below workspace initialization.
 
-Not implemented yet:
+Still requires verification or additional work:
 
-- Running the generated Debian build script from the app, streaming logs and cancellation, then inspecting the ISO format and optionally boot-testing it. The script currently requires manual review and explicit execution with administrator privileges. The first profile accepts amd64, UEFI + BIOS hybrid boot, a live session and no installer; other boot/install combinations are rejected rather than silently ignored.
-- Ubuntu live-image and Archiso build backends.
-- Real package resolution and repository management.
-- Desktop environment installation and theme application.
-- Bootable ISO generation, checksum validation and QEMU boot testing.
+- **No bootable ISO has yet been generated and tested end-to-end for Debian, Ubuntu or Arch on a real Linux host.** The three entries are marked as profile previews, not verified build support.
+- Ubuntu's live-build + casper flow needs an actual build and boot test against its supported release repositories; it is not yet certified as equivalent to Ubuntu's official installer image.
+- Archiso profile integration needs validation against current Archiso package/profile versions.
+- Build completion currently relies on the scripts' exit status and output creation; richer post-build ISO inspection, checksum verification in the app, artifact details and optional QEMU boot testing remain to be completed.
+- Host dependency detection, minimum disk/RAM checks, build cancellation controls in the UI, and per-step progress reporting remain pending. The integrated terminal provides live output and Ctrl+C.
+- Desktop theme values are currently applied as GTK defaults and a profile metadata file; automatic wallpaper application for every desktop environment and full KDE/GNOME/Xfce theme configuration remain pending.
+- The installation filesystem preference is stored in the manifest but is not used because no installer or partitioning workflow is implemented.
+- Package repository management, installer generation and multi-architecture image builds remain future work.
 
-The UI intentionally keeps Build ISO disabled until a backend can create and validate a real image. Debian's preparation action only creates the build workspace and a reviewable script; it does not execute privileged commands or claim to have produced an ISO. Base capability entries currently describe planned support, not verified build compatibility. The existing desktop editor and PTY terminal remain separate features.
+The UI must continue to distinguish profile preparation from a verified ISO build. Do not mark a backend as ready until a reproducible ISO build and boot validation have passed.
