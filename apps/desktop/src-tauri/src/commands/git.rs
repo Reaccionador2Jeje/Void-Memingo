@@ -117,6 +117,53 @@ fn snapshot(root: &Path) -> Result<GitSnapshot, String> {
 }
 
 #[tauri::command]
+pub async fn git_clone_repository(
+    destination_parent: String,
+    url: String,
+    folder_name: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let parent = canonical_root(&destination_parent)?;
+        let url = url.trim();
+        let valid_scheme = ["https://", "ssh://", "git://"].iter().any(|scheme| url.starts_with(scheme))
+            || url.starts_with("git@");
+        if !valid_scheme || url.len() > 2048 || url.chars().any(char::is_whitespace) {
+            return Err("Use a valid HTTPS, SSH or Git remote URL.".into());
+        }
+
+        let folder = folder_name.trim();
+        if folder.is_empty()
+            || folder.len() > 100
+            || folder.starts_with('.')
+            || !folder.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        {
+            return Err("Folder name must be a simple name using letters, numbers, dots, underscores or hyphens.".into());
+        }
+        let destination = parent.join(folder);
+        if destination.exists() {
+            return Err("The destination folder already exists.".into());
+        }
+
+        let output = Command::new("git")
+            .arg("clone")
+            .arg("--")
+            .arg(url)
+            .arg(&destination)
+            .output()
+            .map_err(|error| format!("Git is not installed or could not start: {error}"))?;
+        if !output.status.success() {
+            let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            return Err(if detail.is_empty() { "Git clone failed.".into() } else { detail });
+        }
+        fs::canonicalize(&destination)
+            .map(|path| path.to_string_lossy().into_owned())
+            .map_err(|error| format!("Repository cloned, but its folder could not be resolved: {error}"))
+    })
+    .await
+    .map_err(|error| format!("Git clone worker failed: {error}"))?
+}
+
+#[tauri::command]
 pub fn git_snapshot(root: String) -> Result<GitSnapshot, String> {
     let root = canonical_root(&root)?;
     snapshot(&root)
