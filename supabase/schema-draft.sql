@@ -76,7 +76,7 @@ create table if not exists public.os_comments (
 
 create index if not exists os_projects_public_created_idx
   on public.os_projects (created_at desc)
-  where visibility = 'public' and status = 'published';
+  where visibility = 'public' and os_releases.status = 'published';
 create index if not exists os_releases_project_created_idx
   on public.os_releases (project_id, created_at desc);
 create index if not exists os_comments_project_created_idx
@@ -125,7 +125,7 @@ create policy "Read public releases or owned releases"
       select 1 from public.os_projects p
       where p.id = project_id
         and (
-          (p.visibility = 'public' and p.status = 'published' and status = 'published')
+          (p.visibility = 'public' and p.status = 'published' and os_releases.status = 'published')
           or p.owner_id = (select auth.uid())
         )
     )
