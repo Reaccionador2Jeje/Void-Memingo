@@ -144,6 +144,8 @@ function App() {
   const [osHostname, setOsHostname] = useState('atdev-os');
   const [osServices, setOsServices] = useState('NetworkManager.service');
   const [osStorageFs, setOsStorageFs] = useState('ext4');
+  const [osOutputDir, setOsOutputDir] = useState('dist');
+  const [osIsoName, setOsIsoName] = useState('atdev-os-0.1.0.iso');
   const [osValidation, setOsValidation] = useState<OsValidation | null>(null);
   const [buildPreparation, setBuildPreparation] = useState<BuildPreparation | null>(null);
   const [osBusy, setOsBusy] = useState(false);
@@ -214,8 +216,8 @@ live_session = true
 installer = false
 
 [output]
-iso_name = "atdev-os-0.1.0.iso"
-directory = "dist"
+iso_name = ${quote(osIsoName)}
+directory = ${quote(osOutputDir)}
 `;
     setOsBusy(true);
     try {
@@ -228,7 +230,7 @@ directory = "dist"
     } finally {
       setOsBusy(false);
     }
-  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osLocale, osOverlay, osPackages, osRelease, osServices, osStorageFs, osTimezone, refreshWorkspace, workspace]);
+  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osIsoName, osLocale, osOutputDir, osOverlay, osPackages, osRelease, osServices, osStorageFs, osTimezone, refreshWorkspace, workspace]);
 
   const validateOsProject = useCallback(async () => {
     if (!workspace) {
@@ -585,6 +587,16 @@ directory = "dist"
                   <input value={osServices} onChange={(event) => setOsServices(event.target.value)} placeholder="NetworkManager.service" />
                 </label>
               </div>
+              <div className="os-builder-controls os-output-controls">
+                <label>
+                  <span>Nombre de la ISO</span>
+                  <input value={osIsoName} onChange={(event) => setOsIsoName(event.target.value)} placeholder="atdev-os.iso" />
+                </label>
+                <label>
+                  <span>Carpeta de salida</span>
+                  <input value={osOutputDir} onChange={(event) => setOsOutputDir(event.target.value)} placeholder="dist" />
+                </label>
+              </div>
               <div className="os-builder-grid">
                 <div className="os-builder-card">
                   <div className="os-builder-card-heading"><HardDrive size={16} /> Sistema de archivos</div>
@@ -599,7 +611,7 @@ directory = "dist"
               </div>
               <div className="os-builder-actions">
                 <button className="primary-button" onClick={() => void createOsProject()} disabled={osBusy}>
-                  <FilePlus2 size={15} /> Crear void-os.toml
+                  <FilePlus2 size={15} /> Crear / actualizar void-os.toml
                 </button>
                 <button className="secondary-button" onClick={() => void validateOsProject()} disabled={osBusy || !workspace}>
                   <ShieldCheck size={15} /> Validar configuración
