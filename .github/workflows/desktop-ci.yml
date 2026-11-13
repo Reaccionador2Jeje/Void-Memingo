@@ -19,35 +19,28 @@ permissions:
   contents: read
 
 jobs:
-  frontend:
-    name: Frontend typecheck and production build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/desktop
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install frontend dependencies
-        run: npm install
-
-      - name: Typecheck and build frontend
-        run: npm run build
-
-  tauri-linux:
-    name: Tauri Rust backend check
-    runs-on: ubuntu-24.04
+  desktop-build:
+    name: Desktop package (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux x86_64
+            os: ubuntu-24.04
+            bundle: deb
+          - platform: Windows x86_64
+            os: windows-latest
+            bundle: msi
+          - platform: macOS Apple Silicon
+            os: macos-26
+            bundle: dmg
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -67,14 +60,20 @@ jobs:
         with:
           node-version: 22
 
-      - name: Build frontend assets
+      - name: Install frontend dependencies
         working-directory: apps/desktop
-        run: |
-          npm install
-          npm run build
+        run: npm install
 
-      - name: Check native Tauri backend
-        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - name: Typecheck and build frontend
+        working-directory: apps/desktop
+        run: npm run build
+
+      - name: Test native workspace security
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+      - name: Build native desktop installer
+        working-directory: apps/desktop
+        run: npx tauri build --bundles "${{ matrix.bundle }}"
 
   cli:
     name: Preserve CLI compatibility
