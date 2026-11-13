@@ -26,7 +26,7 @@ npm install
 npx tauri build --bundles deb
 \`\`\`
 
-Tauri can produce Linux DEB/RPM/AppImage, Windows MSI/NSIS, and macOS DMG bundles. CI and release workflows select the native formats for each runner.
+Tauri produces Linux `.deb`, Windows `.msi` / `.exe` (NSIS), and macOS `.dmg` bundles. CI builds Linux and Windows x86_64 plus macOS Intel and Apple Silicon variants.
 
 ## Workspace security
 
