@@ -5,6 +5,10 @@ edition = "2021"
 description = "Safe ISO inventory and validation CLI for the Void Boot multiboot project"
 license = "GPL-3.0-or-later"
 
+[lib]
+name = "void_boot"
+path = "src/lib.rs"
+
 [[bin]]
 name = "void-boot"
 path = "src/main.rs"
