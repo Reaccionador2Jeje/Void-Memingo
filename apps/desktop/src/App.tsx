@@ -620,7 +620,7 @@ directory = ${quote(osOutputDir)}
     const script = "'" + buildPreparation.bootTestScriptPath.replace(/'/g, "'\\''") + "'";
     const command = 'sh ' + script;
     const confirmed = window.confirm(
-      'Se iniciará una máquina virtual QEMU para probar el arranque del ISO.\\n\\n' +
+      'Se iniciará una máquina virtual QEMU para probar el arranque del ISO.\n\n' +
       command + '\n\nLa prueba requiere que el ISO ya exista. ¿Continuar?'
     );
     if (!confirmed) return;
