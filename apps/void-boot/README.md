@@ -15,6 +15,14 @@ Void Boot is Atdev Dev's independent, open-source multiboot project and a first-
 
 The generated menu uses GRUB's graphical gfxterm menu and profile-specific loopback entries. **A profile is only a boot recipe, not proof that an ISO is compatible.** Kernel/initrd paths and arguments must match the exact image. Some ISOs need extraction or a custom boot method.
 
+## Void Distro Center desktop interface
+
+Void Memingo exposes the catalogue through a dedicated Distro Center workspace. It supports text search and filters by operating-system category, family and architecture, with a details view for official project/download pages, release metadata and publisher verification guidance.
+
+The local ISO library remains read-only during inspection: it reports image metadata and SHA-256 without writing to removable devices. QEMU testing is isolated from physical media and uses virtual disk images. The existing Ventoy USB must remain untouched.
+
+Windows 11 x64 and ARM64 are catalogue-only entries at this stage. Their cards open Microsoft's official media pages. The application deliberately does not offer the Linux ISO downloader for Windows, does not claim Windows loopback or multiboot support, and does not attempt to redistribute Windows media. A Windows installation-media workflow must be designed and validated independently before it is enabled.
+
 ## Distribution Center
 
 The bundled catalogue includes 19 Linux distributions plus Windows 11 for x86-64 and ARM64. Windows is listed as an operating system, not mislabeled as a Linux distribution.
