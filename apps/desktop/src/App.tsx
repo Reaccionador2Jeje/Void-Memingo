@@ -28,7 +28,7 @@ type OpenTab = {
 
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
-type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null };
+type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean };
 type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
 
@@ -172,6 +172,7 @@ function App() {
   const [distroCategory, setDistroCategory] = useState('all');
   const [voidBootDownloadUrl, setVoidBootDownloadUrl] = useState('');
   const [voidBootDownloadName, setVoidBootDownloadName] = useState('distribution.iso');
+  const [voidBootExpectedSha256, setVoidBootExpectedSha256] = useState('');
   const [voidBootDownloadDirectory, setVoidBootDownloadDirectory] = useState<string | null>(null);
   const [voidBootDownloads, setVoidBootDownloads] = useState<BootDownload[]>([]);
   const [voidBootDownloadBusy, setVoidBootDownloadBusy] = useState(false);
@@ -639,7 +640,8 @@ function App() {
       await invoke<string>('start_void_boot_download', {
         url: voidBootDownloadUrl.trim(),
         fileName: voidBootDownloadName.trim(),
-        directory: voidBootDownloadDirectory
+        directory: voidBootDownloadDirectory,
+        expectedSha256: voidBootExpectedSha256.trim() || null
       });
       addLog('Void Boot: descarga iniciada. El archivo .part permite reanudarla si se pausa o se interrumpe.');
       await refreshVoidBootDownloads();
@@ -648,7 +650,7 @@ function App() {
     } finally {
       setVoidBootDownloadBusy(false);
     }
-  }, [addLog, refreshVoidBootDownloads, voidBootDownloadDirectory, voidBootDownloadName, voidBootDownloadUrl]);
+  }, [addLog, refreshVoidBootDownloads, voidBootDownloadDirectory, voidBootDownloadName, voidBootDownloadUrl, voidBootExpectedSha256]);
 
   const pauseVoidBootDownload = useCallback(async (id: string) => {
     try {
@@ -1551,6 +1553,8 @@ directory = ${quote(osOutputDir)}
                           <div className="distro-detail-section"><strong>DESCARGA A BIBLIOTECA</strong><span>Usa un enlace HTTPS directo a una ISO publicada por el proyecto. El destino se elige explícitamente.</span></div>
                           <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => setVoidBootDownloadUrl(event.target.value)} />
                           <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => setVoidBootDownloadName(event.target.value)} placeholder="distribution.iso" />
+                          <input aria-label="SHA-256 oficial esperado (opcional)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres, opcional)" spellCheck={false} />
+                          <small className="distro-checksum-hint">Pega el SHA-256 publicado por el proyecto. Si lo proporcionas, la descarga solo se finaliza cuando coincide.</small>
                           <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}><FolderOpen size={14} /> {voidBootDownloadDirectory ? voidBootDownloadDirectory.split(/[\\/]/).filter(Boolean).pop() : 'Elegir carpeta de biblioteca'}</button>
                           <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando descarga…' : 'Descargar / reanudar ISO'}</button>
                         </div>
@@ -1568,6 +1572,7 @@ directory = ${quote(osOutputDir)}
                   {!voidBootDirectory && <p>Selecciona una carpeta de biblioteca para inspeccionar archivos ISO existentes.</p>}
                   {voidBootEntries.map((entry) => <div className="distro-library-item" key={entry.path}><Disc3 size={16} /><div><strong>{entry.name}</strong><small>{(entry.size_bytes / (1024 * 1024)).toFixed(1)} MiB · SHA-256 {entry.sha256.slice(0, 16)}…</small></div><span>{entry.iso9660 ? 'ISO 9660' : 'No reconocida'}</span></div>)}
                   {voidBootDirectory && voidBootEntries.length === 0 && <div className="panel-empty">{voidBootBusy ? 'Inspeccionando…' : 'No se encontraron ISO en esta carpeta.'}</div>}
+                  {voidBootDownloads.length > 0 && <div className="distro-download-history"><strong>Transferencias</strong>{voidBootDownloads.map((task) => <div className="distro-transfer-item" key={task.id}><div><b>{task.file_name}</b><small>{task.status} · {task.total_bytes ? `${(task.downloaded_bytes / task.total_bytes * 100).toFixed(1)}%` : `${(task.downloaded_bytes / (1024 * 1024)).toFixed(1)} MiB`}</small>{task.sha256 && <small>SHA-256 {task.sha256.slice(0, 20)}… · {task.checksum_verified ? 'checksum oficial coincidente' : 'sin checksum oficial'}</small>}{task.error && <small className="distro-transfer-error">{task.error}</small>}</div>{(task.status === 'downloading' || task.status === 'queued') && <button className="secondary-button" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar</button>}</div>)}</div>}
                 </section>
                 <section className="distro-lab-panel">
                   <div className="distro-panel-heading"><div><strong>Void Boot · Laboratorio virtual</strong><small>QEMU y perfiles GRUB · sin USB físico</small></div><Cpu size={18} /></div>
