@@ -64,3 +64,23 @@ jobs:
         run: npm run build
       - name: Test desktop Rust backend
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+  boot-menu-iso:
+    name: Build bootable Void Boot menu ISO
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GRUB BIOS/UEFI and ISO tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build pre-boot graphical menu ISO
+        run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-demo.iso"
+      - name: Verify ISO artifact exists
+        run: test -s "$RUNNER_TEMP/void-boot-demo.iso"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-graphical-menu-iso
+          path: ${{ runner.temp }}/void-boot-demo.iso
+          if-no-files-found: error
