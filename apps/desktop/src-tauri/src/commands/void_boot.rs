@@ -20,6 +20,54 @@ pub fn verify_void_boot_iso_checksum_manifest(
         .map_err(|error| error.to_string())
 }
 
+
+#[tauri::command]
+pub fn load_void_boot_profile_catalog(profile_file: String) -> Result<Vec<::void_boot::profiles::BootProfile>, String> {
+    let catalog = ProfileCatalog::load(Path::new(&profile_file))
+        .map_err(|error| error.to_string())?;
+    Ok(catalog.profiles)
+}
+
+#[tauri::command]
+pub fn save_void_boot_profile_catalog(
+    profile_file: String,
+    profiles: Vec<::void_boot::profiles::BootProfile>,
+) -> Result<(), String> {
+    use std::io::Write;
+
+    let destination = Path::new(&profile_file);
+    if destination.extension().and_then(|value| value.to_str()) != Some("toml") {
+        return Err("El catálogo debe guardarse como archivo .toml.".to_string());
+    }
+    let parent = destination.parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    if !parent.is_dir() {
+        return Err("La carpeta de destino no existe.".to_string());
+    }
+    if std::fs::symlink_metadata(destination)
+        .map(|metadata| metadata.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        return Err("No se permite sobrescribir un enlace simbólico.".to_string());
+    }
+
+    let catalog = ProfileCatalog { profiles };
+    catalog.validate().map_err(|error| error.to_string())?;
+    let serialized = toml::to_string_pretty(&catalog)
+        .map_err(|error| error.to_string())?;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(destination)
+        .map_err(|error| error.to_string())?;
+    file.write_all(serialized.as_bytes())
+        .and_then(|_| file.sync_all())
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn preview_void_boot_menu(profile_file: String) -> Result<String, String> {
     let catalog = ProfileCatalog::load(Path::new(&profile_file))
