@@ -868,6 +868,7 @@ pub fn prepare_debian_live_project(
     reject_symlink_target(&package_list)?;
     let mut packages = project.packages.install.clone();
     packages.extend(project.desktop.applications.iter().cloned());
+    packages.extend(service_packages_for("debian", &project.filesystem.services_enabled));
     if !project.desktop.display_manager.is_empty() {
         packages.push(project.desktop.display_manager.clone());
     }
@@ -1078,6 +1079,7 @@ mod tests {
         assert!(package_list.contains("firefox-esr"));
         assert!(package_list.contains("task-xfce-desktop"));
         assert!(package_list.contains("lightdm"));
+        assert!(package_list.contains("network-manager"));
         let removal_hook = fs::read_to_string(root.join(".void-memingo/debian-live/atdev-os/config/hooks/normal/015-void-memingo-remove-packages.hook.chroot")).unwrap();
         assert!(removal_hook.contains("apt-get purge"));
         let system_hook = fs::read_to_string(root.join(".void-memingo/debian-live/atdev-os/config/hooks/normal/020-void-memingo-system-config.hook.chroot")).unwrap();
@@ -1282,6 +1284,29 @@ directory = "dist"
 }
 
 
+fn service_packages_for(distribution: &str, services: &[String]) -> Vec<String> {
+    let mut packages = Vec::new();
+    for service in services {
+        let package = match (distribution, service.as_str()) {
+            (_, "NetworkManager.service") if distribution == "debian" || distribution == "ubuntu" => Some("network-manager"),
+            ("arch", "NetworkManager.service") => Some("networkmanager"),
+            (_, "ssh.service") if distribution == "debian" || distribution == "ubuntu" => Some("openssh-server"),
+            ("arch", "ssh.service") => Some("openssh"),
+            (_, "bluetooth.service") => Some("bluez"),
+            (_, "cups.service") => Some("cups"),
+            ("arch", "avahi-daemon.service") => Some("avahi"),
+            (_, "avahi-daemon.service") => Some("avahi-daemon"),
+            _ => None,
+        };
+        if let Some(package) = package {
+            packages.push(package.to_string());
+        }
+    }
+    packages.sort();
+    packages.dedup();
+    packages
+}
+
 fn desktop_packages_for(distribution: &str, environment: &str) -> Vec<&'static str> {
     match (distribution, environment) {
         (_, "none") => vec![],
@@ -1353,11 +1378,12 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
 
     let mut packages = project.packages.install.clone();
     packages.extend(project.desktop.applications.iter().cloned());
+    packages.extend(service_packages_for(distribution, &project.filesystem.services_enabled));
     packages.extend(desktop_packages_for(distribution, &project.desktop.environment).iter().map(|p| p.to_string()));
-    if project.filesystem.services_enabled.iter().any(|service| service == "NetworkManager.service") {
-        packages.push(if distribution == "arch" { "networkmanager".into() } else { "network-manager".into() });
+    if !project.desktop.display_manager.is_empty() {
+        packages.push(project.desktop.display_manager.clone());
     }
-    if distribution == "ubuntu" {
+remove old NetworkManager special case    if distribution == "ubuntu" {
         packages.push("casper".into());
         if project.desktop.environment != "none" {
             packages.push("discover".into());
@@ -1451,14 +1477,19 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         {
             use std::os::unix::fs::symlink;
             let mut services = project.filesystem.services_enabled.clone();
-            let display_manager = match project.desktop.environment.as_str() {
-                "gnome" => Some("gdm.service"),
-                "kde-plasma" => Some("sddm.service"),
-                "xfce" | "lxqt" | "cinnamon" | "mate" => Some("lightdm.service"),
-                _ => None,
+            let display_manager = if !project.desktop.display_manager.is_empty() {
+                let name = project.desktop.display_manager.trim_end_matches(".service");
+                Some(format!("{name}.service"))
+            } else {
+                match project.desktop.environment.as_str() {
+                    "gnome" => Some("gdm.service".to_string()),
+                    "kde-plasma" => Some("sddm.service".to_string()),
+                    "xfce" | "lxqt" | "cinnamon" | "mate" => Some("lightdm.service".to_string()),
+                    _ => None,
+                }
             };
             if let Some(service) = display_manager {
-                services.push(service.into());
+                services.push(service);
             }
             services.sort();
             services.dedup();
