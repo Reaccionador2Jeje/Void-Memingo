@@ -1858,6 +1858,219 @@ echo "Arch ISO boot catalog, SHA-256 and build manifest validated."
     })
 }
 
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildArtifactCheck {
+    pub id: String,
+    pub label: String,
+    pub passed: bool,
+    pub detail: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildArtifactReport {
+    pub valid: bool,
+    pub iso_path: String,
+    pub size_bytes: u64,
+    pub sha256: Option<String>,
+    pub backend: Option<String>,
+    pub checks: Vec<BuildArtifactCheck>,
+}
+
+fn artifact_check(id: &str, label: &str, passed: bool, detail: String) -> BuildArtifactCheck {
+    BuildArtifactCheck {
+        id: id.into(),
+        label: label.into(),
+        passed,
+        detail,
+    }
+}
+
+fn regular_file_size(path: &Path) -> Result<u64, String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("Cannot inspect {}: {error}", path.display()))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(format!("{} is not a regular file.", path.display()));
+    }
+    Ok(metadata.len())
+}
+
+#[tauri::command]
+pub fn validate_os_build_artifact(
+    workspace: String,
+    project_toml: String,
+) -> Result<BuildArtifactReport, String> {
+    let root = super::workspace::canonical_root(&workspace)?;
+    let project: OsProject = toml::from_str(&project_toml)
+        .map_err(|error| format!("Invalid void-os.toml: {error}"))?;
+    let validation = validate_project(&project);
+    if !validation.valid {
+        return Err(format!("Project validation failed: {}", validation.errors.join("; ")));
+    }
+
+    let output_relative = if project.output.directory.is_empty() {
+        "dist"
+    } else {
+        project.output.directory.as_str()
+    };
+    if !safe_project_relative_path(output_relative) || output_relative.is_empty() {
+        return Err("ISO output directory must be a safe relative path inside the project.".into());
+    }
+    let output_root = resolve_project_path_no_symlinks(&root, output_relative)?
+        .ok_or_else(|| format!("ISO output directory '{}' does not exist.", output_relative))?;
+    if !output_root.is_dir() {
+        return Err("ISO output path is not a directory.".into());
+    }
+
+    let iso_name = if project.output.iso_name.is_empty() {
+        format!("{}-{}.iso", project.project.id, project.project.version)
+    } else {
+        project.output.iso_name.clone()
+    };
+    if !safe_iso_filename(&iso_name) {
+        return Err("Configured ISO filename is invalid.".into());
+    }
+
+    let iso_path = output_root.join(&iso_name);
+    let checksum_path = output_root.join(format!("{iso_name}.sha256"));
+    let manifest_path = output_root.join(format!("{iso_name}.manifest.toml"));
+    let mut checks = Vec::new();
+
+    let size_bytes = match regular_file_size(&iso_path) {
+        Ok(size) if size > 0 => {
+            checks.push(artifact_check("iso-file", "Archivo ISO", true, format!("Archivo regular de {size} bytes.")));
+            size
+        }
+        Ok(_) => {
+            checks.push(artifact_check("iso-file", "Archivo ISO", false, "El archivo ISO está vacío.".into()));
+            0
+        }
+        Err(error) => {
+            checks.push(artifact_check("iso-file", "Archivo ISO", false, error));
+            0
+        }
+    };
+
+    let actual_sha256 = if size_bytes > 0 {
+        match Command::new("sha256sum").arg(&iso_path).output() {
+            Ok(output) if output.status.success() => {
+                String::from_utf8_lossy(&output.stdout)
+                    .split_whitespace()
+                    .next()
+                    .map(str::to_string)
+            }
+            Ok(output) => {
+                checks.push(artifact_check(
+                    "sha256-tool", "Herramienta SHA-256", false,
+                    String::from_utf8_lossy(&output.stderr).trim().to_string()
+                ));
+                None
+            }
+            Err(error) => {
+                checks.push(artifact_check("sha256-tool", "Herramienta SHA-256", false, error.to_string()));
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    if let Some(actual) = actual_sha256.as_ref() {
+        match regular_file_size(&checksum_path).and_then(|_| {
+            fs::read_to_string(&checksum_path)
+                .map_err(|error| format!("Cannot read checksum file: {error}"))
+        }) {
+            Ok(contents) => {
+                let expected = contents.split_whitespace().next().unwrap_or_default();
+                let matches = expected.eq_ignore_ascii_case(actual) && expected.len() == 64;
+                checks.push(artifact_check(
+                    "sha256", "Checksum SHA-256", matches,
+                    if matches { format!("SHA-256 verificado: {actual}") }
+                    else { "El checksum no coincide con el archivo ISO.".into() }
+                ));
+            }
+            Err(error) => checks.push(artifact_check("sha256", "Checksum SHA-256", false, error)),
+        }
+    } else {
+        checks.push(artifact_check("sha256", "Checksum SHA-256", false, "No se pudo calcular el SHA-256 del ISO.".into()));
+    }
+
+    let file_check = if size_bytes > 0 {
+        match Command::new("file").arg("-b").arg(&iso_path).output() {
+            Ok(output) => {
+                let detail = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                let passed = output.status.success() && detail.to_ascii_lowercase().contains("iso 9660");
+                artifact_check("iso9660", "Formato ISO 9660", passed, detail)
+            }
+            Err(error) => artifact_check("iso9660", "Formato ISO 9660", false, error.to_string()),
+        }
+    } else {
+        artifact_check("iso9660", "Formato ISO 9660", false, "No hay un ISO válido que inspeccionar.".into())
+    };
+    checks.push(file_check);
+
+    let boot_check = if size_bytes > 0 {
+        match Command::new("xorriso")
+            .arg("-indev").arg(&iso_path)
+            .arg("-report_el_torito").arg("plain")
+            .output()
+        {
+            Ok(output) => {
+                let detail = format!(
+                    "{}{}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                let passed = output.status.success() && detail.to_ascii_lowercase().contains("el torito");
+                artifact_check(
+                    "el-torito", "Catálogo de arranque El Torito", passed,
+                    if passed { "Se detectó el catálogo de arranque.".into() }
+                    else { detail.trim().chars().take(600).collect() }
+                )
+            }
+            Err(error) => artifact_check("el-torito", "Catálogo de arranque El Torito", false, error.to_string()),
+        }
+    } else {
+        artifact_check("el-torito", "Catálogo de arranque El Torito", false, "No hay un ISO válido que inspeccionar.".into())
+    };
+    checks.push(boot_check);
+
+    let (backend, manifest_check) = match regular_file_size(&manifest_path)
+        .and_then(|_| fs::read_to_string(&manifest_path).map_err(|error| format!("Cannot read build manifest: {error}")))
+    {
+        Ok(contents) => match toml::from_str::<toml::Value>(&contents) {
+            Ok(manifest) => {
+                let manifest_project = manifest.get("project").and_then(|value| value.get("id")).and_then(toml::Value::as_str);
+                let manifest_backend = manifest.get("backend").and_then(toml::Value::as_str).map(str::to_string);
+                let passed = manifest_project == Some(project.project.id.as_str()) && manifest_backend.is_some();
+                (
+                    manifest_backend.clone(),
+                    artifact_check(
+                        "manifest", "Manifiesto de compilación", passed,
+                        if passed { format!("Manifiesto asociado al proyecto {}.", project.project.id) }
+                        else { "El manifiesto no coincide con el proyecto o no declara backend.".into() }
+                    )
+                )
+            }
+            Err(error) => (None, artifact_check("manifest", "Manifiesto de compilación", false, error.to_string()))
+        },
+        Err(error) => (None, artifact_check("manifest", "Manifiesto de compilación", false, error))
+    };
+    checks.push(manifest_check);
+
+    let valid = checks.iter().all(|check| check.passed);
+    Ok(BuildArtifactReport {
+        valid,
+        iso_path: iso_path.to_string_lossy().into_owned(),
+        size_bytes,
+        sha256: actual_sha256,
+        backend,
+        checks,
+    })
+}
+
 #[tauri::command]
 pub fn prepare_os_build_project(workspace: String, project_toml: String) -> Result<BuildPreparation, String> {
     let root = super::workspace::canonical_root(&workspace)?;
