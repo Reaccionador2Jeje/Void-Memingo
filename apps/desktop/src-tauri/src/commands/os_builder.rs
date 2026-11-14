@@ -1076,13 +1076,14 @@ mod tests {
 
     #[test]
     fn generates_ubuntu_livecd_rootfs_backend() {
-        let (root, project) = temporary_os_project("ubuntu", "24.04 LTS", "amd64");
+        let (root, mut project) = temporary_os_project("ubuntu", "24.04 LTS", "amd64");
+        project.desktop.environment = "xfce".into();
         let root = fs::canonicalize(root).unwrap();
         let prepared = prepare_non_debian_project(&root, &project).expect("Ubuntu backend profile");
         let script = fs::read_to_string(&prepared.script_path).unwrap();
         assert!(script.contains("/usr/share/livecd-rootfs/live-build/auto/config"));
-        assert!(script.contains("PROJECT=ubuntu SUBPROJECT=live SUITE=noble"));
-        assert!(script.contains("livecd.ubuntu.iso"));
+        assert!(script.contains("PROJECT=xubuntu SUBPROJECT=live SUITE=noble"));
+        assert!(script.contains("livecd.xubuntu.iso"));
         assert!(script.contains("config/includes.chroot"));
         assert!(script.contains("void-memingo.list.chroot"));
         let system_hook = fs::read_to_string(root.join(".void-memingo/ubuntu-live/atdev-os/hooks/020-void-memingo-system-config.hook.chroot")).unwrap();
@@ -1189,10 +1190,10 @@ fn desktop_packages_for(distribution: &str, environment: &str) -> Vec<&'static s
         ("debian", "lxqt") => vec!["task-lxqt-desktop"],
         ("debian", "cinnamon") => vec!["task-cinnamon-desktop"],
         ("debian", "mate") => vec!["task-mate-desktop"],
-        ("ubuntu", "gnome") => vec!["ubuntu-desktop-minimal"],
-        ("ubuntu", "kde-plasma") => vec!["kubuntu-desktop"],
-        ("ubuntu", "xfce") => vec!["xubuntu-desktop"],
-        ("ubuntu", "lxqt") => vec!["lubuntu-desktop"],
+        ("ubuntu", "gnome") => vec![],
+        ("ubuntu", "kde-plasma") => vec![],
+        ("ubuntu", "xfce") => vec![],
+        ("ubuntu", "lxqt") => vec![],
         ("ubuntu", "cinnamon") => vec!["ubuntu-cinnamon-desktop"],
         ("ubuntu", "mate") => vec!["ubuntu-mate-desktop"],
         ("arch", "gnome") => vec!["gnome", "gnome-extra"],
@@ -1403,6 +1404,12 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
             "26.04 LTS" => "resolute",
             other => return Err(format!("Unsupported Ubuntu release: {other}")),
         };
+        let ubuntu_project = match project.desktop.environment.as_str() {
+            "kde-plasma" => "kubuntu",
+            "xfce" => "xubuntu",
+            "lxqt" => "lubuntu",
+            _ => "ubuntu",
+        };
         let package_file = build_root.join("packages.list");
         let hooks_dir = build_root.join("hooks");
         reject_symlink_target(&package_file)?;
@@ -1415,16 +1422,16 @@ AUTO=/usr/share/livecd-rootfs/live-build/auto
 command -v lb >/dev/null 2>&1 || {{ echo "Install Ubuntu live-build." >&2; exit 127; }}
 command -v debootstrap >/dev/null 2>&1 || {{ echo "Install debootstrap." >&2; exit 127; }}
 cd {build_dir}
-find . -maxdepth 1 -type f -name 'livecd.ubuntu.iso' -delete
-ARCH=amd64 PROJECT=ubuntu SUBPROJECT=live SUITE={codename} "$AUTO/clean"
-ARCH=amd64 PROJECT=ubuntu SUBPROJECT=live SUITE={codename} "$AUTO/config"
+find . -maxdepth 1 -type f -name 'livecd.{ubuntu_project}.iso' -delete
+ARCH=amd64 PROJECT={ubuntu_project} SUBPROJECT=live SUITE={codename} "$AUTO/clean"
+ARCH=amd64 PROJECT={ubuntu_project} SUBPROJECT=live SUITE={codename} "$AUTO/config"
 mkdir -p config/package-lists config/includes.chroot config/hooks/normal
 cp {packages_file} config/package-lists/void-memingo.list.chroot
 cp -a {overlay}/. config/includes.chroot/
 if [ -d {hooks} ]; then cp -a {hooks}/. config/hooks/normal/; fi
 lb config --iso-volume {label}
-ARCH=amd64 PROJECT=ubuntu SUBPROJECT=live SUITE={codename} "$AUTO/build"
-image=livecd.ubuntu.iso
+ARCH=amd64 PROJECT={ubuntu_project} SUBPROJECT=live SUITE={codename} "$AUTO/build"
+image=livecd.{ubuntu_project}.iso
 [ -s "$image" ] || {{ echo "livecd-rootfs did not produce livecd.ubuntu.iso." >&2; exit 1; }}
 mkdir -p {output_dir}
 [ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
@@ -1436,6 +1443,7 @@ echo "Ubuntu live ISO validated and SHA-256 checksum created."
 "#,
             build_dir = shell_quote(&build_root.to_string_lossy()),
             codename = codename,
+            ubuntu_project = ubuntu_project,
             packages_file = shell_quote(&package_file.to_string_lossy()),
             overlay = shell_quote(&overlay_target.to_string_lossy()),
             hooks = shell_quote(&hooks_dir.to_string_lossy()),
