@@ -745,8 +745,7 @@
     ],
     "editions": [
       "Boot ISO",
-      "DVD ISO",
-      "Cloud images"
+      "DVD ISO"
     ],
     "release_model": "rolling",
     "formats": [
@@ -775,8 +774,7 @@
     ],
     "editions": [
       "Minimal Installation CD",
-      "LiveGUI",
-      "Stage 3"
+      "LiveGUI"
     ],
     "release_model": "rolling",
     "formats": [
