@@ -75,6 +75,19 @@ fn checksum_matches(actual: &str, expected: Option<&str>) -> bool {
     expected.is_none_or(|expected| actual.eq_ignore_ascii_case(expected))
 }
 
+fn sha256_reader(reader: &mut impl Read) -> Result<String, String> {
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; BUFFER_SIZE];
+    loop {
+        let count = reader.read(&mut buffer).map_err(|error| error.to_string())?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 fn update_progress(
     tasks: &Arc<Mutex<HashMap<String, DownloadTask>>>,
     id: &str,
@@ -360,18 +373,7 @@ impl DownloadManager {
                     );
                 }
                 let mut merged_file = File::open(&merged_path).map_err(|e| e.to_string())?;
-                let mut hasher = Sha256::new();
-                let mut hash_buffer = [0u8; BUFFER_SIZE];
-                loop {
-                    let count = merged_file
-                        .read(&mut hash_buffer)
-                        .map_err(|e| e.to_string())?;
-                    if count == 0 {
-                        break;
-                    }
-                    hasher.update(&hash_buffer[..count]);
-                }
-                let actual_sha256 = format!("{:x}", hasher.finalize());
+                let actual_sha256 = sha256_reader(&mut merged_file)?;
                 if let Some(expected) = expected_sha256.as_ref() {
                     if !checksum_matches(&actual_sha256, Some(expected)) {
                         let _ = fs::remove_file(&merged_path);
@@ -463,6 +465,15 @@ mod tests {
         assert_eq!(normalize_expected_sha256(None).unwrap(), None);
         assert!(normalize_expected_sha256(Some("not-a-checksum".into())).is_err());
         assert!(normalize_expected_sha256(Some("a".repeat(63))).is_err());
+    }
+
+    #[test]
+    fn computes_sha256_for_downloaded_bytes() {
+        let mut reader = std::io::Cursor::new(b"abc");
+        assert_eq!(
+            sha256_reader(&mut reader).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 
     #[test]
