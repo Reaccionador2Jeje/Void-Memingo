@@ -30,6 +30,7 @@ cp "$ROOT_DIR"/apps/void-boot/profiles/*.toml "$PACKAGE_DIR/payload/boot/void-bo
 cp "$ROOT_DIR/apps/void-boot/README.md" "$PACKAGE_DIR/README-VOID-BOOT.md"
 cp "$ROOT_DIR/scripts/install-void-boot.sh" "$PACKAGE_DIR/install.sh"
 cp "$ROOT_DIR/scripts/install-void-boot.ps1" "$PACKAGE_DIR/install.ps1"
+chmod +x "$PACKAGE_DIR/install.sh"
 cp "$ROOT_DIR/apps/void-boot/installers/web/index.html" "$PACKAGE_DIR/web-installer.html"
 
 cat > "$PACKAGE_DIR/INSTALLATION-STATUS.txt" <<'STATUS'
