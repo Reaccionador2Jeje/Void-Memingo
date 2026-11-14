@@ -107,7 +107,7 @@ impl ProfileCatalog {
 set default=0
 set timeout=10
 set timeout_style=menu
-if loadfont unicode; then
+if loadfont $prefix/fonts/unicode.pf2; then
   set gfxmode=auto
   insmod all_video
   insmod gfxterm
@@ -119,6 +119,8 @@ insmod fat
 insmod ext2
 insmod iso9660
 insmod loopback
+insmod search
+insmod search_fs_file
 insmod linux
 set theme=$prefix/themes/void-boot/theme.txt
 "#,
@@ -135,7 +137,7 @@ set theme=$prefix/themes/void-boot/theme.txt
                 r#"
 menuentry "{}" --class atdev-linux {{
   set isofile="/{}"
-  if [ -f "$isofile" ]; then
+  if search --no-floppy --file --set=root "$isofile"; then
     loopback loop "$isofile"
     {}
     initrd (loop)/{}
