@@ -297,22 +297,51 @@ function App() {
     }
   }, [refreshBuildJobs, workspace]);
 
-  const handleTerminalCommandFinished = useCallback((exitCode: number, sessionId: string) => {
+  const handleTerminalCommandFinished = useCallback(async (exitCode: number, sessionId: string) => {
     if (activeBuildTerminalSessionRef.current !== sessionId) return;
     activeBuildTerminalSessionRef.current = null;
     setBuildRunning(false);
     addLog(exitCode === 0
-      ? 'Proceso finalizado correctamente.'
+      ? 'Proceso de terminal finalizado; verificando el artefacto ISO.'
       : 'Proceso finalizado con código ' + exitCode + '.');
     const jobId = activeBuildJobRef.current;
     if (jobId && workspace) {
-      const status = exitCode === 0 ? 'succeeded' : (exitCode === 130 || exitCode === 143 ? 'cancelled' : 'failed');
-      const stage = status === 'succeeded' ? 'completed' : status;
-      buildStageRef.current = stage;
-      setBuildStage(stage);
-      void invoke<BuildJobRecord>('update_os_build_job', {
-        workspace, jobId, status, stage, exitCode
-      }).then(() => refreshBuildJobs()).catch((error) => addLog('No se pudo cerrar el registro del build: ' + String(error)));
+      let finalStatus = exitCode === 0 ? 'succeeded' : (exitCode === 130 || exitCode === 143 ? 'cancelled' : 'failed');
+      let finalStage = finalStatus === 'succeeded' ? 'completed' : finalStatus;
+      let finalExitCode = exitCode;
+      if (exitCode === 0) {
+        buildStageRef.current = 'verifying-artifact';
+        setBuildStage('verifying-artifact');
+        try {
+          const projectToml = await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
+          const report = await invoke<BuildArtifactReport>('validate_os_build_artifact', { workspace, projectToml });
+          setArtifactReport(report);
+          if (!report.valid) {
+            finalStatus = 'failed';
+            finalStage = 'artifact-verification-failed';
+            finalExitCode = 1;
+            addLog('La compilación terminó, pero la verificación del ISO falló. Revisa el informe de artefacto.');
+          } else {
+            addLog('ISO verificado automáticamente: checksum, formato, arranque y manifiesto correctos.');
+          }
+        } catch (error) {
+          setArtifactReport(null);
+          finalStatus = 'failed';
+          finalStage = 'artifact-verification-failed';
+          finalExitCode = 1;
+          addLog('No se pudo verificar automáticamente el ISO: ' + String(error));
+        }
+      }
+      buildStageRef.current = finalStage;
+      setBuildStage(finalStage);
+      try {
+        await invoke<BuildJobRecord>('update_os_build_job', {
+          workspace, jobId, status: finalStatus, stage: finalStage, exitCode: finalExitCode
+        });
+        await refreshBuildJobs();
+      } catch (error) {
+        addLog('No se pudo cerrar el registro del build: ' + String(error));
+      }
       activeBuildJobRef.current = null;
       setActiveBuildJobId(null);
     }
