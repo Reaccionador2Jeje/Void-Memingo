@@ -74,20 +74,19 @@ Installer generation, safe partition-selection UI, installation storage/filesyst
 
 The IDE includes bounded workspace text search, persistent editor preferences, Tab indentation, Ctrl+S, and basic JSON/TOML syntax diagnostics. Full language-server diagnostics for programming languages, project-wide symbol indexing, language services and debugger integration remain planned.
 
-## Void Boot Distribution Center
+## Void Distro Center
 
-The Void Boot sidebar exposes the bundled distribution catalogue from the shared `void-boot` Rust library. Each entry shows its project family, architectures and editions, with a link to the official download page.
+Void Memingo provides a dedicated, full-width Distro Center workspace backed by the shared `void-boot` Rust catalogue. The interface supports text search and filters by category (Linux, Windows, BSD and other systems), family and architecture. Selecting an entry opens a detail sheet with official project and media pages, editions, architectures, release model and verification guidance.
 
-The Flash-style downloader accepts a direct HTTPS ISO URL copied from the selected publisher's official download page. It probes HTTP Range support, then divides the file into up to eight byte ranges and downloads them concurrently. Each range is stored separately so pause/retry can resume incomplete parts without discarding completed ones. The UI displays total downloaded bytes, total size and connection count. When all ranges finish, Void Boot joins them in order into the ISO file, which can then be scanned in the local ISO library.
+The catalogue currently contains 19 Linux distributions, Windows 11 x64 and ARM64, FreeBSD, OpenBSD, NetBSD and ReactOS. Windows and the other non-Linux systems are explicitly typed as external operating systems. Their detail pages link to the publishers' official sources but do not offer the Linux ISO download workflow or claim multiboot compatibility. ReactOS is clearly marked as alpha in its catalogue description.
 
-Important limitations: the catalogue currently stores official landing pages, not versioned direct ISO URLs or publisher checksum metadata. The downloader therefore does not automatically choose a mirror or authenticate the ISO against the publisher's checksum/signature yet; the displayed SHA-256 is an inspection digest, not proof of authenticity. A direct link must be copied from the official publisher page. Physical USB writing remains disabled until per-distribution boot profiles and the protected multiboot installation flow are validated. The installer must preserve existing distributions and never overwrite the whole device for each ISO.
+For Linux entries with the supported direct-ISO delivery mode, the downloader accepts a direct HTTPS ISO URL copied from the selected publisher's official download page. It probes HTTP Range support, then divides the file into up to eight byte ranges and downloads them concurrently. Each range is stored separately so pause/retry can resume incomplete parts without discarding completed parts. The UI displays transferred bytes, total size and connection count.
 
+The local ISO library is read-only: it reports ISO metadata and SHA-256 but does not write to removable devices. The SHA-256 digest is an inspection fingerprint, not proof of publisher authenticity. Version-specific official checksums/signatures still need a dedicated verification workflow. QEMU testing uses disposable virtual images and snapshot mode; the user's Ventoy USB must remain untouched. Physical USB partitioning, formatting, bootloader installation and writes remain disabled.
 
 ### Descarga directa y pruebas QEMU
 
-El Distribution Center declara para las 19 entradas el mismo método de entrega: descargar el archivo ISO directamente en el directorio de destino elegido. Si el usuario selecciona el punto de montaje de la partición de datos VOIDDATA, la descarga se escribe allí y no crea una segunda copia en el disco interno. El gestor conserva partes reanudables y usa hasta ocho rangos HTTP cuando el servidor lo admite.
-
-Esto **no equivale a escribir una imagen cruda sobre el dispositivo**: no formatea, no cambia particiones ni instala el cargador de arranque. Cada ISO necesita un perfil GRUB validado antes de anunciarse como arrancable. Los enlaces directos y checksums oficiales todavía deben configurarse por versión.
+La descarga directa está habilitada únicamente para entradas Linux con el método de entrega compatible. Windows, BSD y ReactOS son fichas de catálogo con enlaces oficiales; no se descargan mediante el flujo Linux ni se marcan como compatibles con arranque multiboot sin pruebas específicas.
 
 Para probar una imagen virtual UEFI sin tocar unidades físicas:
 
