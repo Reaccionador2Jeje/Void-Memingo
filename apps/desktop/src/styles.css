@@ -802,3 +802,19 @@ button:disabled {
 .diagnostic-item{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid #53373c;border-radius:5px;background:#21191e}
 .diagnostic-item strong{color:#e5a0a5;font-size:10px}
 .diagnostic-item span{color:#b9aeb4;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+
+
+/* Persistent OS Builder job history */
+.build-job-log {
+  max-height: 280px;
+  overflow: auto;
+  margin: 10px 0 0;
+  padding: 12px;
+  border: 1px solid #303746;
+  border-radius: 6px;
+  background: #10141b;
+  color: #cbd3e1;
+  font: 10px/1.55 "JetBrains Mono", "Cascadia Code", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
