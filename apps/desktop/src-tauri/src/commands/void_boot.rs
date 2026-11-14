@@ -12,6 +12,15 @@ pub fn scan_void_boot_iso_directory(directory: String) -> Result<Vec<IsoEntry>, 
 }
 
 #[tauri::command]
+pub fn verify_void_boot_iso_checksum_manifest(
+    iso_path: String,
+    manifest_path: String,
+) -> Result<(), String> {
+    ::void_boot::verify_iso_sha256_manifest(Path::new(&iso_path), Path::new(&manifest_path))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn preview_void_boot_menu(profile_file: String) -> Result<String, String> {
     let catalog = ProfileCatalog::load(Path::new(&profile_file))
         .map_err(|error| error.to_string())?;
