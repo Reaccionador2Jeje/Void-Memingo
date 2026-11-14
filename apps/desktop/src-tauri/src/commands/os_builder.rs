@@ -523,13 +523,18 @@ fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'st
             ("arch-chroot", "arch-install-scripts"),
             ("bsdtar", "libarchive"),
             ("mkfs.fat", "dosfstools"),
+            ("mkfs.ext4", "e2fsprogs"),
             ("mtools", "mtools"),
             ("mount", "util-linux"),
             ("unshare", "util-linux (user namespaces)"),
+            ("awk", "awk"),
+            ("find", "findutils"),
+            ("gzip", "gzip"),
+            ("openssl", "openssl"),
+            ("sed", "sed"),
             ("mksquashfs", "squashfs-tools"),
             ("xorriso", "libisoburn / xorriso"),
             ("zstd", "zstd"),
-            ("rsync", "rsync"),
             ("file", "file"),
             ("sha256sum", "coreutils"),
         ]),
@@ -915,6 +920,7 @@ pub fn prepare_debian_live_project(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn sample() -> OsProject {
         OsProject {
