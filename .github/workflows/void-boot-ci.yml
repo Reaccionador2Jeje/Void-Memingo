@@ -4,6 +4,7 @@ on:
   push:
     branches: [feature/void-boot-foundation]
     paths:
+      - "scripts/test-void-boot-qemu.sh"
       - "apps/void-boot/**"
       - "apps/desktop/**"
       - "docs/VOID_BOOT_ARCHITECTURE.md"
@@ -12,6 +13,7 @@ on:
       - ".github/workflows/void-boot-ci.yml"
   pull_request:
     paths:
+      - "scripts/test-void-boot-qemu.sh"
       - "apps/void-boot/**"
       - "apps/desktop/**"
       - "docs/VOID_BOOT_ARCHITECTURE.md"
