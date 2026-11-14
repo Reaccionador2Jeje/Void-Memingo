@@ -39,6 +39,22 @@ CI also builds a serial-console test image and smoke-tests the menu using QEMU w
 
 The render command writes grub.cfg and copies the graphical theme into the output folder. It does not install GRUB or write to a USB drive. Void Memingo can also open a profile TOML file and show the generated GRUB menu without writing it.
 
+## ZIP installer package
+
+The Void Boot CI workflow builds a `void-boot-installer-zip` artifact. It contains the generated GRUB menu, theme, profile catalogues, and three installation entry points:
+
+- `install.sh` — Linux/macOS terminal installer.
+- `install.ps1` — Windows PowerShell installer.
+- `web-installer.html` — browser-based folder copier for supported browsers.
+
+To build the package locally from the repository root (requires Rust stable and `zip`):
+
+    bash scripts/package-void-boot.sh
+
+To install from an extracted ZIP, run `./install.sh` or `./install.ps1`, or open `web-installer.html` and select the extracted `Void-Boot` folder followed by a destination directory.
+
+**Important:** this first package deploys menu, theme and profile files only. It does not install GRUB, create EFI boot files, partition or format storage, or make a USB bootable. A real BIOS/UEFI USB installer remains a separate milestone and must pass disposable virtual-disk tests before physical-media support.
+
 ## Intended removable-media layout
 
     /boot/grub/grub.cfg
