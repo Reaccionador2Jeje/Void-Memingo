@@ -614,6 +614,7 @@ pub struct BuildPreparation {
     pub backend: String,
     pub build_directory: String,
     pub script_path: String,
+    pub boot_test_script_path: Option<String>,
     pub commands: Vec<String>,
     pub notes: Vec<String>,
 }
@@ -1038,6 +1039,7 @@ printf '%s\\n' "$boot_report" | grep -qi 'El Torito' || {{ echo 'ISO has no El T
         backend: "Debian Live / live-build".into(),
         build_directory: build_directory.clone(),
         script_path: script_display.clone(),
+        boot_test_script_path: Some(qemu_test.to_string_lossy().into_owned()),
         commands: vec![
             format!("cd {}", shell_quote(&build_directory)),
             format!("sudo {}", shell_quote(&script_display)),
@@ -1718,6 +1720,7 @@ echo "Arch ISO boot catalog, SHA-256 and build manifest validated."
         backend: backend.into(),
         build_directory: build_root.to_string_lossy().into_owned(),
         script_path: script_path.to_string_lossy().into_owned(),
+        boot_test_script_path: Some(qemu_test.to_string_lossy().into_owned()),
         commands: vec![
             format!("cd {}", shell_quote(&build_root.to_string_lossy())),
             if distribution == "arch" {
