@@ -434,6 +434,22 @@ pub fn check_os_build_preflight(workspace: String, project_toml: String) -> Resu
         }
 
         let qemu_available = command_available("qemu-system-x86_64");
+        let uefi_firmware_available = [
+            "/usr/share/OVMF/OVMF_CODE.fd",
+            "/usr/share/edk2/x64/OVMF_CODE.4m.fd",
+            "/usr/share/edk2-ovmf/x64/OVMF_CODE.fd",
+        ].iter().any(|path| Path::new(path).is_file());
+        checks.push(PreflightCheck {
+            id: "uefi-firmware".into(),
+            label: "Firmware UEFI OVMF (prueba opcional)".into(),
+            available: uefi_firmware_available,
+            required: false,
+            detail: if uefi_firmware_available {
+                "Se encontró firmware OVMF para pruebas UEFI en QEMU.".into()
+            } else {
+                "No se encontró OVMF; la prueba virtual UEFI no estará disponible.".into()
+            },
+        });
         checks.push(PreflightCheck {
             id: "qemu-system-x86_64".into(),
             label: "QEMU (prueba de arranque opcional)".into(),
@@ -621,6 +637,7 @@ pub struct BuildPreparation {
     pub build_directory: String,
     pub script_path: String,
     pub boot_test_script_path: Option<String>,
+    pub uefi_boot_test_script_path: Option<String>,
     pub commands: Vec<String>,
     pub notes: Vec<String>,
 }
@@ -742,6 +759,44 @@ exec qemu-system-x86_64 -m 2048 -smp 2 -cdrom "$ISO" -boot d
         let mut permissions = fs::metadata(&path).map_err(|error| format!("Cannot inspect QEMU test script: {error}"))?.permissions();
         permissions.set_mode(0o755);
         fs::set_permissions(&path, permissions).map_err(|error| format!("Cannot make QEMU test script executable: {error}"))?;
+    }
+    Ok(path)
+}
+
+fn write_qemu_uefi_boot_test(root: &Path, iso: &Path) -> Result<PathBuf, String> {
+    let path = root.join("test-boot-uefi.sh");
+    reject_symlink_target(&path)?;
+    let script = format!(r#"#!/bin/sh
+set -eu
+ISO={}
+[ -s "$ISO" ] || {{ echo "Build the ISO before running this test." >&2; exit 1; }}
+command -v qemu-system-x86_64 >/dev/null 2>&1 || {{ echo "Install qemu-system-x86." >&2; exit 127; }}
+OVMF_CODE=""
+OVMF_VARS=""
+for pair in \
+  "/usr/share/OVMF/OVMF_CODE.fd:/usr/share/OVMF/OVMF_VARS.fd" \
+  "/usr/share/edk2/x64/OVMF_CODE.4m.fd:/usr/share/edk2/x64/OVMF_VARS.4m.fd" \
+  "/usr/share/edk2-ovmf/x64/OVMF_CODE.fd:/usr/share/edk2-ovmf/x64/OVMF_VARS.fd"; do
+  code="${{pair%%:*}}"
+  vars="${{pair#*:}}"
+  if [ -f "$code" ] && [ -f "$vars" ]; then OVMF_CODE="$code"; OVMF_VARS="$vars"; break; fi
+done
+[ -n "$OVMF_CODE" ] && [ -n "$OVMF_VARS" ] || {{ echo "Install OVMF/edk2-ovmf UEFI firmware." >&2; exit 127; }}
+VARS_COPY=$(mktemp)
+cp "$OVMF_VARS" "$VARS_COPY"
+trap 'rm -f "$VARS_COPY"' EXIT HUP INT TERM
+qemu-system-x86_64 -m 2048 -smp 2 \
+  -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+  -drive if=pflash,format=raw,file="$VARS_COPY" \
+  -cdrom "$ISO" -boot d
+"#, shell_quote(&iso.to_string_lossy()));
+    fs::write(&path, script).map_err(|error| format!("Cannot write QEMU UEFI test script: {error}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = fs::metadata(&path).map_err(|error| format!("Cannot inspect QEMU UEFI test script: {error}"))?.permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&path, permissions).map_err(|error| format!("Cannot make QEMU UEFI test script executable: {error}"))?;
     }
     Ok(path)
 }
@@ -882,6 +937,7 @@ pub fn prepare_debian_live_project(
     reject_existing_output(&output_manifest)?;
     let build_manifest = write_build_manifest(&build_root, &project, "debian-live-build")?;
     let qemu_test = write_qemu_boot_test(&build_root, &output_file)?;
+    let qemu_uefi_test = write_qemu_uefi_boot_test(&build_root, &output_file)?;
     let iso_label = if project.project.iso_label.is_empty() { "VOIDMEMINGO".to_string() } else { project.project.iso_label.clone() };
     let hostname = if project.filesystem.hostname.is_empty() { "void-memingo".to_string() } else { project.filesystem.hostname.clone() };
     let config_root = safe_create_project_directory(&root, &format!("{build_relative}/config"))?;
@@ -1046,6 +1102,7 @@ printf '%s\\n' "$boot_report" | grep -qi 'El Torito' || {{ echo 'ISO has no El T
         build_directory: build_directory.clone(),
         script_path: script_display.clone(),
         boot_test_script_path: Some(qemu_test.to_string_lossy().into_owned()),
+        uefi_boot_test_script_path: Some(qemu_uefi_test.to_string_lossy().into_owned()),
         commands: vec![
             format!("cd {}", shell_quote(&build_directory)),
             format!("sudo {}", shell_quote(&script_display)),
@@ -1129,6 +1186,9 @@ mod tests {
         let qemu_test = root.join(".void-memingo/debian-live/atdev-os/test-boot-bios.sh");
         assert!(qemu_test.is_file());
         assert!(Command::new("sh").args(["-n", qemu_test.to_str().unwrap()]).status().unwrap().success());
+        let uefi_test = root.join(".void-memingo/debian-live/atdev-os/test-boot-uefi.sh");
+        assert!(uefi_test.is_file());
+        assert!(Command::new("sh").args(["-n", uefi_test.to_str().unwrap()]).status().unwrap().success());
         let package_list = fs::read_to_string(root.join(".void-memingo/debian-live/atdev-os/config/package-lists/void-memingo.list.chroot")).unwrap();
         assert!(package_list.contains("firefox-esr"));
         assert!(package_list.contains("task-xfce-desktop"));
@@ -1426,6 +1486,7 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     reject_existing_output(&output_manifest)?;
     let build_manifest = write_build_manifest(&build_root, project, if distribution == "ubuntu" { "ubuntu-livecd-rootfs" } else { "archiso" })?;
     let qemu_test = write_qemu_boot_test(&build_root, &output_file)?;
+    let qemu_uefi_test = write_qemu_uefi_boot_test(&build_root, &output_file)?;
 
     let source_overlay = resolve_project_path_no_symlinks(root, &project.filesystem.overlay)?
         .ok_or_else(|| format!("Filesystem overlay '{}' does not exist.", project.filesystem.overlay))?;
@@ -1735,6 +1796,7 @@ echo "Arch ISO boot catalog, SHA-256 and build manifest validated."
         build_directory: build_root.to_string_lossy().into_owned(),
         script_path: script_path.to_string_lossy().into_owned(),
         boot_test_script_path: Some(qemu_test.to_string_lossy().into_owned()),
+        uefi_boot_test_script_path: Some(qemu_uefi_test.to_string_lossy().into_owned()),
         commands: vec![
             format!("cd {}", shell_quote(&build_root.to_string_lossy())),
             if distribution == "arch" {
