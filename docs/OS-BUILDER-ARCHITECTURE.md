@@ -117,8 +117,9 @@ Implemented in the desktop branch:
 - OS Builder workbench with base/release/desktop selection, package list, root overlay, services, locale, timezone, hostname, target storage filesystem, ISO output settings, GTK theme, icon theme and wallpaper.
 - Project creation and validation through `void-os.toml`.
 - **Debian Live profile preparation:** creates an isolated live-build workspace, package lists, removal and system configuration hooks, root filesystem overlay and a reviewable build script.
-- **Ubuntu profile preparation:** maps supported releases to Ubuntu codenames, prepares a live-build package list including casper, root filesystem overlay and a build script.
-- **Archiso profile preparation:** stages the upstream releng profile, custom package list and airootfs overlay, then generates an `mkarchiso` build script.
+- **Ubuntu image backend:** uses the Ubuntu `livecd-rootfs` package's official `auto/clean`, `auto/config` and `auto/build` scripts with `PROJECT=ubuntu`, `SUBPROJECT=live` and the selected Ubuntu suite. It adds the project's package list, root filesystem overlay and executable chroot hooks after the official configuration step, then collects `livecd.ubuntu.iso`.
+- **Archiso image backend:** stages the upstream `releng` profile, merges the project package list, removes requested packages, overlays the custom airootfs, configures ISO identity and runs `mkarchiso`. It checks the Arch host toolchain and uses unprivileged user namespaces instead of forcing the build through sudo.
+- Ubuntu and Arch both generate distribution-specific scripts, package manifests and overlay configuration; neither is routed through the Debian Live backend.
 - GTK theme and icon defaults are written into `/etc/skel`; wallpaper files can be supplied from inside the project overlay and copied into the image.
 - The OS Builder can send a prepared build command to the integrated PTY terminal. The user explicitly confirms before the command is sent; `sudo` prompts in the terminal rather than being invoked invisibly. Terminal output streams live and Ctrl+C can interrupt the foreground build.
 - Existing output files are protected from overwrite by the generated scripts. The scripts write SHA-256 checksum files.
@@ -130,7 +131,7 @@ Still requires verification or additional work:
 - Ubuntu's live-build + casper flow needs an actual build and boot test against its supported release repositories; it is not yet certified as equivalent to Ubuntu's official installer image.
 - Archiso profile integration needs validation against current Archiso package/profile versions.
 - Build completion currently relies on the scripts' exit status and output creation; richer post-build ISO inspection, checksum verification in the app, artifact details and optional QEMU boot testing remain to be completed.
-- Host dependency detection, minimum disk/RAM checks, build cancellation controls in the UI, and per-step progress reporting remain pending. The integrated terminal provides live output and Ctrl+C.
+- Host dependency detection now checks the selected backend's toolchain, with disk/RAM advisories. Build output streams in the integrated terminal and can be interrupted with Ctrl+C; a dedicated build-job state machine, structured per-step progress and a native cancel control remain pending.
 - Desktop theme values are currently applied as GTK defaults and a profile metadata file; automatic wallpaper application for every desktop environment and full KDE/GNOME/Xfce theme configuration remain pending.
 - The installation filesystem preference is stored in the manifest but is not used because no installer or partitioning workflow is implemented.
 - Package repository management, installer generation and multi-architecture image builds remain future work.
