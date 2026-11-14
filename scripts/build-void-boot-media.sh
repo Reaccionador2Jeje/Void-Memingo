@@ -91,7 +91,13 @@ mcopy -i "$ESP_SPEC" "$ESP_DIR/EFI/BOOT/BOOTX64.EFI" ::/EFI/BOOT/BOOTX64.EFI
 mformat -i "$DATA_SPEC" -F -v VOIDDATA ::
 ISO_PARENT="$(dirname "$ISO_REL_PATH")"
 if [[ "$ISO_PARENT" != "." ]]; then
-  mmd -p -i "$DATA_SPEC" "::/$ISO_PARENT"
+  # mmd does not support mkdir -p; create each directory level explicitly.
+  IFS='/' read -r -a ISO_DIR_PARTS <<< "$ISO_PARENT"
+  CURRENT_ISO_DIR=""
+  for DIR_PART in "${ISO_DIR_PARTS[@]}"; do
+    CURRENT_ISO_DIR="${CURRENT_ISO_DIR:+$CURRENT_ISO_DIR/}$DIR_PART"
+    mmd -i "$DATA_SPEC" "::/$CURRENT_ISO_DIR"
+  done
 fi
 mcopy -i "$DATA_SPEC" "$SOURCE_ISO" "::/$ISO_REL_PATH"
 
