@@ -51,7 +51,7 @@ type GitSnapshot = {
 
 type OsValidation = { valid: boolean; errors: string[]; warnings: string[] };
 type BuildPreflight = { supportedHost: boolean; ready: boolean; distribution: string; checks: { id: string; label: string; available: boolean; required: boolean; detail: string }[]; warnings: string[] };
-type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; commands: string[]; notes: string[] };
+type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; bootTestScriptPath?: string | null; commands: string[]; notes: string[] };
 
 function FileNode({
   root,
@@ -607,6 +607,30 @@ directory = ${quote(osOutputDir)}
     setTerminalCommand(command);
     addLog('Build solicitado desde OS Builder; salida en la terminal integrada.');
   }, [addLog, buildPreparation, buildPreflight]);
+  const runOsBootTest = useCallback(() => {
+    if (!buildPreparation?.bootTestScriptPath) {
+      addLog('Prepara primero el backend para generar el script de prueba.');
+      return;
+    }
+    const qemuCheck = buildPreflight?.checks.find((check) => check.id === 'qemu-system-x86_64');
+    if (!qemuCheck?.available) {
+      addLog('QEMU no está disponible. Instala qemu-system-x86_64 y vuelve a comprobar los requisitos.');
+      return;
+    }
+    const script = "'" + buildPreparation.bootTestScriptPath.replace(/'/g, "'\\''") + "'";
+    const command = 'sh ' + script;
+    const confirmed = window.confirm(
+      'Se iniciará una máquina virtual QEMU para probar el arranque del ISO.\\n\\n' +
+      command + '\\n\\nLa prueba requiere que el ISO ya exista. ¿Continuar?'
+    );
+    if (!confirmed) return;
+    setTerminalMounted(true);
+    setBottomOpen(true);
+    setBottomView('terminal');
+    setTerminalCommand(command);
+    addLog('Prueba de arranque BIOS solicitada en QEMU.');
+  }, [addLog, buildPreparation, buildPreflight]);
+
   const publishToOsHub = useCallback(async () => {
     if (!workspace) {
       addLog('Abre primero la carpeta del proyecto OS.');
@@ -1023,6 +1047,9 @@ directory = ${quote(osOutputDir)}
                 <button className="secondary-button" onClick={runOsBuild} disabled={osBusy || !isLinuxHost || !workspace || !buildPreparation || !osValidation?.valid || !buildPreflight?.ready} title="Ejecutar el script revisado en la terminal integrada">
                   <Disc3 size={15} /> Build ISO
                 </button>
+                <button className="secondary-button" onClick={runOsBootTest} disabled={osBusy || !isLinuxHost || !buildPreparation?.bootTestScriptPath || !buildPreflight?.checks.some((check) => check.id === 'qemu-system-x86_64' && check.available)} title="Iniciar una prueba de arranque BIOS del ISO en QEMU">
+                  <Play size={15} /> Probar ISO (QEMU)
+                </button>
                 <button className="secondary-button" onClick={() => void publishToOsHub()} disabled={osBusy || !workspace} title="Sincronizar el manifiesto del sistema con Atdev OS Hub">
                   <Layers3 size={15} /> Publicar en OS Hub
                 </button>
@@ -1042,6 +1069,7 @@ directory = ${quote(osOutputDir)}
                   <b>{buildPreparation.backend} preparado</b>
                   <p>Directorio: {buildPreparation.buildDirectory}</p>
                   <p>Script generado: {buildPreparation.scriptPath}</p>
+                  {buildPreparation.bootTestScriptPath && <p>Prueba QEMU: {buildPreparation.bootTestScriptPath}</p>}
                   {buildPreparation.commands.map((command, index) => <p key={index}><code>{command}</code></p>)}
                   {buildPreparation.notes.map((note, index) => <p key={'n'+index}>Aviso: {note}</p>)}
                 </div>
