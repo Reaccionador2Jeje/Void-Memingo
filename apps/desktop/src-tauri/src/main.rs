@@ -30,7 +30,8 @@ fn main() {
             commands::os_builder::check_os_build_preflight,
             commands::os_builder::validate_os_project,
             commands::os_builder::prepare_debian_live_project,
-            commands::os_builder::prepare_os_build_project
+            commands::os_builder::prepare_os_build_project,
+            commands::os_builder::validate_os_build_artifact
         ])
         .run(tauri::generate_context!())
         .expect("error while running Void Memingo");
