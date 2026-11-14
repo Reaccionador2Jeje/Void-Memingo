@@ -1,43 +1,40 @@
 # Void Boot
 
-Void Boot is Atdev Dev's independent, open-source multiboot project. It will have two front ends backed by shared components:
+Void Boot is Atdev Dev's independent, open-source multiboot project and a first-class Void Memingo client.
 
-1. **Standalone application** — planned desktop manager using the shared Rust core.
-2. **Void Memingo integration** — the first read-only ISO inspector is already available in the desktop activity bar; profile management and media preparation remain planned.
+## Current capabilities
 
-The project is intentionally separate from the Void Memingo desktop UI so it can evolve and ship independently.
+- Read-only ISO inventory with SHA-256, ISO 9660 and El Torito descriptor inspection.
+- Declarative boot profiles with validation of IDs, labels, relative paths and kernel arguments.
+- GRUB 2 configuration generator for a pre-operating-system boot menu.
+- Graphical GRUB theme with Void Boot branding, boot menu, restart and shutdown entries.
+- CLI and reusable Rust library shared with Void Memingo.
+- No physical drive is mounted, formatted, partitioned or written by these features.
 
-## Current status
+The generated menu uses GRUB's graphical gfxterm menu and profile-specific loopback entries. **A profile is only a boot recipe, not proof that an ISO is compatible.** Kernel/initrd paths and arguments must match the exact image. Some ISOs need extraction or a custom boot method.
 
-The first safe foundation is an ISO inventory CLI:
-
-- Finds ISO files directly inside a selected directory (no recursive traversal).
-- Calculates SHA-256 using streaming reads.
-- Checks for the ISO 9660 primary volume descriptor.
-- Detects the El Torito boot-record descriptor when present.
-- Supports human-readable and JSON output.
-- Is integrated into Void Memingo as a read-only ISO inspector using the same Rust library.
-- Does not mount, format, partition, write to, or otherwise modify storage devices.
-
-This is an **inspection tool**, not yet a bootloader, USB installer, or Ventoy replacement.
-
-## Build and run
+## Commands
 
 Requires Rust stable.
 
-```sh
-cd apps/void-boot
-cargo test
-cargo run -- scan /path/to/iso-folder
-cargo run -- scan /path/to/iso-folder --json
-```
+    cd apps/void-boot
+    cargo test
+    cargo run -- scan /path/to/iso-folder
+    cargo run -- scan /path/to/iso-folder --json
+    cargo run -- render-menu profiles/example-profiles.toml /tmp/void-boot-menu
 
-## Safety boundary
+The render command writes grub.cfg and copies the graphical theme into the output folder. It does not install GRUB or write to a USB drive.
 
-Physical-device writing is not implemented. Future media-writing features must require explicit device selection, show the detected model/capacity and destructive consequences, reject the active system disk, and require a separate confirmation immediately before writing. Development and compatibility testing starts with disposable virtual disks and QEMU.
+## Intended removable-media layout
 
-## Planned boot support
+    /boot/grub/grub.cfg
+    /boot/grub/themes/void-boot/theme.txt
+    /iso/<your-images>.iso
 
-Initial target: x86_64 PC firmware, BIOS and UEFI, with Secure Boot deferred until the trust/signing chain is designed and tested. ISO boot compatibility is profile-based; not every Linux ISO supports generic loopback boot. The project must never promise universal compatibility without per-image tests.
+The generated configuration assumes GRUB's $prefix points to /boot/grub. A future media builder will install and configure GRUB for BIOS and UEFI separately. This stage does not yet create a bootable USB by itself.
 
-See [architecture](../../docs/VOID_BOOT_ARCHITECTURE.md) for design and milestones.
+## Safety and compatibility
+
+Physical-device writing is not implemented. Development and compatibility testing starts with disposable virtual disks and QEMU. The user's existing Ventoy USB must remain untouched.
+
+Secure Boot is deferred until the signing and trust chain are designed and tested. No image should be marked supported until its profile is tested independently in BIOS and UEFI virtual machines.
