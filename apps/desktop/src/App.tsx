@@ -195,6 +195,7 @@ function App() {
   const [buildStage, setBuildStage] = useState('idle');
   const [selectedBuildLog, setSelectedBuildLog] = useState<string | null>(null);
   const activeBuildJobRef = useRef<string | null>(null);
+  const activeBuildTerminalSessionRef = useRef<string | null>(null);
   const buildStageRef = useRef('idle');
   const [terminalInterruptSignal, setTerminalInterruptSignal] = useState(0);
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null);
@@ -259,8 +260,9 @@ function App() {
 
   useEffect(() => { void refreshBuildJobs(); }, [refreshBuildJobs]);
 
-  const handleTerminalCommandStarted = useCallback(() => {
+  const handleTerminalCommandStarted = useCallback((sessionId: string) => {
     setBuildRunning(true);
+    activeBuildTerminalSessionRef.current = sessionId;
     const jobId = activeBuildJobRef.current;
     if (jobId && workspace) {
       buildStageRef.current = 'building';
@@ -271,9 +273,9 @@ function App() {
     }
   }, [addLog, refreshBuildJobs, workspace]);
 
-  const handleTerminalCommandOutput = useCallback((data: string) => {
+  const handleTerminalCommandOutput = useCallback((data: string, sessionId: string) => {
     const jobId = activeBuildJobRef.current;
-    if (!jobId || !workspace) return;
+    if (!jobId || !workspace || activeBuildTerminalSessionRef.current !== sessionId) return;
     void invoke('append_os_build_job_log', { workspace, jobId, data }).catch(() => undefined);
     const output = data.toLowerCase();
     let nextStage = buildStageRef.current;
@@ -292,7 +294,9 @@ function App() {
     }
   }, [refreshBuildJobs, workspace]);
 
-  const handleTerminalCommandFinished = useCallback((exitCode: number) => {
+  const handleTerminalCommandFinished = useCallback((exitCode: number, sessionId: string) => {
+    if (activeBuildTerminalSessionRef.current !== sessionId) return;
+    activeBuildTerminalSessionRef.current = null;
     setBuildRunning(false);
     addLog(exitCode === 0
       ? 'Proceso finalizado correctamente.'
