@@ -79,7 +79,9 @@ fn sha256_reader(reader: &mut impl Read) -> Result<String, String> {
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; BUFFER_SIZE];
     loop {
-        let count = reader.read(&mut buffer).map_err(|error| error.to_string())?;
+        let count = reader
+            .read(&mut buffer)
+            .map_err(|error| error.to_string())?;
         if count == 0 {
             break;
         }
