@@ -875,6 +875,8 @@ pub fn prepare_debian_live_project(
     reject_existing_output(&output_manifest)?;
     let build_manifest = write_build_manifest(&build_root, &project, "debian-live-build")?;
     let qemu_test = write_qemu_boot_test(&build_root, &output_file)?;
+    let iso_label = if project.project.iso_label.is_empty() { "VOIDMEMINGO".to_string() } else { project.project.iso_label.clone() };
+    let hostname = if project.filesystem.hostname.is_empty() { "void-memingo".to_string() } else { project.filesystem.hostname.clone() };
     let config_root = safe_create_project_directory(&root, &format!("{build_relative}/config"))?;
     let package_list_root = safe_create_project_directory(&root, &format!("{build_relative}/config/package-lists"))?;
     let package_list = package_list_root.join("void-memingo.list.chroot");
@@ -954,19 +956,6 @@ pub fn prepare_debian_live_project(
     }
     apply_desktop_defaults(&root, &overlay_target, &project)?;
 
-    let iso_label = if project.project.iso_label.is_empty() {
-        "VOIDMEMINGO".to_string()
-    } else {
-        project.project.iso_label.clone()
-    };
-    let hostname = if project.filesystem.hostname.is_empty() {
-        "void-memingo".to_string()
-    } else {
-        project.filesystem.hostname.clone()
-    };
-    let distro = shell_quote(&project.base.release);
-    let arch = shell_quote(&project.base.architecture);
-    let label = shell_quote(&iso_label);
     let output_dir = shell_quote(&output_root.to_string_lossy());
     let output_file_arg = shell_quote(&output_file.to_string_lossy());
     let checksum_file_arg = shell_quote(&output_checksum.to_string_lossy());
