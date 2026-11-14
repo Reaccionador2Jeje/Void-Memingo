@@ -285,7 +285,8 @@ function App() {
     else if (/lb config|configuring|configuración/.test(output)) nextStage = 'configuring';
     else if (/debootstrap|pacstrap|installing packages|instalando paquetes|apt-get install|pacman -/.test(output)) nextStage = 'installing-packages';
     else if (/mksquashfs|squashfs|filesystem.squashfs/.test(output)) nextStage = 'building-filesystem';
-    else if (/xorriso|creating iso|generating iso|creando iso/.test(output)) nextStage = 'creating-image';
+    else if (/creating iso|generating iso|creando iso|copying image|copiando imagen/.test(output)) nextStage = 'creating-image';
+    else if (/xorriso|iso 9660|el torito|sha256|checksum|validating|verifying artifact|verificando/.test(output)) nextStage = 'validating';
     else if (/sha256|checksum|validating|verifying artifact|verificando/.test(output)) nextStage = 'validating';
     if (nextStage !== buildStageRef.current) {
       buildStageRef.current = nextStage;
