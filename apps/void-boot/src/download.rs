@@ -1,15 +1,18 @@
 use serde::Serialize;
 use std::{
     collections::HashMap,
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
     },
     thread,
 };
+
+const DOWNLOAD_CONNECTIONS: u64 = 8;
+const BUFFER_SIZE: usize = 256 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DownloadSnapshot {
@@ -18,6 +21,7 @@ pub struct DownloadSnapshot {
     pub path: String,
     pub downloaded_bytes: u64,
     pub total_bytes: Option<u64>,
+    pub connections: u8,
     pub status: String,
     pub error: Option<String>,
 }
@@ -33,252 +37,223 @@ pub struct DownloadManager {
 }
 
 fn safe_file_name(value: &str) -> Result<String, String> {
-    let name = Path::new(value)
-        .file_name()
-        .and_then(|value| value.to_str())
+    let name = Path::new(value).file_name().and_then(|v| v.to_str())
         .ok_or_else(|| "Nombre de archivo no válido".to_string())?;
-
-    if name.is_empty()
-        || name != value
-        || name.contains("..")
+    if name.is_empty() || name != value || name.contains("..")
         || !name.to_ascii_lowercase().ends_with(".iso")
-        || !name
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || "._-".contains(character))
+        || !name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
     {
-        return Err(
-            "Usa un nombre simple terminado en .iso (letras, números, punto, guion o guion bajo)"
-                .into(),
-        );
+        return Err("Usa un nombre simple terminado en .iso".into());
     }
-
     Ok(name.to_string())
 }
 
+fn update_progress(
+    tasks: &Arc<Mutex<HashMap<String, DownloadTask>>>,
+    id: &str,
+    downloaded: u64,
+    total: u64,
+) {
+    if let Ok(mut map) = tasks.lock() {
+        if let Some(task) = map.get_mut(id) {
+            task.snapshot.downloaded_bytes = downloaded;
+            task.snapshot.total_bytes = Some(total);
+        }
+    }
+}
+
 impl DownloadManager {
-    pub fn start(
-        &self,
-        url: String,
-        file_name: String,
-        directory: String,
-    ) -> Result<String, String> {
-        let parsed = reqwest::Url::parse(&url).map_err(|error| format!("URL inválida: {error}"))?;
-        if parsed.scheme() != "https"
-            || parsed.host_str().is_none()
-            || !parsed.username().is_empty()
-            || parsed.password().is_some()
+    pub fn start(&self, url: String, file_name: String, directory: String) -> Result<String, String> {
+        let parsed = reqwest::Url::parse(&url).map_err(|e| format!("URL inválida: {e}"))?;
+        if parsed.scheme() != "https" || parsed.host_str().is_none()
+            || !parsed.username().is_empty() || parsed.password().is_some()
         {
             return Err("Solo se permiten enlaces HTTPS públicos sin credenciales".into());
         }
 
         let file_name = safe_file_name(&file_name)?;
         let directory = PathBuf::from(directory);
-        if !directory.is_dir() {
-            return Err("Selecciona una carpeta de destino existente".into());
-        }
-
+        if !directory.is_dir() { return Err("Selecciona una carpeta de destino existente".into()); }
         let final_path = directory.join(&file_name);
-        let part_path = directory.join(format!("{file_name}.part"));
-        if final_path.exists() {
-            return Err(
-                "Ese archivo ya existe; elige otro nombre o mueve la ISO existente".into(),
-            );
-        }
+        if final_path.exists() { return Err("Ese archivo ya existe; elige otro nombre".into()); }
 
         let id = format!("{}-{}", file_name, directory.to_string_lossy());
         let pause = Arc::new(AtomicBool::new(false));
-
         {
-            let mut tasks = self
-                .tasks
-                .lock()
-                .map_err(|_| "Gestor de descargas bloqueado".to_string())?;
-
-            if tasks
-                .get(&id)
-                .is_some_and(|task| task.snapshot.status == "downloading")
-            {
+            let mut map = self.tasks.lock().map_err(|_| "Gestor bloqueado".to_string())?;
+            if map.get(&id).is_some_and(|t| t.snapshot.status == "downloading") {
                 return Err("Esta descarga ya está en curso".into());
             }
-
-            let existing = fs::metadata(&part_path).map_or(0, |metadata| metadata.len());
-            tasks.insert(
-                id.clone(),
-                DownloadTask {
-                    snapshot: DownloadSnapshot {
-                        id: id.clone(),
-                        file_name: file_name.clone(),
-                        path: final_path.to_string_lossy().into_owned(),
-                        downloaded_bytes: existing,
-                        total_bytes: None,
-                        status: "queued".into(),
-                        error: None,
-                    },
-                    pause: pause.clone(),
+            let partial = directory.join(format!("{file_name}.part"));
+            let existing = fs::metadata(&partial).map_or(0, |m| m.len());
+            map.insert(id.clone(), DownloadTask {
+                snapshot: DownloadSnapshot {
+                    id: id.clone(), file_name: file_name.clone(),
+                    path: final_path.to_string_lossy().into_owned(),
+                    downloaded_bytes: existing, total_bytes: None,
+                    connections: DOWNLOAD_CONNECTIONS as u8,
+                    status: "queued".into(), error: None,
                 },
-            );
+                pause: pause.clone(),
+            });
         }
 
         let tasks = self.tasks.clone();
         let thread_id = id.clone();
-
         thread::spawn(move || {
             let result = (|| -> Result<(), String> {
-                let offset = fs::metadata(&part_path).map_or(0, |metadata| metadata.len());
                 let client = reqwest::blocking::Client::builder()
-                    .user_agent("VoidBoot-Downloader/0.1")
+                    .user_agent("VoidBoot-Downloader/0.2")
                     .timeout(std::time::Duration::from_secs(60))
-                    .build()
-                    .map_err(|error| error.to_string())?;
+                    .build().map_err(|e| e.to_string())?;
 
-                let mut request = client.get(&url);
-                if offset > 0 {
-                    request = request.header(
-                        reqwest::header::RANGE,
-                        format!("bytes={offset}-"),
-                    );
+                // Probe one byte to discover file size and range support before parallel transfer.
+                let probe = client.get(&url)
+                    .header(reqwest::header::RANGE, "bytes=0-0")
+                    .send().map_err(|e| format!("No se pudo consultar el servidor: {e}"))?;
+                if probe.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+                    return Err("Este servidor no admite descargas por rangos. El modo acelerado requiere HTTP Range; no se inicia una descarga engañosamente paralela.".into());
                 }
+                let range = probe.headers().get(reqwest::header::CONTENT_RANGE)
+                    .and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+                let total = range.rsplit('/').next().and_then(|v| v.parse::<u64>().ok())
+                    .ok_or_else(|| "El servidor no informó el tamaño total de la ISO".to_string())?;
+                drop(probe);
+                if total == 0 { return Err("El servidor informó un archivo vacío".into()); }
 
-                let mut response = request
-                    .send()
-                    .map_err(|error| format!("Error de red: {error}"))?;
-                let status = response.status();
-                if !status.is_success() {
-                    return Err(format!("El servidor respondió HTTP {status}"));
-                }
-
-                let append = offset > 0 && status == reqwest::StatusCode::PARTIAL_CONTENT;
-                if append {
-                    let expected_prefix = format!("bytes {offset}-");
-                    let actual_range = response
-                        .headers()
-                        .get(reqwest::header::CONTENT_RANGE)
-                        .and_then(|value| value.to_str().ok())
-                        .unwrap_or("");
-
-                    if !actual_range.starts_with(&expected_prefix) {
-                        return Err(
-                            "El servidor devolvió un rango distinto al solicitado; el archivo parcial se conserva"
-                                .into(),
-                        );
-                    }
-                }
-
-                let start_at = if append { offset } else { 0 };
-                let total = response.content_length().map(|length| length + start_at);
-                let mut file = OpenOptions::new()
-                    .create(true)
-                    .write(true)
-                    .append(append)
-                    .truncate(!append)
-                    .open(&part_path)
-                    .map_err(|error| {
-                        format!("No se pudo abrir el archivo temporal: {error}")
-                    })?;
-
-                {
-                    let mut map = tasks
-                        .lock()
-                        .map_err(|_| "Gestor de descargas bloqueado".to_string())?;
+                let part_paths: Vec<PathBuf> = (0..DOWNLOAD_CONNECTIONS)
+                    .map(|i| directory.join(format!("{file_name}.part.{i:02}"))).collect();
+                let chunk_size = (total + DOWNLOAD_CONNECTIONS - 1) / DOWNLOAD_CONNECTIONS;
+                let progress = Arc::new(AtomicU64::new(
+                    part_paths.iter().map(|p| fs::metadata(p).map_or(0, |m| m.len())).sum()
+                ));
+                update_progress(&tasks, &thread_id, progress.load(Ordering::Relaxed), total);
+                if let Ok(mut map) = tasks.lock() {
                     if let Some(task) = map.get_mut(&thread_id) {
                         task.snapshot.status = "downloading".into();
-                        task.snapshot.downloaded_bytes = start_at;
-                        task.snapshot.total_bytes = total;
+                        task.snapshot.total_bytes = Some(total);
                     }
                 }
 
-                let mut buffer = vec![0_u8; 256 * 1024];
-                let mut downloaded = start_at;
+                let mut workers = Vec::new();
+                for index in 0..DOWNLOAD_CONNECTIONS {
+                    let start = index * chunk_size;
+                    if start >= total { continue; }
+                    let end = std::cmp::min(start + chunk_size - 1, total - 1);
+                    let chunk_path = part_paths[index as usize].clone();
+                    let worker_client = client.clone();
+                    let worker_url = url.clone();
+                    let worker_pause = pause.clone();
+                    let worker_progress = progress.clone();
+                    let worker_tasks = tasks.clone();
+                    let worker_id = thread_id.clone();
 
-                loop {
-                    if pause.load(Ordering::Relaxed) {
-                        break;
-                    }
-
-                    let count = response
-                        .read(&mut buffer)
-                        .map_err(|error| format!("Descarga interrumpida: {error}"))?;
-                    if count == 0 {
-                        break;
-                    }
-
-                    file.write_all(&buffer[..count])
-                        .map_err(|error| format!("Error al guardar datos: {error}"))?;
-                    downloaded += count as u64;
-
-                    if let Ok(mut map) = tasks.lock() {
-                        if let Some(task) = map.get_mut(&thread_id) {
-                            task.snapshot.downloaded_bytes = downloaded;
-                            task.snapshot.total_bytes = total;
+                    workers.push(thread::spawn(move || -> Result<(), String> {
+                        let mut offset = fs::metadata(&chunk_path).map_or(0, |m| m.len());
+                        let expected_len = end - start + 1;
+                        if offset > expected_len {
+                            fs::remove_file(&chunk_path).map_err(|e| e.to_string())?;
+                            offset = 0;
                         }
+                        if offset == expected_len { return Ok(()); }
+
+                        let request_start = start + offset;
+                        let mut response = worker_client.get(&worker_url)
+                            .header(reqwest::header::RANGE, format!("bytes={request_start}-{end}"))
+                            .send().map_err(|e| format!("Error de conexión en parte {}: {e}", index + 1))?;
+                        if response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+                            return Err(format!("El servidor dejó de admitir rangos en la parte {}", index + 1));
+                        }
+                        let expected_header = format!("bytes {request_start}-");
+                        let actual_header = response.headers().get(reqwest::header::CONTENT_RANGE)
+                            .and_then(|v| v.to_str().ok()).unwrap_or("");
+                        if !actual_header.starts_with(&expected_header) {
+                            return Err(format!("Rango incorrecto recibido en la parte {}", index + 1));
+                        }
+
+                        let mut file = OpenOptions::new().create(true).append(true).open(&chunk_path)
+                            .map_err(|e| format!("No se pudo guardar la parte {}: {e}", index + 1))?;
+                        let mut buffer = vec![0u8; BUFFER_SIZE];
+                        let mut received = offset;
+                        while received < expected_len {
+                            if worker_pause.load(Ordering::Relaxed) { break; }
+                            let count = response.read(&mut buffer)
+                                .map_err(|e| format!("Conexión interrumpida en parte {}: {e}", index + 1))?;
+                            if count == 0 { break; }
+                            let allowed = std::cmp::min(count as u64, expected_len - received) as usize;
+                            file.write_all(&buffer[..allowed]).map_err(|e| e.to_string())?;
+                            received += allowed as u64;
+                            let now = worker_progress.fetch_add(allowed as u64, Ordering::Relaxed) + allowed as u64;
+                            update_progress(&worker_tasks, &worker_id, now, total);
+                        }
+                        file.flush().map_err(|e| e.to_string())?;
+                        if !worker_pause.load(Ordering::Relaxed) && received != expected_len {
+                            return Err(format!("La parte {} quedó incompleta", index + 1));
+                        }
+                        Ok(())
+                    }));
+                }
+
+                let mut first_error = None;
+                for worker in workers {
+                    match worker.join() {
+                        Ok(Ok(())) => {}
+                        Ok(Err(error)) => if first_error.is_none() { first_error = Some(error); },
+                        Err(_) => if first_error.is_none() { first_error = Some("Una conexión de descarga terminó inesperadamente".into()); },
                     }
                 }
+                if let Some(error) = first_error { return Err(error); }
+                if pause.load(Ordering::Relaxed) { return Ok(()); }
 
-                file.flush().map_err(|error| error.to_string())?;
-                if pause.load(Ordering::Relaxed) {
-                    return Ok(());
-                }
-
-                if let Some(expected) = total {
-                    if downloaded != expected {
-                        return Err(format!(
-                            "Descarga incompleta: {downloaded} de {expected} bytes"
-                        ));
+                // Join the verified byte ranges in order into the final temporary ISO.
+                let merged_path = directory.join(format!("{file_name}.part"));
+                let mut merged = File::create(&merged_path).map_err(|e| e.to_string())?;
+                for (index, path) in part_paths.iter().enumerate() {
+                    let start = index as u64 * chunk_size;
+                    if start >= total { break; }
+                    let expected = std::cmp::min(chunk_size, total - start);
+                    let actual = fs::metadata(path).map_err(|e| e.to_string())?.len();
+                    if actual != expected {
+                        return Err(format!("La parte {} no está completa: {actual}/{expected} bytes", index + 1));
                     }
+                    let mut part = File::open(path).map_err(|e| e.to_string())?;
+                    std::io::copy(&mut part, &mut merged).map_err(|e| e.to_string())?;
                 }
-
-                fs::rename(&part_path, &final_path)
-                    .map_err(|error| format!("No se pudo finalizar el archivo: {error}"))?;
+                merged.flush().map_err(|e| e.to_string())?;
+                if fs::metadata(&merged_path).map_err(|e| e.to_string())?.len() != total {
+                    return Err("El tamaño final no coincide con el tamaño anunciado por el servidor".into());
+                }
+                fs::rename(&merged_path, &final_path).map_err(|e| format!("No se pudo finalizar la ISO: {e}"))?;
+                for path in part_paths { let _ = fs::remove_file(path); }
                 Ok(())
             })();
 
             if let Ok(mut map) = tasks.lock() {
                 if let Some(task) = map.get_mut(&thread_id) {
                     match result {
-                        Ok(()) if pause.load(Ordering::Relaxed) => {
-                            task.snapshot.status = "paused".into();
-                        }
-                        Ok(()) => {
-                            task.snapshot.status = "completed".into();
-                        }
-                        Err(error) => {
-                            task.snapshot.status = "error".into();
-                            task.snapshot.error = Some(error);
-                        }
+                        Ok(()) if pause.load(Ordering::Relaxed) => task.snapshot.status = "paused".into(),
+                        Ok(()) => task.snapshot.status = "completed".into(),
+                        Err(error) => { task.snapshot.status = "error".into(); task.snapshot.error = Some(error); }
                     }
                 }
             }
         });
-
         Ok(id)
     }
 
     pub fn pause(&self, id: &str) -> Result<(), String> {
-        let tasks = self
-            .tasks
-            .lock()
-            .map_err(|_| "Gestor de descargas bloqueado".to_string())?;
-        let task = tasks
-            .get(id)
-            .ok_or_else(|| "Descarga no encontrada".to_string())?;
-
+        let map = self.tasks.lock().map_err(|_| "Gestor bloqueado".to_string())?;
+        let task = map.get(id).ok_or_else(|| "Descarga no encontrada".to_string())?;
         if task.snapshot.status != "downloading" && task.snapshot.status != "queued" {
             return Err("La descarga no está activa".into());
         }
-
         task.pause.store(true, Ordering::Relaxed);
         Ok(())
     }
 
     pub fn list(&self) -> Result<Vec<DownloadSnapshot>, String> {
-        let tasks = self
-            .tasks
-            .lock()
-            .map_err(|_| "Gestor de descargas bloqueado".to_string())?;
-        Ok(tasks
-            .values()
-            .map(|task| task.snapshot.clone())
-            .collect())
+        let map = self.tasks.lock().map_err(|_| "Gestor bloqueado".to_string())?;
+        Ok(map.values().map(|task| task.snapshot.clone()).collect())
     }
 }
 
@@ -288,14 +263,8 @@ mod tests {
 
     #[test]
     fn accepts_simple_iso_file_names() {
-        assert_eq!(
-            safe_file_name("debian-live.iso").unwrap(),
-            "debian-live.iso"
-        );
-        assert_eq!(
-            safe_file_name("void_boot_01.iso").unwrap(),
-            "void_boot_01.iso"
-        );
+        assert_eq!(safe_file_name("debian-live.iso").unwrap(), "debian-live.iso");
+        assert_eq!(safe_file_name("void_boot_01.iso").unwrap(), "void_boot_01.iso");
     }
 
     #[test]
