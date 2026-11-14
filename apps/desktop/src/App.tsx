@@ -301,10 +301,10 @@ function App() {
     if (activeBuildTerminalSessionRef.current !== sessionId) return;
     activeBuildTerminalSessionRef.current = null;
     setBuildRunning(false);
-    addLog(exitCode === 0
-      ? 'Proceso de terminal finalizado; verificando el artefacto ISO.'
-      : 'Proceso finalizado con código ' + exitCode + '.');
     const jobId = activeBuildJobRef.current;
+    addLog(exitCode === 0
+      ? (jobId ? 'Proceso de compilación finalizado; verificando el artefacto ISO.' : 'Proceso de terminal finalizado correctamente.')
+      : 'Proceso finalizado con código ' + exitCode + '.');
     if (jobId && workspace) {
       let finalStatus = exitCode === 0 ? 'succeeded' : (exitCode === 130 || exitCode === 143 ? 'cancelled' : 'failed');
       let finalStage = finalStatus === 'succeeded' ? 'completed' : finalStatus;
