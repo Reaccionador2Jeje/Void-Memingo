@@ -32,23 +32,23 @@ pub fn base_capabilities() -> Vec<BaseCapabilities> {
             id: "ubuntu",
             name: "Ubuntu",
             backend: "ubuntu-live",
-            backend_status: "planned",
+            backend_status: "preview",
             releases: &["24.04 LTS", "26.04 LTS"],
             architectures: &["amd64"],
             desktops: &["gnome", "kde-plasma", "xfce", "lxqt", "cinnamon", "mate", "none"],
             boot_modes: &["uefi", "bios"],
-            notes: "Ubuntu live image configuration with casper integration; installer image editing is a separate workflow.",
+            notes: "Experimental Ubuntu live-build backend with casper integration; requires a Linux host with Ubuntu-compatible live-build tooling and end-to-end validation.",
         },
         BaseCapabilities {
             id: "arch",
             name: "Arch Linux",
             backend: "archiso",
-            backend_status: "planned",
+            backend_status: "preview",
             releases: &["rolling"],
             architectures: &["x86_64"],
             desktops: &["gnome", "kde-plasma", "xfce", "lxqt", "cinnamon", "mate", "none"],
             boot_modes: &["uefi", "bios"],
-            notes: "archiso profile, package lists and airootfs overlay.",
+            notes: "Experimental native archiso releng profile backend with package lists and airootfs overlay; requires Arch Linux build tools and boot validation.",
         },
     ]
 }
@@ -488,8 +488,18 @@ fn command_available(command: &str) -> bool {
 
 fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'static str)>, String> {
     match distribution {
-        "debian" | "ubuntu" => Ok(vec![
+        "debian" => Ok(vec![
             ("lb", "live-build (lb)"),
+            ("debootstrap", "debootstrap"),
+            ("mksquashfs", "squashfs-tools"),
+            ("xorriso", "xorriso"),
+            ("rsync", "rsync"),
+            ("file", "file"),
+            ("sha256sum", "coreutils"),
+            ("sudo", "sudo"),
+        ]),
+        "ubuntu" => Ok(vec![
+            ("lb", "Ubuntu-compatible live-build"),
             ("debootstrap", "debootstrap"),
             ("mksquashfs", "squashfs-tools"),
             ("xorriso", "xorriso"),
@@ -500,6 +510,9 @@ fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'st
         ]),
         "arch" => Ok(vec![
             ("mkarchiso", "archiso"),
+            ("pacman", "pacman (Arch Linux host)"),
+            ("pacstrap", "pacstrap (arch-install-scripts)"),
+            ("arch-chroot", "arch-install-scripts"),
             ("mksquashfs", "squashfs-tools"),
             ("xorriso", "libisoburn / xorriso"),
             ("rsync", "rsync"),
@@ -655,10 +668,9 @@ fn apply_common_filesystem_defaults(overlay: &Path, project: &OsProject) -> Resu
         fs::write(defaults.join("locale"), format!("LANG={}\n", project.filesystem.locale))
             .map_err(|error| format!("Cannot write locale defaults: {error}"))?;
         let etc = safe_create_project_directory(overlay, "etc")?;
-        fs::write(etc.join("locale.conf"), format!("LANG={}\\n", project.filesystem.locale))
+        fs::write(etc.join("locale.conf"), format!("LANG={}\n", project.filesystem.locale))
             .map_err(|error| format!("Cannot write locale.conf: {error}"))?;
-        let etc = safe_create_project_directory(overlay, "etc")?;
-        fs::write(etc.join("locale.gen"), format!("{} UTF-8\\n", project.filesystem.locale))
+        fs::write(etc.join("locale.gen"), format!("{} UTF-8\n", project.filesystem.locale))
             .map_err(|error| format!("Cannot write locale generation config: {error}"))?;
     }
     Ok(())
@@ -928,12 +940,35 @@ mod tests {
     }
 
     #[test]
-    fn reports_ubuntu_backend_as_not_available_yet() {
+    fn reports_ubuntu_backend_as_experimental_preview() {
         let mut project = sample();
         project.base.distribution = "ubuntu".into();
         project.base.release = "24.04 LTS".into();
         let report = validate_project(&project);
-        assert!(report.warnings.iter().any(|warning| warning.contains("not available yet")));
+        assert!(report.warnings.iter().any(|warning| warning.contains("in preview")));
+        assert!(!report.warnings.iter().any(|warning| warning.contains("not available yet")));
+    }
+
+    #[test]
+    fn reports_arch_backend_as_experimental_preview() {
+        let mut project = sample();
+        project.base.distribution = "arch".into();
+        project.base.release = "rolling".into();
+        project.base.architecture = "x86_64".into();
+        let report = validate_project(&project);
+        assert!(report.warnings.iter().any(|warning| warning.contains("in preview")));
+        assert!(!report.warnings.iter().any(|warning| warning.contains("not available yet")));
+    }
+
+    #[test]
+    fn backend_dependencies_are_distribution_specific() {
+        let ubuntu = required_build_commands("ubuntu").expect("Ubuntu backend");
+        let arch = required_build_commands("arch").expect("Arch backend");
+        assert!(ubuntu.iter().any(|(command, _)| *command == "lb"));
+        assert!(!ubuntu.iter().any(|(command, _)| *command == "mkarchiso"));
+        assert!(arch.iter().any(|(command, _)| *command == "mkarchiso"));
+        assert!(arch.iter().any(|(command, _)| *command == "pacstrap"));
+        assert!(!arch.iter().any(|(command, _)| *command == "lb"));
     }
 
     #[test]
@@ -1255,9 +1290,10 @@ echo "Arch Linux ISO validated and SHA-256 checksum created."
             format!("sudo {}", shell_quote(&script_path.to_string_lossy())),
         ],
         notes: vec![
-            "This creates a distribution-specific build profile and script; it does not run the build.".into(),
-            "Review build.sh and the generated package/overlay files before execution.".into(),
-            "Ubuntu uses live-build with casper; Arch uses the upstream archiso releng profile and mkarchiso.".into(),
+            "This prepares a real distribution-specific backend workspace and executable build script; ISO creation starts only when the reviewed script is run.".into(),
+            "Ubuntu backend: live-build package lists, casper live boot configuration, root filesystem overlay and Ubuntu release codename mapping.".into(),
+            "Arch backend: upstream archiso releng profile, x86_64 package manifest, custom airootfs overlay and mkarchiso.".into(),
+            "These backends are experimental previews until their output has been built and boot-tested on supported Linux hosts.".into(),
             "Local ISO creation currently requires a Linux host and the matching distribution build tools.".into(),
             "Theme and icon defaults are written to the GTK user profile; wallpaper assets are copied into the target filesystem. Some desktop environments may require additional session-specific wallpaper configuration.".into(),
         ],
