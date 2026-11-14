@@ -1,0 +1,10 @@
+# Debian Live loopback recipe based on the Debian Live multiboot guidance.
+# Validate against the exact ISO release before marking this profile as verified.
+[[profiles]]
+id = "debian-live-amd64"
+name = "Debian Live (amd64)"
+iso = "iso/debian-live-amd64.iso"
+kernel = "live/vmlinuz"
+initrd = "live/initrd.img"
+linux_args = ["boot=live", "components", "quiet"]
+findiso = true
