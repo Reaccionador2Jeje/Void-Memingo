@@ -9,9 +9,9 @@ import { Plus, TerminalSquare, X } from 'lucide-react';
 type TerminalOutput = { sessionId: string; data: string };
 type TerminalExit = { sessionId: string; code: number | null };
 type Session = { id: string; name: string };
-type Props = { workspace: string | null; onLog: (message: string) => void; command?: string | null; onCommandConsumed?: () => void };
+type Props = { workspace: string | null; onLog: (message: string) => void; command?: string | null; onCommandConsumed?: () => void; interruptSignal?: number; onCommandStarted?: () => void; onCommandFinished?: (exitCode: number) => void };
 
-function TerminalView({ sessionId, active }: { sessionId: string; active: boolean }) {
+function TerminalView({ sessionId, active, onCommandFinished }: { sessionId: string; active: boolean; onCommandFinished: (exitCode: number) => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,10 +40,20 @@ function TerminalView({ sessionId, active }: { sessionId: string; active: boolea
     let disposed = false;
     let outputUnlisten: (() => void) | undefined;
     let exitUnlisten: (() => void) | undefined;
+    let markerBuffer = '';
 
     const connect = async () => {
       outputUnlisten = await listen<TerminalOutput>('terminal://output', (event) => {
-        if (event.payload.sessionId === sessionId) terminal.write(event.payload.data);
+        if (event.payload.sessionId === sessionId) {
+          const data = event.payload.data;
+          terminal.write(data);
+          markerBuffer = (markerBuffer + data).slice(-160);
+          const match = markerBuffer.match(/\x1b\]777;VOID_MEMINGO_EXIT;(\d+)\x07/);
+          if (match) {
+            markerBuffer = '';
+            onCommandFinished(Number(match[1]));
+          }
+        }
       });
       exitUnlisten = await listen<TerminalExit>('terminal://exit', (event) => {
         if (event.payload.sessionId === sessionId) {
@@ -93,18 +103,19 @@ function TerminalView({ sessionId, active }: { sessionId: string; active: boolea
       exitUnlisten?.();
       terminal.dispose();
     };
-  }, [sessionId]);
+  }, [sessionId, onCommandFinished]);
 
   return <div className="terminal-xterm-host" ref={hostRef} style={{ display: active ? 'block' : 'none' }} />;
 }
 
-export default function TerminalPanel({ workspace, onLog, command, onCommandConsumed }: Props) {
+export default function TerminalPanel({ workspace, onLog, command, onCommandConsumed, interruptSignal = 0, onCommandStarted, onCommandFinished = () => undefined }: Props) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [selectedShell, setSelectedShell] = useState('default');
   const isWindows = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent);
   const sessionsRef = useRef<Session[]>([]);
+  const lastInterruptRef = useRef(interruptSignal);
   sessionsRef.current = sessions;
 
   const createSession = useCallback(async () => {
@@ -159,14 +170,28 @@ export default function TerminalPanel({ workspace, onLog, command, onCommandCons
 
   useEffect(() => {
     if (!command || !activeId) return;
+    const trackedCommand = command + '; __void_memingo_exit=$?; printf "\\033]777;VOID_MEMINGO_EXIT;%s\\007" "$__void_memingo_exit"';
+    onCommandStarted?.();
     void invoke('write_terminal_input', {
       sessionId: activeId,
-      data: command + '\r'
+      data: trackedCommand + '\r'
     }).then(() => {
-      onLog('Comando de build enviado a la terminal.');
+      onLog('Comando enviado a la terminal; seguimiento de salida activo.');
       onCommandConsumed?.();
-    }).catch((error) => onLog('No se pudo enviar el comando de build: ' + String(error)));
-  }, [command, activeId, onCommandConsumed, onLog]);
+    }).catch((error) => {
+      onCommandFinished(-1);
+      onLog('No se pudo enviar el comando: ' + String(error));
+    });
+  }, [command, activeId, onCommandConsumed, onCommandFinished, onCommandStarted, onLog]);
+
+  useEffect(() => {
+    if (interruptSignal <= lastInterruptRef.current) return;
+    lastInterruptRef.current = interruptSignal;
+    if (!activeId) return;
+    void invoke('write_terminal_input', { sessionId: activeId, data: '\\x03' })
+      .then(() => onLog('Se envió Ctrl+C a la terminal activa.'))
+      .catch((error) => onLog('No se pudo interrumpir la terminal: ' + String(error)));
+  }, [interruptSignal, activeId, onLog]);
 
   const closeSession = (id: string) => {
     void invoke('close_terminal', { sessionId: id }).catch((error) => onLog(String(error)));
@@ -225,7 +250,7 @@ export default function TerminalPanel({ workspace, onLog, command, onCommandCons
             <button onClick={() => void createSession()} disabled={creating}>Crear terminal</button>
           </div>
         ) : sessions.map((session) => (
-          <TerminalView key={session.id} sessionId={session.id} active={activeId === session.id} />
+          <TerminalView key={session.id} sessionId={session.id} active={activeId === session.id} onCommandFinished={onCommandFinished} />
         ))}
       </div>
     </div>
