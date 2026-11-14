@@ -1225,7 +1225,7 @@ directory = ${quote(osOutputDir)}
                 <button className="primary-button" onClick={() => void chooseVoidBootDirectory()} disabled={voidBootBusy}>{voidBootBusy ? 'Inspeccionando…' : 'Seleccionar carpeta de ISOs'}</button>
                 <div className="git-section-label">BOOT PROFILES</div>
                 <button className="secondary-button" onClick={() => void chooseVoidBootProfile()} disabled={voidBootPreviewBusy}>{voidBootPreviewBusy ? 'Generando vista previa…' : 'Abrir catálogo TOML'}</button>
-                {voidBootProfileFile && <div className="git-provider-note" title={voidBootProfileFile}>{voidBootProfileFile.split(/[\\/]/).filter(Boolean).pop()}</div>}
+                {voidBootProfileFile && <div className="git-provider-note" title={voidBootProfileFile}>{voidBootProfileFile.split(/[\\\\/]/).filter(Boolean).pop()}</div>}
                 {voidBootMenuPreview && (
                   <div className="void-boot-preview">
                     <div className="git-toolbar"><span>GRUB MENU PREVIEW</span><button className="subtle-icon" onClick={() => void refreshVoidBootPreview()} disabled={voidBootPreviewBusy} title="Actualizar vista previa"><Activity size={14} /></button></div>
