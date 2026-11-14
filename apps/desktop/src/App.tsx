@@ -26,7 +26,8 @@ type OpenTab = {
   dirty: boolean;
 };
 
-type SidebarView = 'explorer' | 'search' | 'source';
+type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
+type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BottomView = 'problems' | 'output' | 'terminal';
 
 type OsBase = {
@@ -159,6 +160,9 @@ function App() {
   const [terminalMounted, setTerminalMounted] = useState(false);
   const [terminalCommand, setTerminalCommand] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [voidBootDirectory, setVoidBootDirectory] = useState<string | null>(null);
+  const [voidBootEntries, setVoidBootEntries] = useState<BootIsoEntry[]>([]);
+  const [voidBootBusy, setVoidBootBusy] = useState(false);
   const [logs, setLogs] = useState<string[]>(['Void Memingo Desktop iniciado.']);
   const [busy, setBusy] = useState(false);
   const [osBuilderOpen, setOsBuilderOpen] = useState(false);
@@ -493,6 +497,26 @@ function App() {
       setOsBusy(false);
     }
   }, [addLog, workspace]);
+
+  const scanVoidBootDirectory = useCallback(async (directory: string) => {
+    setVoidBootBusy(true);
+    try {
+      const entries = await invoke<BootIsoEntry[]>('scan_void_boot_iso_directory', { directory });
+      setVoidBootDirectory(directory);
+      setVoidBootEntries(entries);
+      addLog(`Void Boot: ${entries.length} ISO(s) inspeccionadas.`);
+    } catch (error) {
+      setVoidBootEntries([]);
+      addLog('No se pudo inspeccionar la carpeta de ISOs: ' + String(error));
+    } finally {
+      setVoidBootBusy(false);
+    }
+  }, [addLog]);
+
+  const chooseVoidBootDirectory = useCallback(async () => {
+    const selected = await open({ directory: true, multiple: false, title: 'Seleccionar carpeta que contiene ISOs' });
+    if (typeof selected === 'string') await scanVoidBootDirectory(selected);
+  }, [scanVoidBootDirectory]);
 
   const refreshWorkspace = useCallback(async (root: string) => {
     const result = await invoke<FileEntry[]>('list_directory', {
@@ -1082,6 +1106,9 @@ directory = ${quote(osOutputDir)}
             <button className="rail-button" onClick={() => setBottomOpen(!bottomOpen)} title="Panel inferior">
               <PanelBottom size={20} />
             </button>
+            <button className={'rail-button ' + (sidebarView === 'boot' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('boot'); setSidebarOpen(true); }} title="Void Boot — administrador de ISOs">
+              <Disc3 size={20} />
+            </button>
             <button className={'rail-button ' + (osBuilderOpen ? 'active' : '')} onClick={() => { setOsBuilderOpen(true); setSidebarOpen(false); }} title="OS Builder">
               <Layers3 size={20} />
             </button>
@@ -1095,7 +1122,7 @@ directory = ${quote(osOutputDir)}
         {sidebarOpen && (
           <aside className="sidebar">
             <div className="sidebar-heading">
-              <span>{sidebarView === 'explorer' ? 'EXPLORADOR' : sidebarView === 'search' ? 'BÚSQUEDA' : 'CONTROL DE CÓDIGO'}</span>
+              <span>{sidebarView === 'explorer' ? 'EXPLORADOR' : sidebarView === 'search' ? 'BÚSQUEDA' : sidebarView === 'source' ? 'CONTROL DE CÓDIGO' : 'VOID BOOT'}</span>
               <button className="subtle-icon" onClick={() => setSidebarOpen(false)} title="Ocultar panel"><PanelLeftClose size={15} /></button>
             </div>
 
@@ -1153,6 +1180,23 @@ directory = ${quote(osOutputDir)}
                     </div>
                   </>
                 )}
+              </div>
+            )}
+
+            {sidebarView === 'boot' && (
+              <div className="void-boot-sidebar">
+                <div className="git-toolbar"><span>ISO MANAGER · PREVIEW</span><button className="subtle-icon" onClick={() => voidBootDirectory && void scanVoidBootDirectory(voidBootDirectory)} disabled={!voidBootDirectory || voidBootBusy} title="Volver a inspeccionar"><Activity size={14} /></button></div>
+                <p className="git-provider-note">Inspección de solo lectura. Todavía no prepara ni modifica unidades USB.</p>
+                <button className="primary-button" onClick={() => void chooseVoidBootDirectory()} disabled={voidBootBusy}>{voidBootBusy ? 'Inspeccionando…' : 'Seleccionar carpeta de ISOs'}</button>
+                {voidBootDirectory && <div className="git-section-label" title={voidBootDirectory}>CARPETA: {voidBootDirectory.split(/[\\\\/]/).filter(Boolean).pop()}</div>}
+                {voidBootEntries.length === 0 && <div className="tree-empty">{voidBootBusy ? 'Leyendo archivos…' : 'No hay ISOs inspeccionadas.'}</div>}
+                {voidBootEntries.map((entry) => (
+                  <div className="git-remote-row" key={entry.path}>
+                    <strong>{entry.name}</strong>
+                    <span>{(entry.size_bytes / (1024 * 1024)).toFixed(1)} MiB · {entry.status === 'iso9660_with_el_torito_descriptor' ? 'El Torito detectado' : entry.status === 'iso9660_without_el_torito_descriptor' ? 'ISO 9660, sin descriptor El Torito' : 'Formato no reconocido'}</span>
+                    <small title={entry.sha256}>SHA-256: {entry.sha256}</small>
+                  </div>
+                ))}
               </div>
             )}
 
