@@ -15,6 +15,7 @@ on:
   pull_request:
     paths:
       - "scripts/test-void-boot-qemu.sh"
+      - "scripts/test-debian-live-qemu.sh"
       - "apps/void-boot/**"
       - "apps/desktop/**"
       - "docs/VOID_BOOT_ARCHITECTURE.md"
