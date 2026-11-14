@@ -16,6 +16,16 @@ mkdir -p "$STAGING_DIR/iso" "$(dirname "$OUTPUT_ISO")"
 cargo run --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" -- \
   render-menu "$PROFILE_FILE" "$STAGING_DIR/boot/grub"
 
+if [[ "${VOID_BOOT_SERIAL_TEST:-0}" == "1" ]]; then
+  cat >> "$STAGING_DIR/boot/grub/grub.cfg" <<'GRUB_SERIAL_TEST'
+insmod serial
+serial --unit=0 --speed=115200
+terminal_input serial
+terminal_output serial
+echo "VOID_BOOT_MENU_READY"
+GRUB_SERIAL_TEST
+fi
+
 if command -v grub-script-check >/dev/null 2>&1; then
   grub-script-check "$STAGING_DIR/boot/grub/grub.cfg"
 fi
