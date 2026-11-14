@@ -7,7 +7,7 @@ use void_boot::{
     catalog::{filter_distributions, load_distributions},
     devices::list_removable_devices,
     profiles::ProfileCatalog,
-    scan_directory, IsoEntry,
+    scan_directory, verify_iso_sha256_manifest, IsoEntry,
 };
 
 fn print_entries(entries: &[IsoEntry], json: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -107,6 +107,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             print_catalog(family.as_deref(), architecture.as_deref())
         }
+        Some("verify-checksum") => {
+            let iso = args.next().ok_or("missing ISO file path")?;
+            let manifest = args.next().ok_or("missing publisher checksum manifest path")?;
+            verify_iso_sha256_manifest(Path::new(&iso), Path::new(&manifest))?;
+            println!("Publisher SHA-256 manifest matches: {iso}");
+            Ok(())
+        }
         Some("scan") => {
             let directory = args.next().ok_or("missing directory argument")?;
             let json = args.any(|arg| arg == "--json");
@@ -174,7 +181,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                  void-boot render-menu <profiles.toml> <output-directory>"
             );
             Err(
-                "expected catalog, scan, list-devices, validate-profiles or render-menu command"
+                "expected catalog, scan, verify-checksum, list-devices, validate-profiles or render-menu command"
                     .into(),
             )
         }
