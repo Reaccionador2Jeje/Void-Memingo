@@ -385,7 +385,15 @@ pub async fn search_workspace(
 
 #[cfg(test)]
 mod tests {
-    use super::safe_relative_path;
+    use super::{diagnose_text_file, safe_relative_path, search_workspace_files};
+    use std::{fs, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
+
+    fn temporary_workspace(label: &str) -> PathBuf {
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let root = std::env::temp_dir().join(format!("void-memingo-{label}-{}-{nonce}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
 
     #[test]
     fn rejects_parent_directory_traversal() {
@@ -402,6 +410,64 @@ mod tests {
     fn accepts_workspace_relative_paths() {
         assert!(safe_relative_path("src/main.void").is_ok());
         assert!(safe_relative_path("README.md").is_ok());
+    }
+
+    #[test]
+    fn workspace_search_finds_text_and_skips_dependency_directories() {
+        let root = temporary_workspace("search");
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("node_modules/package")).unwrap();
+        fs::write(root.join("src/main.rs"), "fn main() { let Needle = 1; }\n").unwrap();
+        fs::write(root.join("node_modules/package/ignored.js"), "Needle\n").unwrap();
+
+        let results = search_workspace_files(&root, "needle", false).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].path, "src/main.rs");
+        assert_eq!(results[0].line_number, 1);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn json_diagnostics_report_invalid_syntax_and_accept_valid_json() {
+        let root = temporary_workspace("json-diagnostics");
+        fs::write(root.join("invalid.json"), "{\"name\": }\n").unwrap();
+        fs::write(root.join("valid.json"), "{\"name\": \"Atdev\"}\n").unwrap();
+
+        let invalid = diagnose_text_file(root.to_string_lossy().into_owned(), "invalid.json".into()).unwrap();
+        let valid = diagnose_text_file(root.to_string_lossy().into_owned(), "valid.json".into()).unwrap();
+        assert!(invalid.supported);
+        assert_eq!(invalid.language, "JSON");
+        assert_eq!(invalid.diagnostics.len(), 1);
+        assert!(valid.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn toml_diagnostics_report_invalid_syntax() {
+        let root = temporary_workspace("toml-diagnostics");
+        fs::write(root.join("void-os.toml"), "[project\nname = \"Broken\"\n").unwrap();
+
+        let report = diagnose_text_file(root.to_string_lossy().into_owned(), "void-os.toml".into()).unwrap();
+        assert!(report.supported);
+        assert_eq!(report.language, "TOML");
+        assert_eq!(report.diagnostics.len(), 1);
+        assert!(report.diagnostics[0].line >= 1);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn unsupported_file_types_are_reported_without_fake_diagnostics() {
+        let root = temporary_workspace("unsupported-diagnostics");
+        fs::write(root.join("main.rs"), "fn main() {}\n").unwrap();
+
+        let report = diagnose_text_file(root.to_string_lossy().into_owned(), "main.rs".into()).unwrap();
+        assert!(!report.supported);
+        assert!(report.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
     }
 }
 
