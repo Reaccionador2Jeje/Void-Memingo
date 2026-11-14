@@ -46,7 +46,7 @@ Before a physical-media writer is enabled, it must enumerate devices using stabl
 
 1. **Foundation:** ISO inventory, SHA-256, ISO 9660 and El Torito checks.
 2. **Boot-menu foundation:** validated profile schema, GRUB menu generator, graphical theme, bundled Unicode font, ISO discovery and tests.
-3. **Virtual boot prototype:** bootable GRUB menu ISO with serial-console smoke tests in QEMU for legacy BIOS and OVMF UEFI. A disposable GPT/FAT32 media image is boot-tested under OVMF UEFI; BIOS media-image boot remains pending.
+3. **Virtual boot prototype:** bootable GRUB menu ISO with serial-console smoke tests in QEMU for legacy BIOS and OVMF UEFI. A disposable GPT/FAT32 media image is boot-tested in QEMU under OVMF UEFI; BIOS media-image boot remains pending.
 4. **Profile coverage:** Debian Live recipe and manual full-boot QEMU test are implemented; confirm the test result before marking Debian verified, then add reviewed Ubuntu, Arch and rescue-image profiles against exact releases.
 5. **Void Memingo integration:** shared profile catalog, ISO compatibility display, TOML profile picker and generated menu preview.
 6. **Standalone GUI:** ISO library, profile editor, boot menu preview and safe media planner.
