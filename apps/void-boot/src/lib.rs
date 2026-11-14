@@ -133,6 +133,24 @@ pub fn scan_directory(directory: &Path) -> io::Result<Vec<IsoEntry>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        io::Write,
+        sync::atomic::{AtomicU64, Ordering},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn unique_temp_path(label: &str) -> PathBuf {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after UNIX epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "void-boot-{}-{stamp}-{id}-{label}",
+            std::process::id()
+        ))
+    }
 
     fn descriptor(kind: u8, identifier: &[u8]) -> [u8; 2048] {
         let mut bytes = [0_u8; 2048];
@@ -141,6 +159,40 @@ mod tests {
         bytes[6] = 1;
         bytes[7..7 + identifier.len()].copy_from_slice(identifier);
         bytes
+    }
+
+    #[test]
+    fn scans_iso9660_and_el_torito_descriptors_from_file() {
+        let path = unique_temp_path("bootable.iso");
+        let mut bytes = vec![0_u8; 18 * 2048];
+        bytes[16 * 2048..17 * 2048].copy_from_slice(&descriptor(1, b""));
+        bytes[17 * 2048..18 * 2048]
+            .copy_from_slice(&descriptor(0, b"EL TORITO SPECIFICATION"));
+
+        {
+            let mut file = File::create(&path).expect("create fixture ISO");
+            file.write_all(&bytes).expect("write fixture ISO");
+        }
+
+        let entry = inspect_iso(&path).expect("inspect fixture ISO");
+        assert!(entry.iso9660);
+        assert!(entry.el_torito_descriptor);
+        assert_eq!(entry.status, "iso9660_with_el_torito_descriptor");
+        assert_eq!(entry.size_bytes, bytes.len() as u64);
+
+        fs::remove_file(path).expect("remove fixture ISO");
+    }
+
+    #[test]
+    fn computes_sha256_for_iso_contents() {
+        let path = unique_temp_path("hash.iso");
+        fs::write(&path, b"abc").expect("write hash fixture");
+        let mut file = File::open(&path).expect("open hash fixture");
+        assert_eq!(
+            sha256_file(&mut file).expect("calculate SHA-256"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        fs::remove_file(path).expect("remove hash fixture");
     }
 
     #[test]
