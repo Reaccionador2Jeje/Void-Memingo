@@ -602,5 +602,133 @@
       "boot_profile_required": false,
       "note": "Catálogo y enlace oficial únicamente. El arranque e instalación multiboot de Windows requieren un flujo específico y todavía no están implementados ni validados en Void Boot."
     }
+  },
+  {
+    "id": "freebsd",
+    "kind": "operating_system",
+    "name": "FreeBSD",
+    "description": "Sistema operativo tipo Unix basado en BSD, con imágenes oficiales de instalación, máquinas virtuales y sistemas embebidos.",
+    "family": "bsd",
+    "project_url": "https://www.freebsd.org/",
+    "download_page": "https://www.freebsd.org/where/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "i686",
+      "riscv64",
+      "powerpc64",
+      "powerpc64le"
+    ],
+    "editions": [
+      "FreeBSD 15.1-RELEASE",
+      "FreeBSD 14.5-RELEASE"
+    ],
+    "release_model": "stable",
+    "formats": [
+      "ISO",
+      "IMG",
+      "QCOW2"
+    ],
+    "verification": "Usa la página oficial para elegir arquitectura e imagen; consulta los checksums firmados publicados por FreeBSD.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
+    }
+  },
+  {
+    "id": "openbsd",
+    "kind": "operating_system",
+    "name": "OpenBSD",
+    "description": "Sistema operativo BSD multipropósito que prioriza seguridad, corrección y portabilidad. Sus medios oficiales varían por arquitectura.",
+    "family": "bsd",
+    "project_url": "https://www.openbsd.org/",
+    "download_page": "https://www.openbsd.org/faq/faq4.html",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "i686",
+      "riscv64",
+      "powerpc64",
+      "sparc64"
+    ],
+    "editions": [
+      "OpenBSD 8.0"
+    ],
+    "release_model": "stable",
+    "formats": [
+      "ISO",
+      "IMG",
+      "installation sets"
+    ],
+    "verification": "Descarga desde los espejos enlazados por OpenBSD y verifica SHA256 y la firma SHA256.sig cuando corresponda.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
+    }
+  },
+  {
+    "id": "netbsd",
+    "kind": "operating_system",
+    "name": "NetBSD",
+    "description": "Sistema operativo BSD conocido por su amplia portabilidad entre plataformas de hardware.",
+    "family": "bsd",
+    "project_url": "https://www.netbsd.org/",
+    "download_page": "https://www.netbsd.org/mirrors/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "i686",
+      "arm",
+      "mips",
+      "powerpc",
+      "sparc64"
+    ],
+    "editions": [
+      "NetBSD 11.1",
+      "NetBSD 11.0"
+    ],
+    "release_model": "stable",
+    "formats": [
+      "ISO",
+      "IMG",
+      "USB"
+    ],
+    "verification": "Elige un espejo desde el sitio oficial y verifica los hashes firmados publicados junto a los archivos de distribución.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
+    }
+  },
+  {
+    "id": "reactos",
+    "kind": "operating_system",
+    "name": "ReactOS",
+    "description": "Sistema operativo experimental de código abierto compatible a nivel de diseño con aplicaciones y controladores de Windows. El proyecto advierte que sigue en fase alfa.",
+    "family": "reactos",
+    "project_url": "https://reactos.org/",
+    "download_page": "https://reactos.org/download/",
+    "architectures": [
+      "i686"
+    ],
+    "editions": [
+      "ReactOS 0.4.16"
+    ],
+    "release_model": "alpha",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Obtén las imágenes desde el proyecto ReactOS. Es software alfa y no debe considerarse adecuado para datos importantes ni para uso de producción.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
+    }
   }
 ]
