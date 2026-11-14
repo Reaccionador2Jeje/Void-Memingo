@@ -27,6 +27,7 @@ fn main() {
             commands::terminal::resize_terminal,
             commands::terminal::close_terminal,
             commands::os_builder::list_os_base_capabilities,
+            commands::os_builder::check_os_build_preflight,
             commands::os_builder::validate_os_project,
             commands::os_builder::prepare_debian_live_project,
             commands::os_builder::prepare_os_build_project
