@@ -27,7 +27,12 @@ From the repository root, build a bootable graphical menu ISO for a virtual mach
 
     bash scripts/build-void-boot-demo-iso.sh
 
-The render command writes grub.cfg and copies the graphical theme into the output folder. It does not install GRUB or write to a USB drive.
+CI also builds a serial-console test image and smoke-tests the menu using QEMU with legacy BIOS and OVMF UEFI:
+
+    VOID_BOOT_SERIAL_TEST=1 bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml /tmp/void-boot-qemu.iso
+    bash scripts/test-void-boot-qemu.sh /tmp/void-boot-qemu.iso
+
+The render command writes grub.cfg and copies the graphical theme into the output folder. It does not install GRUB or write to a USB drive. Void Memingo can also open a profile TOML file and show the generated GRUB menu without writing it.
 
 ## Intended removable-media layout
 
