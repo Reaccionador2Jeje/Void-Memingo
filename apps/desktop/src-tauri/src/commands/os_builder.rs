@@ -577,7 +577,7 @@ fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'st
             ("bsdtar", "libarchive"),
             ("mkfs.fat", "dosfstools"),
             ("mkfs.ext4", "e2fsprogs"),
-            ("mtools", "mtools"),
+            ("mcopy", "mtools"),
             ("mount", "util-linux"),
             ("unshare", "util-linux (user namespaces)"),
             ("awk", "awk"),
