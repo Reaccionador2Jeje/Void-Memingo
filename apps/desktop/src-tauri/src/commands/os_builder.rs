@@ -1551,6 +1551,11 @@ mod tests {
         let (root, mut project) = temporary_os_project("debian", "stable", "amd64");
         project.desktop.environment = "xfce".into();
         project.desktop.display_manager = "lightdm".into();
+        project.desktop.theme = "Adwaita-dark".into();
+        project.desktop.icon_theme = "Papirus".into();
+        fs::create_dir_all(root.join("assets")).unwrap();
+        fs::write(root.join("assets/wallpaper.png"), b"wallpaper test asset").unwrap();
+        project.desktop.wallpaper = "assets/wallpaper.png".into();
         project.filesystem.services_enabled.push("NetworkManager.service".into());
         project.packages.install.push("firefox-esr".into());
         project.packages.remove.push("nano".into());
@@ -1588,6 +1593,19 @@ mod tests {
         assert!(package_list.contains("task-xfce-desktop"));
         assert!(package_list.contains("lightdm"));
         assert!(package_list.contains("network-manager"));
+        let overlay_root = root.join(".void-memingo/debian-live/atdev-os/config/includes.chroot");
+        let desktop_script = overlay_root.join("usr/local/bin/void-memingo-apply-desktop-defaults");
+        let desktop_script_text = fs::read_to_string(&desktop_script).unwrap();
+        assert!(desktop_script_text.contains("xfconf-query"));
+        assert!(desktop_script_text.contains("/usr/share/backgrounds/void-memingo/wallpaper.png"));
+        assert!(Command::new("sh").args(["-n", desktop_script.to_str().unwrap()]).status().unwrap().success());
+        assert!(overlay_root.join("etc/skel/.config/autostart/void-memingo-desktop-defaults.desktop").is_file());
+        let mut gnome_project = project.clone();
+        gnome_project.desktop.environment = "gnome".into();
+        assert!(desktop_defaults_script(&gnome_project, "/usr/share/backgrounds/wallpaper.png").contains("org.gnome.desktop.background"));
+        let mut kde_project = project.clone();
+        kde_project.desktop.environment = "kde-plasma".into();
+        assert!(desktop_defaults_script(&kde_project, "/usr/share/backgrounds/wallpaper.png").contains("plasma-apply-wallpaperimage"));
         let removal_hook = fs::read_to_string(root.join(".void-memingo/debian-live/atdev-os/config/hooks/normal/015-void-memingo-remove-packages.hook.chroot")).unwrap();
         assert!(removal_hook.contains("apt-get purge"));
         let system_hook = fs::read_to_string(root.join(".void-memingo/debian-live/atdev-os/config/hooks/normal/020-void-memingo-system-config.hook.chroot")).unwrap();
@@ -2242,7 +2260,7 @@ echo "Arch ISO boot catalog, SHA-256 and build manifest validated."
             format!("Optional UEFI boot test script (requires OVMF): {}", qemu_uefi_test.display()),
             "The build script validates ISO 9660 and the El Torito boot catalog, verifies SHA-256, and exports a project snapshot.".into(),
             "Local ISO creation currently requires a Linux host and the matching distribution build tools.".into(),
-            "Theme and icon defaults are written to the GTK user profile; wallpaper assets are copied into the target filesystem. Some desktop environments may require additional session-specific wallpaper configuration.".into(),
+            "GTK defaults are written to the skeleton profile; Xfce, GNOME, Cinnamon, MATE and KDE Plasma apply theme/icon/wallpaper settings once at first login when their session tools are available.".into(),
         ],
     })
 }
