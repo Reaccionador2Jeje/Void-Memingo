@@ -730,5 +730,420 @@
       "boot_profile_required": false,
       "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
     }
+  },
+  {
+    "id": "centos-stream",
+    "name": "CentOS Stream",
+    "description": "Distribución comunitaria de flujo continuo situada entre Fedora y Red Hat Enterprise Linux.",
+    "family": "rhel",
+    "project_url": "https://www.centos.org/",
+    "download_page": "https://www.centos.org/download/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "ppc64le"
+    ],
+    "editions": [
+      "Boot ISO",
+      "DVD ISO",
+      "Cloud images"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO",
+      "Images"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "gentoo",
+    "name": "Gentoo Linux",
+    "description": "Distribución flexible basada en compilación desde código fuente y perfiles seleccionables.",
+    "family": "independent",
+    "project_url": "https://www.gentoo.org/",
+    "download_page": "https://www.gentoo.org/downloads/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "riscv64"
+    ],
+    "editions": [
+      "Minimal Installation CD",
+      "LiveGUI",
+      "Stage 3"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO",
+      "Stage archives"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "slackware",
+    "name": "Slackware Linux",
+    "description": "Distribución clásica de propósito general, conocida por su enfoque sencillo y tradicional.",
+    "family": "independent",
+    "project_url": "https://www.slackware.com/",
+    "download_page": "https://www.slackware.com/getslack/",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Slackware",
+      "Slackware64"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "lubuntu",
+    "name": "Lubuntu",
+    "description": "Variante oficial de Ubuntu que utiliza el entorno de escritorio LXQt y prioriza la ligereza.",
+    "family": "ubuntu",
+    "project_url": "https://lubuntu.me/",
+    "download_page": "https://lubuntu.me/downloads/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Desktop",
+      "LTS",
+      "Interim"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "kubuntu",
+    "name": "Kubuntu",
+    "description": "Variante oficial de Ubuntu con el entorno de escritorio KDE Plasma.",
+    "family": "ubuntu",
+    "project_url": "https://kubuntu.org/",
+    "download_page": "https://kubuntu.org/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Desktop",
+      "LTS",
+      "Interim"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "xubuntu",
+    "name": "Xubuntu",
+    "description": "Variante oficial de Ubuntu con el escritorio Xfce, enfocada en una experiencia ligera y configurable.",
+    "family": "ubuntu",
+    "project_url": "https://xubuntu.org/",
+    "download_page": "https://xubuntu.org/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Desktop",
+      "Minimal",
+      "LTS",
+      "Interim"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "linux-lite",
+    "name": "Linux Lite",
+    "description": "Distribución de escritorio basada en Ubuntu que busca facilitar la transición desde otros sistemas.",
+    "family": "ubuntu",
+    "project_url": "https://www.linuxliteos.com/",
+    "download_page": "https://www.linuxliteos.com/download.php",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Standard"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "deepin",
+    "name": "deepin",
+    "description": "Distribución Linux con escritorio propio y ediciones para distintas arquitecturas.",
+    "family": "debian",
+    "project_url": "https://www.deepin.org/",
+    "download_page": "https://www.deepin.org/en/download/",
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Desktop",
+      "Live"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "solus",
+    "name": "Solus",
+    "description": "Distribución independiente de escritorio con ediciones Budgie, GNOME, KDE Plasma y Xfce.",
+    "family": "independent",
+    "project_url": "https://getsol.us/",
+    "download_page": "https://getsol.us/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Budgie",
+      "GNOME",
+      "Plasma",
+      "Xfce"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "kde-neon",
+    "name": "KDE neon",
+    "description": "Sistema basado en Ubuntu que ofrece versiones recientes del software KDE Plasma.",
+    "family": "ubuntu",
+    "project_url": "https://neon.kde.org/",
+    "download_page": "https://neon.kde.org/download",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "User Edition",
+      "Testing Edition",
+      "Developer Edition"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "oracle-linux",
+    "name": "Oracle Linux",
+    "description": "Distribución empresarial compatible con el ecosistema Red Hat Enterprise Linux.",
+    "family": "rhel",
+    "project_url": "https://www.oracle.com/linux/",
+    "download_page": "https://yum.oracle.com/oracle-linux-isos.html",
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Full ISO",
+      "Boot ISO",
+      "UEK Boot ISO"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "antix",
+    "name": "antiX Linux",
+    "description": "Distribución ligera basada en Debian, diseñada para funcionar en equipos modestos.",
+    "family": "debian",
+    "project_url": "https://antixlinux.com/",
+    "download_page": "https://antixlinux.com/download/",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Full",
+      "Base",
+      "Core",
+      "Net"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "windows-10-home",
+    "kind": "operating_system",
+    "name": "Windows 10 Home",
+    "description": "Edición doméstica de Windows 10. Comparte el medio ISO oficial de Windows 10 con Pro; la edición instalada depende de la licencia o clave de producto.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/",
+    "download_page": "https://www.microsoft.com/en-us/software-download/windows10ISO",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Windows 10 Home"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Descarga desde Microsoft y compara SHA-256 con los valores oficiales publicados por Microsoft cuando estén disponibles.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlace oficial únicamente. Windows 10 Home y Pro terminó su soporte general el 14 de octubre de 2025; úsalo solo si existe una necesidad de compatibilidad y un plan de actualizaciones de seguridad aplicable. El arranque multiboot de Windows todavía requiere un flujo específico validado."
+    }
+  },
+  {
+    "id": "windows-10-pro",
+    "kind": "operating_system",
+    "name": "Windows 10 Pro",
+    "description": "Edición profesional de Windows 10. Comparte el medio ISO oficial de Windows 10 con Home; la edición instalada depende de la licencia o clave de producto.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/",
+    "download_page": "https://www.microsoft.com/en-us/software-download/windows10ISO",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Windows 10 Pro"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Descarga desde Microsoft y compara SHA-256 con los valores oficiales publicados por Microsoft cuando estén disponibles.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlace oficial únicamente. Windows 10 Home y Pro terminó su soporte general el 14 de octubre de 2025; úsalo solo si existe una necesidad de compatibilidad y un plan de actualizaciones de seguridad aplicable. El arranque multiboot de Windows todavía requiere un flujo específico validado."
+    }
+  },
+  {
+    "id": "windows-10-ltsc",
+    "kind": "operating_system",
+    "name": "Windows 10 Enterprise LTSC (Evaluation)",
+    "description": "Edición Enterprise LTSC de Windows 10. Microsoft ofrece ISO de evaluación de 90 días; el uso permanente requiere una licencia LTSC válida.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/",
+    "download_page": "https://www.microsoft.com/es-es/evalcenter/download-windows-10-enterprise",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Windows 10 Enterprise LTSC Evaluation (90 días)",
+      "LTSC con licencia empresarial"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Descarga desde Microsoft y compara SHA-256 con los valores oficiales publicados por Microsoft cuando estén disponibles.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "El enlace de Microsoft ofrece medios de evaluación de 90 días. Para uso permanente se necesita una licencia LTSC válida. Esta ficha no convierte la evaluación en una licencia gratuita ni implica compatibilidad multiboot."
+    }
   }
 ]
