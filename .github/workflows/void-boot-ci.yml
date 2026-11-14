@@ -13,6 +13,7 @@ on:
       - "apps/void-boot/**"
       - "apps/desktop/**"
       - "docs/VOID_BOOT_ARCHITECTURE.md"
+      - "docs/VOID_BOOT_RELEASE_GATES.md"
       - "README.md"
       - "scripts/build-void-boot-demo-iso.sh"
       - ".github/workflows/void-boot-ci.yml"
