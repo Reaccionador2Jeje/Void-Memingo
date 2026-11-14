@@ -77,6 +77,10 @@ pub fn start_void_boot_qemu(image_path: String) -> Result<u32, String> {
         .ok_or_else(|| "No se encontró OVMF. Instala el paquete ovmf.".to_string())?;
 
     let vars_copy = std::env::temp_dir().join(format!("void-boot-ovmf-vars-{}.fd", std::process::id()));
+    let image_format = match image.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase().as_str() {
+        "qcow2" => "qcow2",
+        _ => "raw",
+    };
     std::fs::copy(vars, &vars_copy).map_err(|e| format!("No se pudo preparar OVMF: {e}"))?;
 
     let child = Command::new("qemu-system-x86_64")
@@ -85,7 +89,7 @@ pub fn start_void_boot_qemu(image_path: String) -> Result<u32, String> {
         .arg("-m").arg("2048")
         .arg("-drive").arg(format!("if=pflash,format=raw,readonly=on,file={code}"))
         .arg("-drive").arg(format!("if=pflash,format=raw,file={}", vars_copy.display()))
-        .arg("-drive").arg(format!("file={},format=raw,if=virtio,snapshot=on", image.display()))
+        .arg("-drive").arg(format!("file={},format={},if=virtio,snapshot=on", image.display(), image_format))
         .arg("-boot").arg("order=c")
         .arg("-net").arg("none")
         .arg("-no-reboot")
@@ -96,4 +100,31 @@ pub fn start_void_boot_qemu(image_path: String) -> Result<u32, String> {
         .map_err(|e| format!("No se pudo iniciar QEMU: {e}"))?;
 
     Ok(child.id())
+}
+
+
+#[tauri::command]
+pub fn create_void_boot_qemu_disk(image_path: String, size: String) -> Result<String, String> {
+    use std::process::{Command, Stdio};
+
+    if !cfg!(target_os = "linux") {
+        return Err("La creación integrada de discos QEMU está disponible actualmente en Linux.".to_string());
+    }
+    let destination = Path::new(&image_path);
+    if destination.exists() {
+        return Err("El archivo de destino ya existe; elige otro nombre para evitar sobrescribir datos.".to_string());
+    }
+    if size != "8G" && size != "16G" && size != "32G" {
+        return Err("Tamaño no permitido. Usa 8G, 16G o 32G.".to_string());
+    }
+    let result = Command::new("qemu-img")
+        .arg("create").arg("-f").arg("qcow2")
+        .arg(&image_path).arg(&size)
+        .stdout(Stdio::piped()).stderr(Stdio::piped())
+        .output()
+        .map_err(|_| "No se encontró qemu-img. Instala el paquete qemu-utils.".to_string())?;
+    if !result.status.success() {
+        return Err(String::from_utf8_lossy(&result.stderr).trim().to_string());
+    }
+    Ok(image_path)
 }
