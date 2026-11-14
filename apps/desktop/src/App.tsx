@@ -178,6 +178,7 @@ function App() {
   const [voidBootDownloadBusy, setVoidBootDownloadBusy] = useState(false);
   const [voidBootEntries, setVoidBootEntries] = useState<BootIsoEntry[]>([]);
   const [voidBootBusy, setVoidBootBusy] = useState(false);
+  const [voidBootChecksumStatus, setVoidBootChecksumStatus] = useState<Record<string, string>>({});
   const [voidBootProfileFile, setVoidBootProfileFile] = useState<string | null>(null);
   const [voidBootMenuPreview, setVoidBootMenuPreview] = useState<string | null>(null);
   const [voidBootPreviewBusy, setVoidBootPreviewBusy] = useState(false);
@@ -661,6 +662,25 @@ function App() {
     }
   }, [addLog, refreshVoidBootDownloads]);
 
+
+  const verifyVoidBootIso = useCallback(async (isoPath: string) => {
+    const manifest = await open({
+      directory: false,
+      multiple: false,
+      title: 'Seleccionar manifiesto SHA-256 oficial',
+      filters: [{ name: 'Manifiestos de checksum', extensions: ['txt', 'sha256', 'sha256sum', 'sum', 'checksums'] }]
+    });
+    if (typeof manifest !== 'string') return;
+    setVoidBootChecksumStatus((current) => ({ ...current, [isoPath]: 'Verificando…' }));
+    try {
+      await invoke('verify_void_boot_iso_checksum_manifest', { isoPath, manifestPath: manifest });
+      setVoidBootChecksumStatus((current) => ({ ...current, [isoPath]: 'SHA-256 oficial verificado' }));
+      addLog('Void Boot: el SHA-256 de ' + isoPath.split(/[\\/]/).pop() + ' coincide con el manifiesto seleccionado.');
+    } catch (error) {
+      setVoidBootChecksumStatus((current) => ({ ...current, [isoPath]: 'No verificado: ' + String(error) }));
+      addLog('Void Boot: verificación SHA-256 fallida: ' + String(error));
+    }
+  }, [addLog]);
 
   const chooseVoidBootProfile = useCallback(async () => {
     const selected = await open({ directory: false, multiple: false, title: 'Seleccionar catálogo de perfiles Void Boot' });
@@ -1501,7 +1521,7 @@ directory = ${quote(osOutputDir)}
                   <div className="distro-panel-heading"><div><strong>Biblioteca ISO local</strong><small>Inspección de solo lectura · no modifica dispositivos</small></div><button className="secondary-button" onClick={() => void chooseVoidBootDirectory()} disabled={voidBootBusy}><FolderOpen size={14} /> Elegir carpeta</button></div>
                   {voidBootDirectory && <div className="distro-library-path">{voidBootDirectory}</div>}
                   {!voidBootDirectory && <p>Selecciona una carpeta de biblioteca para inspeccionar archivos ISO existentes.</p>}
-                  {voidBootEntries.map((entry) => <div className="distro-library-item" key={entry.path}><Disc3 size={16} /><div><strong>{entry.name}</strong><small>{(entry.size_bytes / (1024 * 1024)).toFixed(1)} MiB · SHA-256 {entry.sha256.slice(0, 16)}…</small></div><span>{entry.iso9660 ? 'ISO 9660' : 'No reconocida'}</span></div>)}
+                  {voidBootEntries.map((entry) => <div className="distro-library-item" key={entry.path}><Disc3 size={16} /><div><strong>{entry.name}</strong><small>{(entry.size_bytes / (1024 * 1024)).toFixed(1)} MiB · SHA-256 {entry.sha256.slice(0, 16)}…</small>{voidBootChecksumStatus[entry.path] && <small className={voidBootChecksumStatus[entry.path].startsWith('SHA-256 oficial') ? 'distro-checksum-success' : 'distro-transfer-error'}>{voidBootChecksumStatus[entry.path]}</small>}</div><span>{entry.iso9660 ? 'ISO 9660' : 'No reconocida'}</span><button className="secondary-button" onClick={() => void verifyVoidBootIso(entry.path)}>Verificar</button></div>)}
                   {voidBootDirectory && voidBootEntries.length === 0 && <div className="panel-empty">{voidBootBusy ? 'Inspeccionando…' : 'No se encontraron ISO en esta carpeta.'}</div>}
                   {voidBootDownloads.length > 0 && <div className="distro-download-history"><strong>Transferencias</strong>{voidBootDownloads.map((task) => <div className="distro-transfer-item" key={task.id}><div><b>{task.file_name}</b><small>{task.status} · {task.total_bytes ? `${(task.downloaded_bytes / task.total_bytes * 100).toFixed(1)}%` : `${(task.downloaded_bytes / (1024 * 1024)).toFixed(1)} MiB`}</small>{task.sha256 && <small>SHA-256 {task.sha256.slice(0, 20)}… · {task.checksum_verified ? 'checksum oficial coincidente' : 'sin checksum oficial'}</small>}{task.error && <small className="distro-transfer-error">{task.error}</small>}</div>{(task.status === 'downloading' || task.status === 'queued') && <button className="secondary-button" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar</button>}</div>)}</div>}
                 </section>
