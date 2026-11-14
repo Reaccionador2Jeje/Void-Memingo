@@ -15,6 +15,8 @@ pub struct BootProfile {
     pub initrd: String,
     #[serde(default)]
     pub linux_args: Vec<String>,
+    #[serde(default)]
+    pub findiso: bool,
 }
 
 fn safe_relative_path(value: &str) -> bool {
@@ -127,7 +129,11 @@ set theme=$prefix/themes/void-boot/theme.txt
         );
 
         for profile in &self.profiles {
-            let args = profile.linux_args.join(" ");
+            let mut kernel_args = profile.linux_args.clone();
+            if profile.findiso {
+                kernel_args.push("findiso=$isofile".to_string());
+            }
+            let args = kernel_args.join(" ");
             let linux_command = if args.is_empty() {
                 format!("linux (loop)/{}", profile.kernel)
             } else {
@@ -178,6 +184,7 @@ mod tests {
                 kernel: "live/vmlinuz".into(),
                 initrd: "live/initrd.img".into(),
                 linux_args: vec!["boot=live".into(), "components".into()],
+                findiso: true,
             }],
         }
     }
@@ -190,7 +197,7 @@ mod tests {
         assert!(rendered.contains("search --no-floppy --file --set=root \"$isofile\""));
         assert!(rendered.contains("menuentry \"Debian Live\""));
         assert!(rendered.contains("loopback loop \"$isofile\""));
-        assert!(rendered.contains("linux (loop)/live/vmlinuz boot=live components"));
+        assert!(rendered.contains("linux (loop)/live/vmlinuz boot=live components findiso=$isofile"));
         assert!(rendered.contains("initrd (loop)/live/initrd.img"));
         assert!(rendered.contains("Restart computer"));
         assert!(!rendered.contains("fwsetup"));
@@ -202,7 +209,7 @@ mod tests {
         catalog.profiles[0].linux_args.clear();
         assert!(catalog
             .render_grub_config()
-            .contains("    linux (loop)/live/vmlinuz\n"));
+            .contains("    linux (loop)/live/vmlinuz findiso=$isofile\n"));
     }
 
     #[test]
