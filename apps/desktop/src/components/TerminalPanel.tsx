@@ -9,9 +9,9 @@ import { Plus, TerminalSquare, X } from 'lucide-react';
 type TerminalOutput = { sessionId: string; data: string };
 type TerminalExit = { sessionId: string; code: number | null };
 type Session = { id: string; name: string };
-type Props = { workspace: string | null; onLog: (message: string) => void; command?: string | null; onCommandConsumed?: () => void; interruptSignal?: number; onCommandStarted?: () => void; onCommandFinished?: (exitCode: number) => void; onCommandOutput?: (data: string) => void };
+type Props = { workspace: string | null; onLog: (message: string) => void; command?: string | null; onCommandConsumed?: () => void; interruptSignal?: number; onCommandStarted?: (sessionId: string) => void; onCommandFinished?: (exitCode: number, sessionId: string) => void; onCommandOutput?: (data: string, sessionId: string) => void };
 
-function TerminalView({ sessionId, active, onCommandFinished, onCommandOutput }: { sessionId: string; active: boolean; onCommandFinished: (exitCode: number) => void; onCommandOutput: (data: string) => void }) {
+function TerminalView({ sessionId, active, onCommandFinished, onCommandOutput }: { sessionId: string; active: boolean; onCommandFinished: (exitCode: number, sessionId: string) => void; onCommandOutput: (data: string, sessionId: string) => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,12 +47,12 @@ function TerminalView({ sessionId, active, onCommandFinished, onCommandOutput }:
         if (event.payload.sessionId === sessionId) {
           const data = event.payload.data;
           terminal.write(data);
-          onCommandOutput(data);
+          onCommandOutput(data, sessionId);
           markerBuffer = (markerBuffer + data).slice(-160);
           const match = markerBuffer.match(/\x1b\]777;VOID_MEMINGO_EXIT;(\d+)\x07/);
           if (match) {
             markerBuffer = '';
-            onCommandFinished(Number(match[1]));
+            onCommandFinished(Number(match[1]), sessionId);
           }
         }
       });
@@ -172,7 +172,7 @@ export default function TerminalPanel({ workspace, onLog, command, onCommandCons
   useEffect(() => {
     if (!command || !activeId) return;
     const trackedCommand = command + '; __void_memingo_exit=$?; printf "\\033]777;VOID_MEMINGO_EXIT;%s\\007" "$__void_memingo_exit"';
-    onCommandStarted?.();
+    onCommandStarted?.(activeId);
     void invoke('write_terminal_input', {
       sessionId: activeId,
       data: trackedCommand + '\r'
@@ -180,7 +180,7 @@ export default function TerminalPanel({ workspace, onLog, command, onCommandCons
       onLog('Comando enviado a la terminal; seguimiento de salida activo.');
       onCommandConsumed?.();
     }).catch((error) => {
-      onCommandFinished(-1);
+      onCommandFinished(-1, activeId);
       onLog('No se pudo enviar el comando: ' + String(error));
     });
   }, [command, activeId, onCommandConsumed, onCommandFinished, onCommandStarted, onLog]);
