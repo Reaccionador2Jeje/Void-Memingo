@@ -1420,6 +1420,17 @@ directory = ${quote(osOutputDir)}
                   className="code-input"
                   value={activeTab.content}
                   onChange={(event) => updateActiveContent(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Tab') return;
+                    event.preventDefault();
+                    const target = event.currentTarget;
+                    const start = target.selectionStart;
+                    const end = target.selectionEnd;
+                    const indent = ' '.repeat(editorTabSize);
+                    updateActiveContent(target.value.slice(0, start) + indent + target.value.slice(end));
+                    const cursor = start + indent.length;
+                    window.requestAnimationFrame(() => target.setSelectionRange(cursor, cursor));
+                  }}
                   spellCheck={false}
                   autoCapitalize="off"
                   autoCorrect="off"
