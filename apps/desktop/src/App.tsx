@@ -29,7 +29,7 @@ type OpenTab = {
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null };
-type BootDistribution = { id: string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
+type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
 
 type OsBase = {
@@ -166,6 +166,10 @@ function App() {
   const [voidBootCatalog, setVoidBootCatalog] = useState<BootDistribution[]>([]);
   const [voidBootCatalogBusy, setVoidBootCatalogBusy] = useState(false);
   const [voidBootSelectedDistro, setVoidBootSelectedDistro] = useState<BootDistribution | null>(null);
+  const [distroSearch, setDistroSearch] = useState('');
+  const [distroFamily, setDistroFamily] = useState('all');
+  const [distroArchitecture, setDistroArchitecture] = useState('all');
+  const [distroCategory, setDistroCategory] = useState('all');
   const [voidBootDownloadUrl, setVoidBootDownloadUrl] = useState('');
   const [voidBootDownloadName, setVoidBootDownloadName] = useState('distribution.iso');
   const [voidBootDownloadDirectory, setVoidBootDownloadDirectory] = useState<string | null>(null);
@@ -271,6 +275,18 @@ function App() {
   }, []);
 
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
+  const distroFamilies = useMemo(() => Array.from(new Set(voidBootCatalog.map((entry) => entry.family))).sort(), [voidBootCatalog]);
+  const filteredDistroCatalog = useMemo(() => {
+    const query = distroSearch.trim().toLocaleLowerCase();
+    return voidBootCatalog.filter((entry) => {
+      const matchesSearch = !query || [entry.name, entry.description, entry.family, entry.id].some((value) => value.toLocaleLowerCase().includes(query));
+      const matchesFamily = distroFamily === 'all' || entry.family === distroFamily;
+      const matchesArchitecture = distroArchitecture === 'all' || entry.architectures.includes(distroArchitecture);
+      const kind = entry.kind ?? 'linux_distribution';
+      const matchesCategory = distroCategory === 'all' || (distroCategory === 'windows' ? kind === 'operating_system' : kind === 'linux_distribution');
+      return matchesSearch && matchesFamily && matchesArchitecture && matchesCategory;
+    });
+  }, [voidBootCatalog, distroSearch, distroFamily, distroArchitecture, distroCategory]);
   const isLinuxHost = typeof navigator !== 'undefined' && /Linux/i.test(navigator.userAgent);
 
   const activeTab = useMemo(
@@ -519,7 +535,8 @@ function App() {
     try {
       const entries = await invoke<BootDistribution[]>('list_void_boot_distributions');
       setVoidBootCatalog(entries);
-      addLog(`Void Boot Distribution Center: ${entries.length} distribuciones disponibles.`);
+      setVoidBootSelectedDistro((current) => current ?? entries[0] ?? null);
+      addLog(`Void Distro Center: ${entries.length} sistemas disponibles.`);
     } catch (error) {
       addLog('No se pudo cargar el Distribution Center: ' + String(error));
     } finally {
