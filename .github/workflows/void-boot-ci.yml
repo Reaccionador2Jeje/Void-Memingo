@@ -5,6 +5,7 @@ on:
     branches: [feature/void-boot-foundation]
     paths:
       - "scripts/test-void-boot-qemu.sh"
+      - "scripts/test-debian-live-qemu.sh"
       - "apps/void-boot/**"
       - "apps/desktop/**"
       - "docs/VOID_BOOT_ARCHITECTURE.md"
@@ -77,7 +78,7 @@ jobs:
       - name: Install GRUB BIOS/UEFI and ISO tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools qemu-system-x86 ovmf
+          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools qemu-system-x86 ovmf
       - uses: dtolnay/rust-toolchain@stable
       - name: Validate Debian Live loopback profile rendering
         run: |
@@ -105,3 +106,37 @@ jobs:
           name: void-boot-graphical-menu-iso
           path: ${{ runner.temp }}/void-boot-demo.iso
           if-no-files-found: error
+
+  debian-live-integration:
+    name: Full Debian Live ISO handoff (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU and virtual FAT disk tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools qemu-system-x86
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Download pinned official Debian Live 13.7.0 standard ISO
+        working-directory: ${{ runner.temp }}
+        run: |
+          base="https://cloudfront.debian.net/cdimage/release/13.7.0-live/amd64/iso-hybrid"
+          curl --fail --location --retry 3 --output SHA256SUMS "$base/SHA256SUMS"
+          curl --fail --location --retry 3 --output debian-live-13.7.0-amd64-standard.iso "$base/debian-live-13.7.0-amd64-standard.iso"
+          grep 'debian-live-13.7.0-amd64-standard.iso$' SHA256SUMS | sha256sum --check -
+      - name: Build Void Boot menu for the pinned Debian ISO
+        env:
+          VOID_BOOT_SERIAL_TEST: "1"
+        run: |
+          bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/debian-live-qemu.toml "$RUNNER_TEMP/void-boot-debian-live.iso"
+      - name: Boot Debian Live through Void Boot in QEMU
+        run: |
+          bash scripts/test-debian-live-qemu.sh "$RUNNER_TEMP/void-boot-debian-live.iso" "$RUNNER_TEMP/debian-live-13.7.0-amd64-standard.iso" "$RUNNER_TEMP/debian-live-qemu-logs"
+      - name: Upload Debian Live QEMU logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-debian-live-qemu-logs
+          path: ${{ runner.temp }}/debian-live-qemu-logs/
+          if-no-files-found: ignore
