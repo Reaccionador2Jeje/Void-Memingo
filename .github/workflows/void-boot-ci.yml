@@ -90,6 +90,8 @@ jobs:
           for profile in apps/void-boot/profiles/*.toml; do
             cargo run --manifest-path apps/void-boot/Cargo.toml -- validate-profiles "$profile"
           done
+      - name: Exercise read-only removable device inventory
+        run: cargo run --manifest-path apps/void-boot/Cargo.toml -- list-devices --json
       - name: Validate Debian Live loopback profile rendering
         run: |
           cargo run --manifest-path apps/void-boot/Cargo.toml -- render-menu apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/debian-live-profile"
