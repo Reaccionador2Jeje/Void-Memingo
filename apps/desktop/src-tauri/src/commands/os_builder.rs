@@ -435,10 +435,11 @@ pub fn check_os_build_preflight(workspace: String, project_toml: String) -> Resu
 
         let qemu_available = command_available("qemu-system-x86_64");
         let uefi_firmware_available = [
-            "/usr/share/OVMF/OVMF_CODE.fd",
-            "/usr/share/edk2/x64/OVMF_CODE.4m.fd",
-            "/usr/share/edk2-ovmf/x64/OVMF_CODE.fd",
-        ].iter().any(|path| Path::new(path).is_file());
+            ("/usr/share/OVMF/OVMF_CODE.fd", "/usr/share/OVMF/OVMF_VARS.fd"),
+            ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"),
+            ("/usr/share/edk2/x64/OVMF_CODE.4m.fd", "/usr/share/edk2/x64/OVMF_VARS.4m.fd"),
+            ("/usr/share/edk2-ovmf/x64/OVMF_CODE.fd", "/usr/share/edk2-ovmf/x64/OVMF_VARS.fd"),
+        ].iter().any(|(code, vars)| Path::new(code).is_file() && Path::new(vars).is_file());
         checks.push(PreflightCheck {
             id: "uefi-firmware".into(),
             label: "Firmware UEFI OVMF (prueba opcional)".into(),
@@ -775,6 +776,7 @@ OVMF_CODE=""
 OVMF_VARS=""
 for pair in \
   "/usr/share/OVMF/OVMF_CODE.fd:/usr/share/OVMF/OVMF_VARS.fd" \
+  "/usr/share/OVMF/OVMF_CODE_4M.fd:/usr/share/OVMF/OVMF_VARS_4M.fd" \
   "/usr/share/edk2/x64/OVMF_CODE.4m.fd:/usr/share/edk2/x64/OVMF_VARS.4m.fd" \
   "/usr/share/edk2-ovmf/x64/OVMF_CODE.fd:/usr/share/edk2-ovmf/x64/OVMF_VARS.fd"; do
   code="${{pair%%:*}}"
@@ -1112,6 +1114,7 @@ printf '%s\\n' "$boot_report" | grep -qi 'El Torito' || {{ echo 'ISO has no El T
             "The script cleans stale build artifacts, configures Debian Live with hybrid ISO and firmware support, builds the image, checks the ISO boot catalog and SHA-256, and exports a project snapshot.".into(),
             format!("Build manifest: {}", build_manifest.display()),
             format!("Optional BIOS boot test: {}", qemu_test.display()),
+            format!("Optional UEFI boot test (requires OVMF): {}", qemu_uefi_test.display()),
             "Review custom live-build hooks before execution; they run inside the target chroot.".into(),
         ],
     })
@@ -1812,6 +1815,7 @@ echo "Arch ISO boot catalog, SHA-256 and build manifest validated."
             "These backends are experimental previews until their output has been built and boot-tested on supported Linux hosts.".into(),
             format!("Build manifest snapshot: {}", build_manifest.display()),
             format!("Optional BIOS boot test script: {}", qemu_test.display()),
+            format!("Optional UEFI boot test script (requires OVMF): {}", qemu_uefi_test.display()),
             "The build script validates ISO 9660 and the El Torito boot catalog, verifies SHA-256, and exports a project snapshot.".into(),
             "Local ISO creation currently requires a Linux host and the matching distribution build tools.".into(),
             "Theme and icon defaults are written to the GTK user profile; wallpaper assets are copied into the target filesystem. Some desktop environments may require additional session-specific wallpaper configuration.".into(),
