@@ -33,7 +33,12 @@ fn main() {
             commands::os_builder::validate_os_project,
             commands::os_builder::prepare_debian_live_project,
             commands::os_builder::prepare_os_build_project,
-            commands::os_builder::validate_os_build_artifact
+            commands::os_builder::validate_os_build_artifact,
+            commands::os_builder::start_os_build_job,
+            commands::os_builder::append_os_build_job_log,
+            commands::os_builder::update_os_build_job,
+            commands::os_builder::list_os_build_jobs,
+            commands::os_builder::read_os_build_job_log
         ])
         .run(tauri::generate_context!())
         .expect("error while running Void Memingo");
