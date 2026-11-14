@@ -594,11 +594,11 @@ directory = ${quote(osOutputDir)}
       return;
     }
     const command = buildPreparation.commands.join(' && ');
-    const elevated = buildPreparation.commands.some((entry) => /\\bsudo\\b/.test(entry));
+    const elevated = buildPreparation.commands.some((entry) => /\bsudo\b/.test(entry));
     const executionMode = elevated ? 'con permisos de administrador' : 'con tu usuario normal';
     const confirmed = window.confirm(
-      'Se ejecutará el backend revisado en la terminal integrada ' + executionMode + '.\\n\\n' +
-      command + '\\n\\nRevisa el script antes de continuar. No se sobrescribirán ISOs existentes. ¿Continuar?'
+      'Se ejecutará el backend revisado en la terminal integrada ' + executionMode + '.\n\n' +
+      command + '\n\nRevisa el script antes de continuar. No se sobrescribirán ISOs existentes. ¿Continuar?'
     );
     if (!confirmed) return;
     setTerminalMounted(true);
