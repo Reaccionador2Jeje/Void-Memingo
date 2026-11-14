@@ -172,6 +172,8 @@ function App() {
   const [buildPreparation, setBuildPreparation] = useState<BuildPreparation | null>(null);
   const [buildPreflight, setBuildPreflight] = useState<BuildPreflight | null>(null);
   const [osBusy, setOsBusy] = useState(false);
+  const [buildRunning, setBuildRunning] = useState(false);
+  const [terminalInterruptSignal, setTerminalInterruptSignal] = useState(0);
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null);
   const [gitBusy, setGitBusy] = useState(false);
   const [gitCommitMessage, setGitCommitMessage] = useState('');
@@ -191,6 +193,28 @@ function App() {
     const stamp = new Date().toLocaleTimeString();
     setLogs((current) => [...current.slice(-99), '[' + stamp + '] ' + message]);
   }, []);
+
+  const handleTerminalCommandStarted = useCallback(() => {
+    setBuildRunning(true);
+  }, []);
+
+  const handleTerminalCommandFinished = useCallback((exitCode: number) => {
+    setBuildRunning(false);
+    addLog(exitCode === 0
+      ? 'Proceso finalizado correctamente.'
+      : 'Proceso finalizado con código ' + exitCode + '.');
+  }, [addLog]);
+
+  const handleTerminalCommandConsumed = useCallback(() => {
+    setTerminalCommand(null);
+  }, []);
+
+  const cancelOsBuild = useCallback(() => {
+    if (!buildRunning) return;
+    if (!window.confirm('Enviar Ctrl+C a la terminal activa para interrumpir el proceso?')) return;
+    setTerminalInterruptSignal((current) => current + 1);
+    addLog('Solicitud de interrupción enviada.');
+  }, [addLog, buildRunning]);
 
   const refreshGitSnapshot = useCallback(async (root: string) => {
     const snapshot = await invoke<GitSnapshot>('git_snapshot', { root });
@@ -1047,6 +1071,11 @@ directory = ${quote(osOutputDir)}
                 <button className="secondary-button" onClick={runOsBuild} disabled={osBusy || !isLinuxHost || !workspace || !buildPreparation || !osValidation?.valid || !buildPreflight?.ready} title="Ejecutar el script revisado en la terminal integrada">
                   <Disc3 size={15} /> Build ISO
                 </button>
+                {buildRunning && (
+                  <button className="secondary-button" onClick={cancelOsBuild} title="Enviar Ctrl+C al proceso en ejecución">
+                    Interrumpir proceso
+                  </button>
+                )}
                 <button className="secondary-button" onClick={runOsBootTest} disabled={osBusy || !isLinuxHost || !buildPreparation?.bootTestScriptPath || !buildPreflight?.checks.some((check) => check.id === 'qemu-system-x86_64' && check.available)} title="Iniciar una prueba de arranque BIOS del ISO en QEMU">
                   <Cpu size={15} /> Probar ISO (QEMU)
                 </button>
@@ -1062,6 +1091,12 @@ directory = ${quote(osOutputDir)}
                   <b>{buildPreflight.ready ? 'Requisitos obligatorios disponibles' : 'Faltan requisitos para compilar'}</b>
                   {buildPreflight.checks.map((check) => <p key={check.id}>{check.available ? '✓' : check.required ? '✕' : '⚠'} {check.label}: {check.detail}</p>)}
                   {buildPreflight.warnings.map((warning, index) => <p key={'preflight-' + index}>Aviso: {warning}</p>)}
+                </div>
+              )}
+              {buildRunning && (
+                <div className="os-validation" role="status">
+                  <b>Proceso activo</b>
+                  <p>La salida se muestra en la terminal integrada. Puedes interrumpir el proceso con el botón correspondiente o con Ctrl+C desde la terminal.</p>
                 </div>
               )}
               {buildPreparation && (
@@ -1152,7 +1187,15 @@ directory = ${quote(osOutputDir)}
                 )}
                 {terminalMounted && (
                   <div className="terminal-panel-host" style={{ display: bottomView === 'terminal' ? 'block' : 'none' }}>
-                    <TerminalPanel workspace={workspace} onLog={addLog} command={terminalCommand} onCommandConsumed={() => setTerminalCommand(null)} />
+                    <TerminalPanel
+                    workspace={workspace}
+                    onLog={addLog}
+                    command={terminalCommand}
+                    onCommandConsumed={handleTerminalCommandConsumed}
+                    interruptSignal={terminalInterruptSignal}
+                    onCommandStarted={handleTerminalCommandStarted}
+                    onCommandFinished={handleTerminalCommandFinished}
+                  />
                   </div>
                 )}
               </div>
