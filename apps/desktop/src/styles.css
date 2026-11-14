@@ -978,3 +978,12 @@ button:disabled {
 .distro-transfer-row .void-boot-download-progress{width:100%}
 @media(max-width:1100px){.distro-center-layout{grid-template-columns:minmax(0,1fr)}.distro-center-detail{position:static}.distro-center-toolbar{grid-template-columns:1fr 1fr}.distro-center-lower{grid-template-columns:1fr}}
 @media(max-width:700px){.distro-center-view{padding:16px}.distro-center-header{align-items:flex-start;flex-direction:column}.distro-center-toolbar{grid-template-columns:1fr}.distro-transfer-row{grid-template-columns:1fr}.distro-center-grid{grid-template-columns:1fr}}
+
+.distro-checksum-hint{color:#8793a7;font-size:8px;line-height:1.5}
+.distro-download-history{display:grid;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid #2a3340}
+.distro-download-history>strong{color:#cbd3e0;font-size:9px}
+.distro-transfer-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px;border:1px solid #2b3442;border-radius:6px;background:#111720}
+.distro-transfer-item>div{display:grid;gap:4px;min-width:0}
+.distro-transfer-item b{color:#dce2ed;font-size:9px;overflow-wrap:anywhere}
+.distro-transfer-item small{color:#8995a8;font-size:8px;line-height:1.5;overflow-wrap:anywhere}
+.distro-transfer-item button{flex:none;min-height:27px;font-size:8px}
