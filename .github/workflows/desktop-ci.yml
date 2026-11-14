@@ -1,0 +1,109 @@
+name: Desktop CI
+
+on:
+  push:
+    branches:
+      - main
+      - desktop-v0.5-foundation
+    paths:
+      - "apps/desktop/**"
+      - ".github/workflows/desktop-ci.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/desktop/**"
+      - ".github/workflows/desktop-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  desktop-build:
+    name: Desktop package (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux x86_64
+            os: ubuntu-24.04
+            bundle: deb
+          - platform: Windows x86_64
+            os: windows-latest
+            bundle: msi,nsis
+          - platform: macOS Intel
+            os: macos-26-intel
+            bundle: dmg
+          - platform: macOS Apple Silicon
+            os: macos-26
+            bundle: dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm install
+
+      - name: Typecheck and build frontend
+        working-directory: apps/desktop
+        run: npm run build
+
+      # Tauri defaults its icon output to ./icons. Point it at src-tauri/icons,
+      # which is the directory consumed by tauri-build during native packaging.
+      - name: Generate platform application icons
+        working-directory: apps/desktop
+        run: npx tauri icon src-tauri/icons/icon.png --output src-tauri/icons
+
+      - name: Test native workspace security
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+      - name: Build native desktop installer
+        working-directory: apps/desktop
+        run: npx tauri build --bundles "${{ matrix.bundle }}"
+
+      - name: Upload desktop installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-memingo-desktop-${{ matrix.platform }}
+          path: apps/desktop/src-tauri/target/release/bundle/**/*
+          if-no-files-found: error
+          retention-days: 14
+
+  cli:
+    name: Preserve CLI compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test existing CLI
+        run: |
+          cargo test
+          cargo build --release
+          sh -n install.sh

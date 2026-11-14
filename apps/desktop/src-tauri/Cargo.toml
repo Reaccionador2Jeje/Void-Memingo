@@ -1,0 +1,17 @@
+[package]
+name = "void-memingo-desktop"
+version = "0.5.0"
+description = "Void Memingo desktop development environment"
+authors = ["Atdev Dev"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+portable-pty = "0.9"
+toml = "0.8"
