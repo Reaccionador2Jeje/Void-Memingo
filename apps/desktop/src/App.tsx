@@ -29,7 +29,7 @@ type OpenTab = {
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null };
-type BootDistribution = { id: string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string };
+type BootDistribution = { id: string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
 
 type OsBase = {
@@ -561,7 +561,7 @@ function App() {
   }, [voidBootDownloads, refreshVoidBootDownloads]);
 
   const chooseVoidBootDownloadDirectory = useCallback(async () => {
-    const selected = await open({ directory: true, multiple: false, title: 'Carpeta de la biblioteca Void Boot' });
+    const selected = await open({ directory: true, multiple: false, title: 'Carpeta destino (VOIDDATA montada o biblioteca local)' });
     if (typeof selected === 'string') setVoidBootDownloadDirectory(selected);
   }, []);
 
@@ -1293,7 +1293,7 @@ directory = ${quote(osOutputDir)}
             {sidebarView === 'boot' && (
               <div className="void-boot-sidebar">
                 <div className="git-toolbar"><span>VOID BOOT · DISTRIBUTION CENTER</span><button className="subtle-icon" onClick={() => { void loadVoidBootCatalog(); if (voidBootDirectory) void scanVoidBootDirectory(voidBootDirectory); }} disabled={voidBootCatalogBusy || voidBootBusy} title="Actualizar catálogo y biblioteca"><Activity size={14} /></button></div>
-                <p className="git-provider-note">El gestor admite pausa y reanudación: conserva el archivo parcial y continúa desde los bytes descargados cuando el servidor soporta HTTP Range. No necesitas dejar el equipo descargando toda la noche. La escritura en USB físico sigue bloqueada mientras se validan perfiles y seguridad.</p>
+                <p className="git-provider-note">Modo directo: la ISO se descarga en la carpeta elegida, que puede ser la partición de datos VOIDDATA ya montada. No se crea otra copia en el disco interno. La descarga acelerada usa hasta 8 conexiones si el servidor admite HTTP Range. No formatea ni sobrescribe el USB; cada ISO requiere un perfil de arranque probado.</p>
                 <div className="git-section-label">DISTRIBUTIONS · {voidBootCatalog.length}</div>
                 {voidBootCatalogBusy && <div className="tree-empty">Cargando distribuciones…</div>}
                 {!voidBootCatalogBusy && voidBootCatalog.map((distro) => (
@@ -1302,17 +1302,18 @@ directory = ${quote(osOutputDir)}
                     <span>{distro.description}</span>
                     <small>{distro.family} · {distro.architectures.join(', ')}</small>
                     <small>Ediciones: {distro.editions.join(', ')}</small>
+                    <small>Entrega: ISO directa a VOIDDATA · perfil de arranque requerido</small>
                     <button className="text-action" onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); }}>Elegir para descargar</button>
                     <a className="text-action" href={distro.download_page} target="_blank" rel="noreferrer">Abrir página oficial ↗</a>
                   </div>
                 ))}
-                <div className="git-section-label">FLASH DOWNLOAD · 8 CONNECTIONS</div>
-                <p className="git-provider-note">{voidBootSelectedDistro ? 'Seleccionada: ' + voidBootSelectedDistro.name : 'Elige una distribución primero.'} Motor acelerado: divide la ISO en hasta 8 partes y las descarga en paralelo cuando el servidor admite HTTP Range. Conserva cada parte para reanudarla. El catálogo contiene páginas oficiales, no enlaces ISO versionados: copia el enlace directo HTTPS desde la página oficial.</p>
+                <div className="git-section-label">DESCARGA DIRECTA A VOIDDATA · HASTA 8 CONEXIONES</div>
+                <p className="git-provider-note">{voidBootSelectedDistro ? 'Seleccionada: ' + voidBootSelectedDistro.name : 'Elige una distribución primero.'} Elige como destino la carpeta VOIDDATA montada del pendrive para escribir la ISO directamente allí, sin duplicarla primero en el almacenamiento interno. La transferencia por rangos requiere soporte del servidor; si no lo admite, la descarga se detiene en vez de fingir aceleración. El catálogo contiene páginas oficiales, no enlaces ISO versionados: copia el enlace HTTPS directo de la versión elegida.</p>
                 <div className="void-boot-download-form">
                   <input aria-label="Enlace directo HTTPS de la ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => setVoidBootDownloadUrl(event.target.value)} />
                   <input aria-label="Nombre del archivo ISO" placeholder="distribution.iso" value={voidBootDownloadName} onChange={(event) => setVoidBootDownloadName(event.target.value)} />
-                  <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}>{voidBootDownloadDirectory ? 'Carpeta: ' + voidBootDownloadDirectory.split(/[\\\\/]/).filter(Boolean).pop() : 'Elegir carpeta destino'}</button>
-                  <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootSelectedDistro || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando…' : 'Descarga Flash / reanudar'}</button>
+                  <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}>{voidBootDownloadDirectory ? 'Carpeta: ' + voidBootDownloadDirectory.split(/[\\\\/]/).filter(Boolean).pop() : 'Elegir VOIDDATA / destino'}</button>
+                  <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootSelectedDistro || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando…' : 'Descargar directamente / reanudar'}</button>
                 </div>
                 {voidBootDownloads.map((task) => {
                   const percent = task.total_bytes && task.total_bytes > 0 ? Math.min(100, task.downloaded_bytes / task.total_bytes * 100) : null;
@@ -1327,7 +1328,7 @@ directory = ${quote(osOutputDir)}
                   </div>;
                 })}
                 <div className="git-section-label">ISO LIBRARY · LOCAL</div>
-                <p className="git-provider-note">Inspección de solo lectura. Todavía no prepara ni modifica unidades USB.</p>
+                <p className="git-provider-note">Inspección de solo lectura. La descarga puede guardar archivos en una carpeta VOIDDATA montada; la preparación del arranque y la modificación de particiones USB siguen deshabilitadas.</p>
                 <button className="primary-button" onClick={() => void chooseVoidBootDirectory()} disabled={voidBootBusy}>{voidBootBusy ? 'Inspeccionando…' : 'Seleccionar carpeta de ISOs'}</button>
                 <div className="git-section-label">BOOT PROFILES</div>
                 <button className="secondary-button" onClick={() => void chooseVoidBootProfile()} disabled={voidBootPreviewBusy}>{voidBootPreviewBusy ? 'Generando vista previa…' : 'Abrir catálogo TOML'}</button>
