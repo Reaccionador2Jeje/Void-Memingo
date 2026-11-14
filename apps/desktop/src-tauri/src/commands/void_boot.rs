@@ -1,5 +1,10 @@
 use std::path::Path;
-use ::void_boot::{profiles::ProfileCatalog, scan_directory, IsoEntry};
+use ::void_boot::{catalog::{load_distributions, Distribution}, profiles::ProfileCatalog, scan_directory, IsoEntry};
+
+#[tauri::command]
+pub fn list_void_boot_distributions() -> Result<Vec<Distribution>, String> {
+    load_distributions().map_err(|error| error.to_string())
+}
 
 #[tauri::command]
 pub fn scan_void_boot_iso_directory(directory: String) -> Result<Vec<IsoEntry>, String> {
