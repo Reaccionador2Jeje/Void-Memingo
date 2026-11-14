@@ -8,16 +8,47 @@ PROFILE_FILE="${1:?Usage: build-void-boot-media.sh <profiles.toml> <source.iso> 
 SOURCE_ISO="${2:?Missing source ISO}"
 OUTPUT_IMAGE="${3:?Missing output image path}"
 ISO_REL_PATH="${4:-}"
+ISO_LIBRARY_MODE=0
+if [[ -d "$SOURCE_ISO" ]]; then
+  ISO_LIBRARY_MODE=1
+fi
 
 [[ -f "$PROFILE_FILE" ]] || { echo "Profile catalog not found: $PROFILE_FILE" >&2; exit 1; }
-[[ -s "$SOURCE_ISO" ]] || { echo "Source ISO is missing or empty: $SOURCE_ISO" >&2; exit 1; }
-
-if [[ -z "$ISO_REL_PATH" ]]; then
-  ISO_REL_PATH="$(sed -n 's/^[[:space:]]*iso[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$PROFILE_FILE" | head -n1)"
+if (( ISO_LIBRARY_MODE == 0 )); then
+  [[ -s "$SOURCE_ISO" ]] || { echo "Source ISO is missing or empty: $SOURCE_ISO" >&2; exit 1; }
+  if [[ -z "$ISO_REL_PATH" ]]; then
+    ISO_REL_PATH="$(sed -n 's/^[[:space:]]*iso[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$PROFILE_FILE" | head -n1)"
+  fi
+  ISO_PATHS=("$ISO_REL_PATH")
+else
+  mapfile -t ISO_PATHS < <(sed -n 's/^[[:space:]]*iso[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$PROFILE_FILE" | sort -u)
+  (( ${#ISO_PATHS[@]} > 0 )) || { echo "No ISO paths found in profile catalog." >&2; exit 1; }
 fi
-if [[ ! "$ISO_REL_PATH" =~ ^[A-Za-z0-9._/-]+\.iso$ ]] || [[ "$ISO_REL_PATH" == /* ]] || [[ "$ISO_REL_PATH" == *..* ]]; then
-  echo "Unsafe ISO destination path: $ISO_REL_PATH" >&2
-  exit 1
+
+for ISO_PATH in "${ISO_PATHS[@]}"; do
+  if [[ ! "$ISO_PATH" =~ ^[A-Za-z0-9._/-]+\.iso$ ]] || [[ "$ISO_PATH" == /* ]] || [[ "$ISO_PATH" == *..* ]]; then
+    echo "Unsafe ISO destination path: $ISO_PATH" >&2
+    exit 1
+  fi
+  if (( ISO_LIBRARY_MODE == 1 )); then
+    ISO_SOURCE="$SOURCE_ISO/$(basename "$ISO_PATH")"
+    [[ -f "$ISO_SOURCE" && ! -L "$ISO_SOURCE" && -s "$ISO_SOURCE" ]] || {
+      echo "Missing, empty or symlinked library ISO: $ISO_SOURCE" >&2
+      exit 1
+    }
+  fi
+done
+
+if (( ISO_LIBRARY_MODE == 1 )); then
+  declare -A ISO_BASENAMES=()
+  for ISO_PATH in "${ISO_PATHS[@]}"; do
+    ISO_BASE="$(basename "$ISO_PATH")"
+    if [[ -n "${ISO_BASENAMES[$ISO_BASE]:-}" ]]; then
+      echo "Two profile paths use the same ISO filename: $ISO_BASE" >&2
+      exit 1
+    fi
+    ISO_BASENAMES[$ISO_BASE]=1
+  done
 fi
 
 for tool in cargo grub-mkstandalone sgdisk mformat mmd mcopy mdir mktemp truncate; do
@@ -89,28 +120,53 @@ mmd -i "$ESP_SPEC" ::/EFI/BOOT
 mcopy -i "$ESP_SPEC" "$ESP_DIR/EFI/BOOT/BOOTX64.EFI" ::/EFI/BOOT/BOOTX64.EFI
 
 mformat -i "$DATA_SPEC" -F -v VOIDDATA ::
-ISO_PARENT="$(dirname "$ISO_REL_PATH")"
-if [[ "$ISO_PARENT" != "." ]]; then
-  # mmd does not support mkdir -p; create each directory level explicitly.
-  IFS='/' read -r -a ISO_DIR_PARTS <<< "$ISO_PARENT"
-  CURRENT_ISO_DIR=""
-  for DIR_PART in "${ISO_DIR_PARTS[@]}"; do
-    CURRENT_ISO_DIR="${CURRENT_ISO_DIR:+$CURRENT_ISO_DIR/}$DIR_PART"
-    mmd -i "$DATA_SPEC" "::/$CURRENT_ISO_DIR"
-  done
-fi
-mcopy -i "$DATA_SPEC" "$SOURCE_ISO" "::/$ISO_REL_PATH"
+
+# Copy every unique ISO referenced by the profile catalog. In library mode,
+# source files are selected by basename from the user-provided ISO folder.
+declare -A CREATED_ISO_DIRS=()
+for ISO_PATH in "${ISO_PATHS[@]}"; do
+  ISO_PARENT="$(dirname "$ISO_PATH")"
+  if [[ "$ISO_PARENT" != "." ]]; then
+    IFS='/' read -r -a ISO_DIR_PARTS <<< "$ISO_PARENT"
+    CURRENT_ISO_DIR=""
+    for DIR_PART in "${ISO_DIR_PARTS[@]}"; do
+      CURRENT_ISO_DIR="${CURRENT_ISO_DIR:+$CURRENT_ISO_DIR/}$DIR_PART"
+      if [[ -z "${CREATED_ISO_DIRS[$CURRENT_ISO_DIR]:-}" ]]; then
+        mmd -i "$DATA_SPEC" "::/$CURRENT_ISO_DIR"
+        CREATED_ISO_DIRS[$CURRENT_ISO_DIR]=1
+      fi
+    done
+  fi
+
+  if (( ISO_LIBRARY_MODE == 1 )); then
+    ISO_SOURCE="$SOURCE_ISO/$(basename "$ISO_PATH")"
+  else
+    ISO_SOURCE="$SOURCE_ISO"
+  fi
+  mcopy -i "$DATA_SPEC" "$ISO_SOURCE" "::/$ISO_PATH"
+done
 
 # Verify both partition signatures and the copied ISO without mounting anything.
 sgdisk --verify "$OUTPUT_IMAGE" >/dev/null
 mkdir -p "$WORK_DIR/verify"
-mcopy -i "$DATA_SPEC" "::/$ISO_REL_PATH" "$WORK_DIR/verify/copied.iso"
-cmp -s "$SOURCE_ISO" "$WORK_DIR/verify/copied.iso" || {
-  echo "ISO verification failed after copying into the image." >&2
-  exit 1
-}
+for ISO_PATH in "${ISO_PATHS[@]}"; do
+  if (( ISO_LIBRARY_MODE == 1 )); then
+    ISO_SOURCE="$SOURCE_ISO/$(basename "$ISO_PATH")"
+  else
+    ISO_SOURCE="$SOURCE_ISO"
+  fi
+  VERIFY_FILE="$WORK_DIR/verify/$(basename "$ISO_PATH")"
+  mcopy -i "$DATA_SPEC" "::/$ISO_PATH" "$VERIFY_FILE"
+  cmp -s "$ISO_SOURCE" "$VERIFY_FILE" || {
+    echo "ISO verification failed after copying: $ISO_PATH" >&2
+    exit 1
+  }
+  echo "Verified ISO payload: $ISO_PATH"
+done
 test -s "$OUTPUT_IMAGE"
 echo "Created UEFI Void Boot media image: $OUTPUT_IMAGE"
 echo "Layout: GPT / 128 MiB FAT32 EFI System Partition / FAT32 ISO data partition."
-echo "Verified ISO payload: $ISO_REL_PATH"
+if (( ISO_LIBRARY_MODE == 1 )); then
+  echo "Imported ${#ISO_PATHS[@]} ISO file(s) from: $SOURCE_ISO"
+fi
 echo "This image is a regular file; no physical drive was modified."
