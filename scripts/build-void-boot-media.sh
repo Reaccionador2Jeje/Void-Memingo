@@ -4,7 +4,7 @@ set -euo pipefail
 # Build a UEFI-bootable raw disk image. This script only writes to a regular
 # output file; it never opens, discovers, formats or writes a physical device.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROFILE_FILE="${1:?Usage: build-void-boot-media.sh <profiles.toml> <source.iso> <output.img> [iso-relative-path]}"
+PROFILE_FILE="${1:?Usage: build-void-boot-media.sh <profiles.toml> <source.iso|iso-folder> <output.img> [iso-relative-path]}"
 SOURCE_ISO="${2:?Missing source ISO}"
 OUTPUT_IMAGE="${3:?Missing output image path}"
 ISO_REL_PATH="${4:-}"
