@@ -15,6 +15,12 @@ Void Boot is Atdev Dev's independent, open-source multiboot project and a first-
 
 The generated menu uses GRUB's graphical gfxterm menu and profile-specific loopback entries. **A profile is only a boot recipe, not proof that an ISO is compatible.** Kernel/initrd paths and arguments must match the exact image. Some ISOs need extraction or a custom boot method.
 
+## Distribution Center (catalogue milestone)
+
+Void Boot includes a catalogue of official project and download pages for Debian, Ubuntu, Fedora, Arch Linux, Linux Mint and Zorin OS. View it with `void-boot catalog` (also `list-distributions`). Open a listed download page, choose the edition and architecture, and save the ISO into your local library folder. Then inspect it with `void-boot scan /path/to/isos`.
+
+The catalogue points to official landing pages rather than versioned mirror URLs, avoiding stale download links. **This milestone does not download ISO files automatically, verify publisher signatures, or mark any distro as boot-compatible.** Follow each project's verification instructions and compare its published checksum/signature before using an image. A future downloader must implement HTTPS-only transfers, publisher-authenticated verification, resumable downloads and clear consent before large downloads.
+
 ## Commands
 
 Requires Rust stable.
