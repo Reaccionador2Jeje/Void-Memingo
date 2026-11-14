@@ -28,13 +28,11 @@ cargo run --quiet --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" --featur
 
 cp "$ROOT_DIR"/apps/void-boot/profiles/*.toml "$PACKAGE_DIR/payload/boot/void-boot/profiles/"
 cp "$ROOT_DIR/apps/void-boot/README.md" "$PACKAGE_DIR/README-VOID-BOOT.md"
-cp "$ROOT_DIR/scripts/install-void-boot.sh" "$PACKAGE_DIR/install.sh"
-cp "$ROOT_DIR/scripts/install-void-boot.ps1" "$PACKAGE_DIR/install.ps1"
-chmod +x "$PACKAGE_DIR/install.sh"
 cp "$ROOT_DIR/apps/void-boot/installers/web/index.html" "$PACKAGE_DIR/web-installer.html"
 
 cat > "$PACKAGE_DIR/INSTALLATION-STATUS.txt" <<'STATUS'
-Void Boot package: menu and profile deployment preview.
+Void Boot graphical package: menu and profile deployment preview.
+This package is not a command-line installer and contains no shell or PowerShell installer.
 
 This package copies Void Boot GRUB menu configuration, theme and profile
 catalogues into a selected directory. It does NOT install GRUB, create EFI
@@ -51,4 +49,4 @@ STATUS
 
 test -s "$OUTPUT_ZIP"
 echo "Created Void Boot installer package: $OUTPUT_ZIP"
-echo "Package contents are a menu/profile deployment preview, not a bootable USB installer."
+echo "Package contents are a graphical menu/profile preview, not a bootable USB installer."
