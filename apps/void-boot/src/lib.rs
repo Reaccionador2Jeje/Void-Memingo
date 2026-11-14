@@ -1,4 +1,5 @@
-pub mod catalog;\npub mod devices;
+pub mod catalog;
+pub mod devices;
 pub mod profiles;
 
 use serde::Serialize;
