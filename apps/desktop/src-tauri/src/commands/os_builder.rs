@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fs, path::{Component, Path, PathBuf}, process::Command};
+use std::{fs, io::Write, path::{Component, Path, PathBuf}, process::Command, time::{SystemTime, UNIX_EPOCH}};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -692,6 +692,206 @@ pub struct BuildPreparation {
     pub uefi_boot_test_script_path: Option<String>,
     pub commands: Vec<String>,
     pub notes: Vec<String>,
+}
+
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildJobRecord {
+    pub id: String,
+    pub backend: String,
+    pub status: String,
+    pub stage: String,
+    pub started_at: u64,
+    pub finished_at: Option<u64>,
+    pub exit_code: Option<i32>,
+}
+
+fn build_jobs_root(root: &Path) -> Result<PathBuf, String> {
+    safe_create_project_directory(root, ".void-memingo/build-jobs")
+}
+
+fn build_job_directory(root: &Path, job_id: &str) -> Result<PathBuf, String> {
+    if !safe_identifier(job_id) {
+        return Err("Invalid build job identifier.".into());
+    }
+    let jobs_root = build_jobs_root(root)?;
+    let directory = jobs_root.join(job_id);
+    let metadata = fs::symlink_metadata(&directory)
+        .map_err(|error| format!("Cannot inspect build job: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("Build job path is not a regular directory.".into());
+    }
+    let canonical = fs::canonicalize(&directory)
+        .map_err(|error| format!("Cannot resolve build job directory: {error}"))?;
+    if !canonical.starts_with(root) {
+        return Err("Build job directory escaped the workspace.".into());
+    }
+    Ok(canonical)
+}
+
+fn load_build_job(directory: &Path) -> Result<BuildJobRecord, String> {
+    let path = directory.join("job.toml");
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|error| format!("Cannot inspect build job record: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("Build job record is not a regular file.".into());
+    }
+    let contents = fs::read_to_string(path)
+        .map_err(|error| format!("Cannot read build job record: {error}"))?;
+    toml::from_str(&contents).map_err(|error| format!("Invalid build job record: {error}"))
+}
+
+fn save_build_job(directory: &Path, job: &BuildJobRecord) -> Result<(), String> {
+    let contents = toml::to_string_pretty(job)
+        .map_err(|error| format!("Cannot serialize build job: {error}"))?;
+    let path = directory.join("job.toml");
+    let temporary = directory.join("job.toml.tmp");
+    reject_symlink_target(&temporary)?;
+    fs::write(&temporary, contents)
+        .map_err(|error| format!("Cannot write build job record: {error}"))?;
+    fs::rename(&temporary, &path)
+        .map_err(|error| format!("Cannot update build job record: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn start_os_build_job(workspace: String, backend: String) -> Result<BuildJobRecord, String> {
+    let root = super::workspace::canonical_root(&workspace)?;
+    if backend.is_empty() || backend.len() > 80
+        || !backend.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+    {
+        return Err("Invalid build backend identifier.".into());
+    }
+    let jobs_root = build_jobs_root(&root)?;
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("System clock error: {error}"))?;
+    let job_id = format!("job-{}-{}", timestamp.as_nanos(), std::process::id());
+    let directory = jobs_root.join(&job_id);
+    fs::create_dir(&directory).map_err(|error| format!("Cannot create build job: {error}"))?;
+    let canonical = fs::canonicalize(&directory)
+        .map_err(|error| format!("Cannot resolve new build job: {error}"))?;
+    if !canonical.starts_with(&root) {
+        return Err("Build job directory escaped the workspace.".into());
+    }
+    let log_path = canonical.join("output.log");
+    fs::OpenOptions::new().write(true).create_new(true).open(&log_path)
+        .map_err(|error| format!("Cannot create build log: {error}"))?;
+    let job = BuildJobRecord {
+        id: job_id,
+        backend,
+        status: "queued".into(),
+        stage: "queued".into(),
+        started_at: timestamp.as_secs(),
+        finished_at: None,
+        exit_code: None,
+    };
+    save_build_job(&canonical, &job)?;
+    Ok(job)
+}
+
+#[tauri::command]
+pub fn append_os_build_job_log(workspace: String, job_id: String, data: String) -> Result<(), String> {
+    let root = super::workspace::canonical_root(&workspace)?;
+    if data.len() > 64 * 1024 {
+        return Err("Build log chunk exceeds the 64 KiB limit.".into());
+    }
+    let directory = build_job_directory(&root, &job_id)?;
+    let path = directory.join("output.log");
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|error| format!("Cannot inspect build log: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("Build log is not a regular file.".into());
+    }
+    const MAX_LOG_BYTES: u64 = 5 * 1024 * 1024;
+    let current_size = metadata.len();
+    if current_size >= MAX_LOG_BYTES {
+        return Ok(());
+    }
+    let remaining = (MAX_LOG_BYTES - current_size) as usize;
+    let mut file = fs::OpenOptions::new().append(true).open(path)
+        .map_err(|error| format!("Cannot append build log: {error}"))?;
+    file.write_all(&data.as_bytes()[..data.len().min(remaining)])
+        .map_err(|error| format!("Cannot append build log: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn update_os_build_job(
+    workspace: String,
+    job_id: String,
+    status: String,
+    stage: String,
+    exit_code: Option<i32>,
+) -> Result<BuildJobRecord, String> {
+    let root = super::workspace::canonical_root(&workspace)?;
+    if !["queued", "running", "succeeded", "failed", "cancelled"].contains(&status.as_str()) {
+        return Err("Invalid build job status.".into());
+    }
+    if stage.is_empty() || stage.len() > 64
+        || !stage.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err("Invalid build stage identifier.".into());
+    }
+    if status == "succeeded" && exit_code != Some(0) {
+        return Err("A successful build job must have exit code 0.".into());
+    }
+    if status == "failed" && exit_code == Some(0) {
+        return Err("A failed build job cannot have exit code 0.".into());
+    }
+    let directory = build_job_directory(&root, &job_id)?;
+    let mut job = load_build_job(&directory)?;
+    if job.status == "succeeded" || job.status == "failed" || job.status == "cancelled" {
+        return Err("A completed build job cannot be changed.".into());
+    }
+    job.status = status.clone();
+    job.stage = stage;
+    job.exit_code = exit_code;
+    if ["succeeded", "failed", "cancelled"].contains(&status.as_str()) {
+        job.finished_at = Some(SystemTime::now().duration_since(UNIX_EPOCH)
+            .map_err(|error| format!("System clock error: {error}"))?.as_secs());
+    }
+    save_build_job(&directory, &job)?;
+    Ok(job)
+}
+
+#[tauri::command]
+pub fn list_os_build_jobs(workspace: String) -> Result<Vec<BuildJobRecord>, String> {
+    let root = super::workspace::canonical_root(&workspace)?;
+    let jobs_root = match resolve_project_path_no_symlinks(&root, ".void-memingo/build-jobs")? {
+        Some(path) => path,
+        None => return Ok(Vec::new()),
+    };
+    let mut jobs = Vec::new();
+    for entry in fs::read_dir(jobs_root).map_err(|error| format!("Cannot list build history: {error}"))? {
+        let entry = entry.map_err(|error| format!("Cannot read build history entry: {error}"))?;
+        let metadata = entry.file_type().map_err(|error| format!("Cannot inspect build history entry: {error}"))?;
+        if metadata.is_symlink() || !metadata.is_dir() {
+            continue;
+        }
+        if let Ok(job) = load_build_job(&entry.path()) {
+            jobs.push(job);
+        }
+    }
+    jobs.sort_by(|left, right| right.started_at.cmp(&left.started_at).then_with(|| right.id.cmp(&left.id)));
+    jobs.truncate(30);
+    Ok(jobs)
+}
+
+#[tauri::command]
+pub fn read_os_build_job_log(workspace: String, job_id: String) -> Result<String, String> {
+    let root = super::workspace::canonical_root(&workspace)?;
+    let directory = build_job_directory(&root, &job_id)?;
+    let path = directory.join("output.log");
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|error| format!("Cannot inspect build log: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("Build log is not a regular file.".into());
+    }
+    const MAX_READ_BYTES: u64 = 1024 * 1024;
+    let contents = fs::read(path).map_err(|error| format!("Cannot read build log: {error}"))?;
+    let start = contents.len().saturating_sub(MAX_READ_BYTES as usize);
+    Ok(String::from_utf8_lossy(&contents[start..]).into_owned())
 }
 
 fn resolve_project_path_no_symlinks(root: &Path, relative: &str) -> Result<Option<PathBuf>, String> {
