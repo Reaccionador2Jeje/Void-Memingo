@@ -279,7 +279,9 @@ function App() {
     void invoke('append_os_build_job_log', { workspace, jobId, data }).catch(() => undefined);
     const output = data.toLowerCase();
     let nextStage = buildStageRef.current;
-    if (/lb clean|cleaning|clean workspace|limpiando/.test(output)) nextStage = 'cleaning';
+    const stageMarker = output.match(/void_memingo_stage:([a-z-]+)/);
+    if (stageMarker) nextStage = stageMarker[1];
+    else if (/lb clean|cleaning|clean workspace|limpiando/.test(output)) nextStage = 'cleaning';
     else if (/lb config|configuring|configuración/.test(output)) nextStage = 'configuring';
     else if (/debootstrap|pacstrap|installing packages|instalando paquetes|apt-get install|pacman -/.test(output)) nextStage = 'installing-packages';
     else if (/mksquashfs|squashfs|filesystem.squashfs/.test(output)) nextStage = 'building-filesystem';
@@ -1370,7 +1372,7 @@ directory = ${quote(osOutputDir)}
                   {buildJobs.slice(0, 8).map((job) => (
                     <p key={job.id}>
                       <strong>{job.backend}</strong> · {job.status} · {job.stage.replace(/-/g, ' ')} · {new Date(job.startedAt * 1000).toLocaleString()}
-                      {' '}<button className="text-button" onClick={() => {
+                      {' '}<button className="secondary-button" onClick={() => {
                         if (!workspace) return;
                         void invoke<string>('read_os_build_job_log', { workspace, jobId: job.id })
                           .then(setSelectedBuildLog)
