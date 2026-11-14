@@ -21,11 +21,11 @@ Void Memingo exposes the catalogue through a dedicated Distro Center workspace. 
 
 The local ISO library remains read-only during inspection: it reports image metadata and SHA-256 without writing to removable devices. QEMU testing is isolated from physical media and uses virtual disk images. The existing Ventoy USB must remain untouched.
 
-Windows 11 x64 and ARM64 are catalogue-only entries at this stage. Their cards open Microsoft's official media pages. The application deliberately does not offer the Linux ISO downloader for Windows, does not claim Windows loopback or multiboot support, and does not attempt to redistribute Windows media. A Windows installation-media workflow must be designed and validated independently before it is enabled.
+Windows 10 Home and Pro share Microsoft's official Windows 10 ISO page; their installed edition depends on the license or product key. Windows 10 Home/Pro general support ended on 14 October 2025. The LTSC entry links to Microsoft's 90-day Enterprise evaluation media; permanent use requires a valid LTSC license. Windows 11 x64/ARM64, Windows 10 editions, BSD and ReactOS remain catalogue-only. The application does not offer the Linux ISO downloader for these systems, claim Windows loopback/multiboot support, or redistribute their media. A Windows installation-media workflow must be designed and validated independently before it is enabled.
 
 ## Distribution Center
 
-The bundled catalogue includes 19 Linux distributions, Windows 11 for x86-64 and ARM64, FreeBSD, OpenBSD, NetBSD and ReactOS. Non-Linux systems are typed as operating systems and are not mislabeled as Linux distributions.
+The bundled catalogue includes 31 Linux distributions: Debian, Ubuntu, Fedora, Arch Linux, Linux Mint, Zorin OS, openSUSE, Pop!_OS, elementary OS, Kali Linux, EndeavourOS, Manjaro, MX Linux, NixOS, Void Linux, Rocky Linux, AlmaLinux, Alpine Linux, Mageia, CentOS Stream, Gentoo, Slackware, Lubuntu, Kubuntu, Xubuntu, Linux Lite, deepin, Solus, KDE neon, Oracle Linux and antiX. It also lists Windows 10 Home, Windows 10 Pro, Windows 10 Enterprise LTSC Evaluation, Windows 11 x64/ARM64, FreeBSD, OpenBSD, NetBSD and ReactOS. Non-Linux systems are typed as operating systems and are not mislabeled as Linux distributions.
 
 Each entry includes its official project/download page, distribution family, known architectures, editions, release model, available image formats and verification guidance. View everything with:
 
