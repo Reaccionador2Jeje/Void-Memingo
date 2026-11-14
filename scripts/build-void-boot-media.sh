@@ -68,9 +68,9 @@ MENU_DIR="$WORK_DIR/menu"
 ESP_DIR="$WORK_DIR/esp"
 mkdir -p "$ESP_DIR/EFI/BOOT"
 
-cargo run --quiet --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" -- \
+cargo run --quiet --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" --features internal-cli --bin void-boot-internal -- \
   validate-profiles "$PROFILE_FILE"
-cargo run --quiet --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" -- \
+cargo run --quiet --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" --features internal-cli --bin void-boot-internal -- \
   render-menu "$PROFILE_FILE" "$MENU_DIR"
 
 FONT_FILE="/usr/share/grub/unicode.pf2"
