@@ -112,6 +112,14 @@ To install from an extracted ZIP, run `./install.sh` or `./install.ps1`, or open
 
 The generated configuration assumes GRUB's $prefix points to /boot/grub. A future media builder will install and configure GRUB for BIOS and UEFI separately. This stage does not yet create a bootable USB by itself.
 
+## Publisher checksum verification
+
+Void Boot can verify a downloaded ISO against a checksum manifest that you obtained separately from the operating-system publisher. The CLI accepts GNU `SHA256SUMS` entries (including the optional binary marker) and BSD `SHA256 (filename) = digest` entries, matches the exact ISO filename, and refuses missing or conflicting entries.
+
+    void-boot verify-checksum /path/to/debian-live.iso /path/to/SHA256SUMS
+
+This checks the file's SHA-256 against the manifest; it does **not** authenticate the manifest itself. For authenticity, obtain the manifest and its detached signature from the official publisher and verify that signature using the publisher's documented key/trust process before relying on the checksum. Void Boot does not yet automate publisher-key discovery or signature verification.
+
 ## Safety and compatibility
 
 Physical-device writing and a standalone graphical device manager are not implemented. Removable-device discovery currently supports Linux; Windows and macOS discovery adapters remain future work. Development and compatibility testing starts with disposable virtual disks and QEMU. The user's existing Ventoy USB must remain untouched. Do not treat the current menu ISO as a finished USB installer.
