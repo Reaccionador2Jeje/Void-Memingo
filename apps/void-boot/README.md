@@ -2,8 +2,8 @@
 
 Void Boot is Atdev Dev's independent, open-source multiboot project. It will have two front ends backed by shared components:
 
-1. **Standalone desktop manager** — inspect ISO collections, build and verify bootable media, and manage boot profiles.
-2. **Void Memingo integration** — expose the same inventory, validation, profile and media-preparation capabilities inside the IDE.
+1. **Standalone application** — planned desktop manager using the shared Rust core.
+2. **Void Memingo integration** — the first read-only ISO inspector is already available in the desktop activity bar; profile management and media preparation remain planned.
 
 The project is intentionally separate from the Void Memingo desktop UI so it can evolve and ship independently.
 
@@ -16,6 +16,7 @@ The first safe foundation is an ISO inventory CLI:
 - Checks for the ISO 9660 primary volume descriptor.
 - Detects the El Torito boot-record descriptor when present.
 - Supports human-readable and JSON output.
+- Is integrated into Void Memingo as a read-only ISO inspector using the same Rust library.
 - Does not mount, format, partition, write to, or otherwise modify storage devices.
 
 This is an **inspection tool**, not yet a bootloader, USB installer, or Ventoy replacement.
