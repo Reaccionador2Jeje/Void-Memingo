@@ -90,7 +90,7 @@ jobs:
       - name: Install GRUB BIOS/UEFI and ISO tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools qemu-system-x86 ovmf zip
+          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools gdisk qemu-system-x86 ovmf zip
       - uses: dtolnay/rust-toolchain@stable
       - name: Validate all shipped boot profile catalogs
         run: |
@@ -107,6 +107,14 @@ jobs:
         run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-demo.iso"
       - name: Verify ISO artifact exists
         run: test -s "$RUNNER_TEMP/void-boot-demo.iso"
+      - name: Build and inspect a disposable UEFI media image
+        env:
+          VOID_BOOT_IMAGE_SIZE_MIB: "512"
+        run: |
+          truncate -s 8M "$RUNNER_TEMP/fixture.iso"
+          bash scripts/build-void-boot-media.sh apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/fixture.iso" "$RUNNER_TEMP/void-boot-media.img"
+          sgdisk --verify "$RUNNER_TEMP/void-boot-media.img"
+          test -s "$RUNNER_TEMP/void-boot-media.img"
       - name: Build Void Boot ZIP installer package
         run: bash scripts/package-void-boot.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-installer.zip"
       - name: Upload Void Boot ZIP installer

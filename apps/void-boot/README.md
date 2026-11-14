@@ -39,6 +39,18 @@ CI also builds a serial-console test image and smoke-tests the menu using QEMU w
 
 The render command writes grub.cfg and copies the graphical theme into the output folder. It does not install GRUB or write to a USB drive. Void Memingo can also open a profile TOML file and show the generated GRUB menu without writing it.
 
+
+## UEFI media image builder (virtual image only)
+
+Build a GPT/FAT32 UEFI image containing the standalone GRUB EFI loader and one ISO payload:
+
+    sudo apt-get install grub-efi-amd64-bin gdisk mtools dosfstools
+    bash scripts/build-void-boot-media.sh apps/void-boot/profiles/debian-live-loopback.toml /path/to/linux.iso target/void-boot-media.img
+
+The ISO is copied to the path declared by the first profile (or an optional fourth argument). The builder verifies the GPT and compares the copied ISO byte-for-byte. Set `VOID_BOOT_IMAGE_SIZE_MIB` to change the image size (minimum 512 MiB). The output path must not already exist.
+
+This milestone creates a **UEFI-only virtual disk image**. It does not write to USB devices, install BIOS boot code, or claim that every Linux ISO supports loopback boot. BIOS support and QEMU firmware validation remain separate gates.
+
 ## ZIP installer package
 
 The Void Boot CI workflow builds a `void-boot-installer-zip` artifact. It contains the generated GRUB menu, theme, profile catalogues, and three installation entry points:
