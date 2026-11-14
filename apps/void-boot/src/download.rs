@@ -75,6 +75,22 @@ fn checksum_matches(actual: &str, expected: Option<&str>) -> bool {
     expected.is_none_or(|expected| actual.eq_ignore_ascii_case(expected))
 }
 
+fn parse_content_range(value: &str) -> Option<(u64, u64, u64)> {
+    let (unit, range) = value.split_once(' ')?;
+    if unit != "bytes" {
+        return None;
+    }
+    let (bounds, total) = range.split_once('/')?;
+    let (start, end) = bounds.split_once('-')?;
+    let start = start.parse::<u64>().ok()?;
+    let end = end.parse::<u64>().ok()?;
+    let total = total.parse::<u64>().ok()?;
+    if total == 0 || start > end || end >= total {
+        return None;
+    }
+    Some((start, end, total))
+}
+
 fn sha256_reader(reader: &mut impl Read) -> Result<String, String> {
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; BUFFER_SIZE];
@@ -197,20 +213,16 @@ impl DownloadManager {
                 let range = probe
                     .headers()
                     .get(reqwest::header::CONTENT_RANGE)
-                    .and_then(|v| v.to_str().ok())
-                    .unwrap_or("")
-                    .to_string();
-                let total = range
-                    .rsplit('/')
-                    .next()
-                    .and_then(|v| v.parse::<u64>().ok())
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(parse_content_range)
                     .ok_or_else(|| {
-                        "El servidor no informó el tamaño total de la ISO".to_string()
+                        "El servidor devolvió un encabezado Content-Range inválido".to_string()
                     })?;
-                drop(probe);
-                if total == 0 {
-                    return Err("El servidor informó un archivo vacío".into());
+                let (probe_start, probe_end, total) = range;
+                if probe_start != 0 || probe_end != 0 {
+                    return Err("El servidor no respetó la consulta inicial de un byte".into());
                 }
+                drop(probe);
 
                 let part_paths: Vec<PathBuf> = (0..DOWNLOAD_CONNECTIONS)
                     .map(|i| directory.join(format!("{file_name}.part.{i:02}")))
@@ -280,13 +292,12 @@ impl DownloadManager {
                                 index + 1
                             ));
                         }
-                        let expected_header = format!("bytes {request_start}-{end}/{total}");
-                        let actual_header = response
+                        let actual_range = response
                             .headers()
                             .get(reqwest::header::CONTENT_RANGE)
-                            .and_then(|v| v.to_str().ok())
-                            .unwrap_or("");
-                        if actual_header != expected_header {
+                            .and_then(|value| value.to_str().ok())
+                            .and_then(parse_content_range);
+                        if actual_range != Some((request_start, end, total)) {
                             return Err(format!(
                                 "Rango incorrecto recibido en la parte {}",
                                 index + 1
@@ -481,6 +492,22 @@ mod tests {
             sha256_reader(&mut reader).unwrap(),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
+    }
+
+    #[test]
+    fn parses_only_well_formed_byte_ranges() {
+        assert_eq!(parse_content_range("bytes 0-0/4096"), Some((0, 0, 4096)));
+        assert_eq!(
+            parse_content_range("bytes 1024-2047/4096"),
+            Some((1024, 2047, 4096))
+        );
+        assert_eq!(parse_content_range("items 0-0/4096"), None);
+        assert_eq!(parse_content_range("bytes 0-4096/4096"), None);
+        assert_eq!(parse_content_range("bytes 4-3/4096"), None);
+        assert_eq!(parse_content_range("bytes 0-0/0"), None);
+        assert_eq!(parse_content_range("bytes 0-0/*"), None);
+        assert_eq!(parse_content_range("bytes 0-0/4096 extra"), None);
+        assert_eq!(parse_content_range("bytes 0-0"), None);
     }
 
     #[test]
