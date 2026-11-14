@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROFILE_FILE="${1:-$ROOT_DIR/apps/void-boot/profiles/example-profiles.toml}"
 OUTPUT_ZIP="${2:-$ROOT_DIR/target/void-boot-installer.zip}"
+mkdir -p "$(dirname "$OUTPUT_ZIP")"
+OUTPUT_ZIP="$(cd "$(dirname "$OUTPUT_ZIP")" && pwd)/$(basename "$OUTPUT_ZIP")"
 STAGING_DIR="$(mktemp -d)"
 PACKAGE_DIR="$STAGING_DIR/Void-Boot"
 
