@@ -1338,6 +1338,10 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     reject_existing_output(&output_file)?;
     let checksum_file = output_root.join(format!("{output_name}.sha256"));
     reject_existing_output(&checksum_file)?;
+    let output_manifest = output_root.join(format!("{output_name}.manifest.toml"));
+    reject_existing_output(&output_manifest)?;
+    let build_manifest = write_build_manifest(&build_root, project, if distribution == "ubuntu" { "ubuntu-livecd-rootfs" } else { "archiso" })?;
+    let qemu_test = write_qemu_boot_test(&build_root, &output_file)?;
 
     let source_overlay = resolve_project_path_no_symlinks(root, &project.filesystem.overlay)?
         .ok_or_else(|| format!("Filesystem overlay '{}' does not exist.", project.filesystem.overlay))?;
@@ -1499,6 +1503,8 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     reject_symlink_target(&script_path)?;
     let output_q = shell_quote(&output_file.to_string_lossy());
     let checksum_q = shell_quote(&checksum_file.to_string_lossy());
+    let manifest_source_q = shell_quote(&build_manifest.to_string_lossy());
+    let manifest_output_q = shell_quote(&output_manifest.to_string_lossy());
     let output_dir_q = shell_quote(&output_root.to_string_lossy());
     let iso_label = if project.project.iso_label.is_empty() { "VOIDMEMINGO" } else { &project.project.iso_label };
     let script = if distribution == "ubuntu" {
@@ -1541,9 +1547,11 @@ mkdir -p {output_dir}
 [ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
 install -m 0644 "$image" {output}
 file {output} | grep -qi "ISO 9660" || {{ echo "Output is not an ISO 9660 image." >&2; exit 1; }}
+xorriso -indev {output} -report_el_torito plain 2>&1 | grep -qi "El Torito" || {{ echo "ISO has no El Torito boot catalog." >&2; exit 1; }}
 sha256sum {output} > {checksum}
 sha256sum --check {checksum}
-echo "Ubuntu live ISO validated and SHA-256 checksum created."
+cp {manifest_source} {manifest_output}
+echo "Ubuntu boot catalog, SHA-256 and build manifest validated."
 "#,
             build_dir = shell_quote(&build_root.to_string_lossy()),
             codename = codename,
@@ -1555,6 +1563,8 @@ echo "Ubuntu live ISO validated and SHA-256 checksum created."
             output_dir = output_dir_q,
             output = output_q,
             checksum = checksum_q,
+            manifest_source = manifest_source_q,
+            manifest_output = manifest_output_q,
         )
     } else {
         let package_file = profile_root.join("packages.x86_64");
@@ -1595,9 +1605,11 @@ mkdir -p {final_dir}
 [ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
 install -m 0644 "$image" {output}
 file {output} | grep -qi "ISO 9660" || {{ echo "Output is not an ISO 9660 image." >&2; exit 1; }}
+xorriso -indev {output} -report_el_torito plain 2>&1 | grep -qi "El Torito" || {{ echo "ISO has no El Torito boot catalog." >&2; exit 1; }}
 sha256sum {output} > {checksum}
 sha256sum --check {checksum}
-echo "Arch Linux ISO validated and SHA-256 checksum created."
+cp {manifest_source} {manifest_output}
+echo "Arch ISO boot catalog, SHA-256 and build manifest validated."
 "#,
             profile = shell_quote(&profile_path),
             iso_name = shell_quote(&project.project.id),
@@ -1612,6 +1624,8 @@ echo "Arch Linux ISO validated and SHA-256 checksum created."
             final_dir = output_dir_q,
             output = output_q,
             checksum = checksum_q,
+            manifest_source = manifest_source_q,
+            manifest_output = manifest_output_q,
         )
     };
     fs::write(&script_path, script).map_err(|error| format!("Cannot write build script: {error}"))?;
@@ -1639,6 +1653,9 @@ echo "Arch Linux ISO validated and SHA-256 checksum created."
             "Ubuntu backend: official livecd-rootfs clean/config/build pipeline, casper live boot, package list, root filesystem overlay and Ubuntu suite mapping.".into(),
             "Arch backend: upstream archiso releng profile, x86_64 package manifest, custom airootfs overlay and mkarchiso.".into(),
             "These backends are experimental previews until their output has been built and boot-tested on supported Linux hosts.".into(),
+            format!("Build manifest snapshot: {}", build_manifest.display()),
+            format!("Optional BIOS boot test script: {}", qemu_test.display()),
+            "The build script validates ISO 9660 and the El Torito boot catalog, verifies SHA-256, and exports a project snapshot.".into(),
             "Local ISO creation currently requires a Linux host and the matching distribution build tools.".into(),
             "Theme and icon defaults are written to the GTK user profile; wallpaper assets are copied into the target filesystem. Some desktop environments may require additional session-specific wallpaper configuration.".into(),
         ],
