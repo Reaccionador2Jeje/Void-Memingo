@@ -133,6 +133,19 @@ mod tests {
                 .download_page
                 .starts_with("https://www.microsoft.com/"));
         }
+
+        let home = windows.iter().find(|entry| entry.id == "windows-10-home").unwrap();
+        let pro = windows.iter().find(|entry| entry.id == "windows-10-pro").unwrap();
+        let ltsc = windows.iter().find(|entry| entry.id == "windows-10-ltsc").unwrap();
+
+        assert_eq!(home.download_page, pro.download_page);
+        assert!(home.architectures.contains(&"x86_64".to_string()));
+        assert!(home.architectures.contains(&"i686".to_string()));
+        assert!(home.installation.note.contains("14 de octubre de 2025"));
+        assert!(pro.installation.note.contains("14 de octubre de 2025"));
+        assert!(ltsc.download_page.contains("evalcenter"));
+        assert!(ltsc.editions.iter().any(|edition| edition.contains("90 días")));
+        assert!(ltsc.installation.note.contains("licencia LTSC válida"));
     }
 
     #[test]
