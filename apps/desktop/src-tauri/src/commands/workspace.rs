@@ -291,8 +291,9 @@ pub struct DiagnosticReport {
 }
 
 fn source_line_column(source: &str, byte_offset: usize) -> (usize, usize) {
-    let safe_offset = byte_offset.min(source.len());
-    let prefix = &source[..source.floor_char_boundary(safe_offset)];
+    let mut safe_offset = byte_offset.min(source.len());
+    while !source.is_char_boundary(safe_offset) { safe_offset -= 1; }
+    let prefix = &source[..safe_offset];
     let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
     let column = prefix.rsplit('\n').next().unwrap_or_default().chars().count() + 1;
     (line, column)
