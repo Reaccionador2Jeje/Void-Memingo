@@ -4,7 +4,9 @@ use std::{
     process::ExitCode,
 };
 use void_boot::{
-    catalog::load_distributions, devices::list_removable_devices, profiles::ProfileCatalog,
+    catalog::{filter_distributions, load_distributions},
+    devices::list_removable_devices,
+    profiles::ProfileCatalog,
     scan_directory, IsoEntry,
 };
 
@@ -50,21 +52,55 @@ fn render_menu(profile_file: &Path, output_dir: &Path) -> Result<(), Box<dyn std
     Ok(())
 }
 
+fn print_catalog(
+    family: Option<&str>,
+    architecture: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let entries = load_distributions()?;
+    let filtered = filter_distributions(&entries, family, architecture);
+
+    println!("Void Boot Distribution Center — official download sources");
+    println!("{} of {} distribution(s) shown.\n", filtered.len(), entries.len());
+
+    for entry in filtered {
+        println!(
+            "{} ({})\n  {}\n  Family: {}\n  Project: {}\n  Downloads: {}\n  Architectures: {}\n  Editions: {}\n  Release: {}\n  Formats: {}\n  Verify: {}\n",
+            entry.name,
+            entry.id,
+            entry.description,
+            entry.family,
+            entry.project_url,
+            entry.download_page,
+            entry.architectures.join(", "),
+            entry.editions.join(", "),
+            entry.release_model,
+            entry.formats.join(", "),
+            entry.verification
+        );
+    }
+
+    println!("These are official project pages, not direct ISO URLs. Downloads and publisher verification are not automated yet.");
+    Ok(())
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
         Some("catalog") | Some("list-distributions") => {
-            let entries = load_distributions()?;
-            println!("Void Boot Distribution Center — official download sources\n");
-            for entry in entries {
-                println!(
-                    "{} ({})\n  {}\n  Project: {}\n  Downloads: {}\n  Formats: {}\n  Verify: {}\n",
-                    entry.name, entry.id, entry.description, entry.project_url,
-                    entry.download_page, entry.formats.join(", "), entry.verification
-                );
+            let mut family: Option<String> = None;
+            let mut architecture: Option<String> = None;
+            while let Some(argument) = args.next() {
+                match argument.as_str() {
+                    "--family" => {
+                        family = Some(args.next().ok_or("missing value for --family")?);
+                    }
+                    "--arch" | "--architecture" => {
+                        architecture = Some(args.next().ok_or("missing value for --arch")?);
+                    }
+                    _ => return Err(format!("unknown catalog option: {argument}").into()),
+                }
             }
-            println!("\nThis catalogue links to official project pages. It does not download or trust an ISO automatically.");
-            Ok(())
+            print_catalog(family.as_deref(), architecture.as_deref())
         }
         Some("scan") => {
             let directory = args.next().ok_or("missing directory argument")?;
@@ -90,16 +126,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                             &device.model
                         },
                         device.size_bytes,
-                        if device.read_only {
-                            "read-only"
-                        } else {
-                            "writable"
-                        },
-                        if device.mounted {
-                            "mounted"
-                        } else {
-                            "not mounted"
-                        }
+                        if device.read_only { "read-only" } else { "writable" },
+                        if device.mounted { "mounted" } else { "not mounted" }
                     );
                 }
             }
@@ -126,7 +154,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         _ => {
             eprintln!(
                 "Void Boot — multiboot tools\n\nUsage:\n  \
-                 void-boot catalog\n  \\n                 void-boot scan <directory> [--json]\n  \
+                 void-boot catalog [--family <family>] [--arch <architecture>]\n  \
+                 void-boot scan <directory> [--json]\n  \
                  void-boot list-devices [--json]\n  \
                  void-boot validate-profiles <profiles.toml>\n  \
                  void-boot render-menu <profiles.toml> <output-directory>"
