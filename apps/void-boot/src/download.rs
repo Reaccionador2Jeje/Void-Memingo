@@ -167,7 +167,7 @@ impl DownloadManager {
                 let part_paths: Vec<PathBuf> = (0..DOWNLOAD_CONNECTIONS)
                     .map(|i| directory.join(format!("{file_name}.part.{i:02}")))
                     .collect();
-                let chunk_size = (total + DOWNLOAD_CONNECTIONS - 1) / DOWNLOAD_CONNECTIONS;
+                let chunk_size = total.div_ceil(DOWNLOAD_CONNECTIONS);
                 let progress = Arc::new(AtomicU64::new(
                     part_paths
                         .iter()
