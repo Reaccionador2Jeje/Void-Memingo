@@ -59,7 +59,7 @@ fn print_catalog(
     let entries = load_distributions()?;
     let filtered = filter_distributions(&entries, family, architecture);
 
-    println!("Void Boot Distribution Center — official download sources");
+    println!("Void Boot Distro Center — official operating-system sources");
     println!(
         "{} of {} distribution(s) shown.\n",
         filtered.len(),
@@ -83,7 +83,7 @@ fn print_catalog(
         );
     }
 
-    println!("These are official project pages, not direct ISO URLs. Downloads and publisher verification are not automated yet.");
+    println!("These are official project pages, not direct ISO URLs. Downloads and publisher verification are not automated yet. Windows entries are catalog-only; Windows multiboot is not implemented or validated.");
     Ok(())
 }
 
