@@ -16,6 +16,9 @@ on:
       - "docs/VOID_BOOT_RELEASE_GATES.md"
       - "README.md"
       - "scripts/build-void-boot-demo-iso.sh"
+      - "scripts/package-void-boot.sh"
+      - "scripts/install-void-boot.sh"
+      - "scripts/install-void-boot.ps1"
       - ".github/workflows/void-boot-ci.yml"
   pull_request:
     paths:
@@ -84,7 +87,7 @@ jobs:
       - name: Install GRUB BIOS/UEFI and ISO tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools qemu-system-x86 ovmf
+          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools qemu-system-x86 ovmf zip
       - uses: dtolnay/rust-toolchain@stable
       - name: Validate all shipped boot profile catalogs
         run: |
@@ -101,6 +104,14 @@ jobs:
         run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-demo.iso"
       - name: Verify ISO artifact exists
         run: test -s "$RUNNER_TEMP/void-boot-demo.iso"
+      - name: Build Void Boot ZIP installer package
+        run: bash scripts/package-void-boot.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-installer.zip"
+      - name: Upload Void Boot ZIP installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-installer-zip
+          path: ${{ runner.temp }}/void-boot-installer.zip
+          if-no-files-found: error
       - name: Build serial-console ISO for firmware smoke tests
         env:
           VOID_BOOT_SERIAL_TEST: "1"
