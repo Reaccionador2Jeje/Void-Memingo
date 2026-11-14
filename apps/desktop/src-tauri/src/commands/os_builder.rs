@@ -1074,6 +1074,7 @@ mod tests {
         (root, project)
     }
 
+    #[cfg(unix)]
     #[test]
     fn generates_ubuntu_livecd_rootfs_backend() {
         let (root, mut project) = temporary_os_project("ubuntu", "24.04 LTS", "amd64");
@@ -1089,6 +1090,9 @@ mod tests {
         let system_hook = fs::read_to_string(root.join(".void-memingo/ubuntu-live/atdev-os/hooks/020-void-memingo-system-config.hook.chroot")).unwrap();
         assert!(system_hook.contains("locale-gen"));
         assert!(system_hook.contains("America/Santiago"));
+        assert!(Command::new("sh").args(["-n", prepared.script_path.as_str()]).status().unwrap().success());
+        let hook_path = root.join(".void-memingo/ubuntu-live/atdev-os/hooks/020-void-memingo-system-config.hook.chroot");
+        assert!(Command::new("sh").arg("-n").arg(&hook_path).status().unwrap().success());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1107,6 +1111,7 @@ mod tests {
         assert!(prepared.commands[1].starts_with("sh "));
         assert!(root.join(".void-memingo/archiso/atdev-os/profile/custom-airootfs/etc/pacman.d/hooks/00-void-memingo-locale-gen.hook").is_file());
         assert!(root.join(".void-memingo/archiso/atdev-os/profile/custom-airootfs/etc/locale.conf").is_file());
+        assert!(Command::new("sh").args(["-n", prepared.script_path.as_str()]).status().unwrap().success());
         fs::remove_dir_all(root).unwrap();
     }
 
