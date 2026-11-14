@@ -109,11 +109,11 @@ jobs:
           done
       - name: Validate bundled distribution catalogue and architecture filters
         run: |
-          cargo run --manifest-path apps/void-boot/Cargo.toml -- catalog > "$RUNNER_TEMP/void-boot-catalog.txt"
-          cargo run --manifest-path apps/void-boot/Cargo.toml -- catalog --arch x86_64 > "$RUNNER_TEMP/void-boot-x86_64-catalog.txt"
-          cargo run --manifest-path apps/void-boot/Cargo.toml -- catalog --family windows > "$RUNNER_TEMP/void-boot-windows-catalog.txt"
-          cargo run --manifest-path apps/void-boot/Cargo.toml -- catalog --family bsd > "$RUNNER_TEMP/void-boot-bsd-catalog.txt"
-          cargo run --manifest-path apps/void-boot/Cargo.toml -- catalog --family reactos > "$RUNNER_TEMP/void-boot-reactos-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog > "$RUNNER_TEMP/void-boot-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog --arch x86_64 > "$RUNNER_TEMP/void-boot-x86_64-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog --family windows > "$RUNNER_TEMP/void-boot-windows-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog --family bsd > "$RUNNER_TEMP/void-boot-bsd-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog --family reactos > "$RUNNER_TEMP/void-boot-reactos-catalog.txt"
           grep -F "Void Boot Distro Center" "$RUNNER_TEMP/void-boot-catalog.txt"
           grep -F "Debian" "$RUNNER_TEMP/void-boot-x86_64-catalog.txt"
           grep -F "Windows 11" "$RUNNER_TEMP/void-boot-windows-catalog.txt"
@@ -129,10 +129,10 @@ jobs:
           grep -F "NetBSD" "$RUNNER_TEMP/void-boot-bsd-catalog.txt"
           grep -F "ReactOS" "$RUNNER_TEMP/void-boot-reactos-catalog.txt"
       - name: Exercise read-only removable device inventory
-        run: cargo run --manifest-path apps/void-boot/Cargo.toml -- list-devices --json
+        run: cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- list-devices --json
       - name: Validate Debian Live loopback profile rendering
         run: |
-          cargo run --manifest-path apps/void-boot/Cargo.toml -- render-menu apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/debian-live-profile"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- render-menu apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/debian-live-profile"
           grep -F "linux (loop)/live/vmlinuz boot=live components quiet findiso=\$isofile" "$RUNNER_TEMP/debian-live-profile/grub.cfg"
       - name: Build pre-boot graphical menu ISO
         run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-demo.iso"
