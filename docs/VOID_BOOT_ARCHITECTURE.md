@@ -57,7 +57,7 @@ The user's existing Ventoy USB must remain untouched during development.
 1. **Foundation (in progress):** standalone CLI, ISO inventory, SHA-256, ISO 9660 and El Torito descriptor checks.
 2. **Profiles:** declarative profiles for selected Debian, Ubuntu and Arch images; profile validation and test fixtures.
 3. **Virtual boot prototype:** generated boot configuration and QEMU tests using disposable virtual disks.
-4. **Void Memingo integration:** shared catalog and profile UI inside the IDE.
+4. **Void Memingo integration:** initial read-only ISO scanner is integrated in the IDE; shared profile catalog and advanced management UI remain pending.
 5. **USB media planner:** device discovery and dry-run partition layout only.
 6. **Media writer:** explicit, guarded writing after extensive virtual testing.
 7. **Compatibility expansion:** more distributions, persistence, rescue tools, Windows installer support where technically and legally appropriate.
