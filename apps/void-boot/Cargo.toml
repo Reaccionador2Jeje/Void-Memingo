@@ -9,9 +9,15 @@ license = "GPL-3.0-or-later"
 name = "void_boot"
 path = "src/lib.rs"
 
+# Internal build/CI helper only. The supported user interface is the Void Memingo GUI.
+[features]
+default = []
+internal-cli = []
+
 [[bin]]
-name = "void-boot"
+name = "void-boot-internal"
 path = "src/main.rs"
+required-features = ["internal-cli"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
