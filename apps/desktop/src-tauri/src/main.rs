@@ -19,6 +19,7 @@ fn main() {
             commands::workspace::app_version,
             commands::workspace::list_directory,
             commands::workspace::search_workspace,
+            commands::workspace::diagnose_text_file,
             commands::workspace::read_text_file,
             commands::workspace::write_text_file,
             commands::workspace::resolve_terminal_directory,
