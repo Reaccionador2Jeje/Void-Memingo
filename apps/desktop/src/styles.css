@@ -893,3 +893,88 @@ button:disabled {
 .void-boot-qemu-card p{margin:0;color:#aab4c4;font-size:10px;line-height:1.6}
 .void-boot-qemu-card button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:35px;border-radius:7px;font-size:10px}
 .void-boot-qemu-status{padding:7px 8px;border-radius:6px;background:#111722;line-height:1.5}
+
+
+/* Void Distro Center — dedicated workspace */
+.distro-center-view{display:flex;flex-direction:column;gap:16px;min-height:0;height:100%;overflow:auto;padding:28px clamp(18px,3vw,42px) 34px;background:radial-gradient(ellipse at 12% 0%,rgba(115,99,202,.13),transparent 38%),#11151d}
+.distro-center-header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;max-width:1500px;width:100%;margin:0 auto}
+.distro-center-header h1{margin:8px 0 7px;color:#f0f2f8;font-size:clamp(24px,3vw,34px);font-weight:720;letter-spacing:-.04em}
+.distro-center-header p{max-width:650px;margin:0;color:#9ba5b7;font-size:12px;line-height:1.65}
+.distro-center-header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.distro-center-count{display:flex;align-items:center;gap:7px;color:#b9b1ff;font-size:10px;font-weight:700;white-space:nowrap}
+.distro-center-notice{display:flex;align-items:flex-start;gap:10px;max-width:1500px;width:100%;margin:0 auto;padding:12px 14px;border:1px solid #514a79;border-radius:9px;background:#211f31;color:#c7c1e6;font-size:11px;line-height:1.6}
+.distro-center-notice svg{flex:none;color:#b4a9ff}
+.distro-center-toolbar{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(3,minmax(130px,.7fr));gap:9px;max-width:1500px;width:100%;margin:0 auto}
+.distro-center-toolbar select,.distro-search{height:39px;min-width:0;border:1px solid #30394a;border-radius:7px;background:#191f2a;color:#d9e0ec}
+.distro-center-toolbar select{padding:0 10px;font-size:10px}
+.distro-search{display:flex;align-items:center;gap:9px;padding:0 11px;color:#8792a5}
+.distro-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#e4e9f2;font:11px Inter,sans-serif}
+.distro-center-layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(270px,.85fr);gap:15px;max-width:1500px;width:100%;margin:0 auto;align-items:start}
+.distro-center-results,.distro-center-detail,.distro-library-panel,.distro-lab-panel,.distro-downloads-panel{min-width:0;border:1px solid #2b3442;border-radius:10px;background:linear-gradient(150deg,#1a202b,#161b24)}
+.distro-center-results{padding:14px}
+.distro-center-results-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;color:#a9b3c4;font-size:9px;letter-spacing:.13em}
+.distro-center-results-heading span{color:#7f8ba0;letter-spacing:0}
+.distro-center-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:9px}
+.distro-center-card{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:8px 9px;align-items:center;min-width:0;padding:11px;border:1px solid #303949;border-radius:8px;background:#171e29;text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
+.distro-center-card:hover{border-color:#7167a8;background:#202637}
+.distro-center-card.selected{border-color:#9b8cff;background:#26243a;box-shadow:inset 0 0 0 1px rgba(154,140,255,.15)}
+.distro-card-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:8px;background:#2b2a45;color:#c3baff}
+.distro-card-main{display:grid;gap:4px;min-width:0}
+.distro-card-main strong{overflow:hidden;color:#e8ebf3;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.distro-card-main small{color:#8995a8;font-size:9px}
+.distro-kind{padding:4px 6px;border-radius:5px;font-size:8px;font-weight:750;white-space:nowrap}
+.distro-kind.linux{background:#20372f;color:#91d6b4}
+.distro-kind.external{background:#34304b;color:#c4baff}
+.distro-card-description{grid-column:1/-1;display:-webkit-box;min-height:40px;overflow:hidden;color:#a4afc0;font-size:9px;line-height:1.55;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.distro-card-footer{grid-column:1/-1;padding-top:7px;border-top:1px solid #29313e;color:#7f8ba0;font-size:8px}
+.distro-center-detail{position:sticky;top:0;padding:17px}
+.distro-detail-topline{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#8f9aaf;font-size:8px;font-weight:800;letter-spacing:.12em}
+.distro-detail-status{padding:4px 7px;border-radius:5px;background:#20372f;color:#91d6b4;font-size:8px;letter-spacing:0}
+.distro-detail-status.external{background:#34304b;color:#c4baff}
+.distro-center-detail h2{margin:15px 0 7px;color:#f0f2f8;font-size:21px;letter-spacing:-.025em}
+.distro-center-detail>p{margin:0 0 15px;color:#a4afc0;font-size:10px;line-height:1.65}
+.distro-detail-meta{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0}
+.distro-detail-meta>div{display:grid;gap:5px;padding:9px;border:1px solid #2c3543;border-radius:7px;background:#171d27}
+.distro-detail-meta small,.distro-detail-section strong{color:#8994a8;font-size:8px;font-weight:800;letter-spacing:.1em}
+.distro-detail-meta strong{color:#dce2ed;font-size:10px;overflow-wrap:anywhere}
+.distro-detail-section{display:grid;gap:5px;margin:13px 0}
+.distro-detail-section span{color:#a9b3c2;font-size:9px;line-height:1.6;overflow-wrap:anywhere}
+.distro-official-link,.distro-project-link{display:flex;align-items:center;gap:7px;width:fit-content;margin:10px 0;color:#c3baff;font-size:10px;text-decoration:none}
+.distro-official-link:hover,.distro-project-link:hover{color:#fff;text-decoration:underline}
+.distro-download-panel{display:grid;gap:8px;margin-top:16px;padding:11px;border:1px solid #343d4d;border-radius:8px;background:#141a24}
+.distro-download-panel input{width:100%;min-width:0;height:34px;padding:0 9px;border:1px solid #343d4d;border-radius:6px;outline:0;background:#10151d;color:#e1e7f0;font-size:10px}
+.distro-download-panel input:focus{border-color:#8f82e8}
+.distro-download-panel .secondary-button,.distro-download-panel .primary-button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:34px;font-size:9px}
+.distro-external-only{grid-template-columns:18px 1fr;align-items:start;border-color:#514a79;background:#211f31;color:#c8c1e7;font-size:9px;line-height:1.6}
+.distro-external-only svg{color:#b7aaff}
+.distro-center-lower{display:grid;grid-template-columns:1fr 1fr;gap:15px;max-width:1500px;width:100%;margin:0 auto}
+.distro-library-panel,.distro-lab-panel,.distro-downloads-panel{padding:14px}
+.distro-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.distro-panel-heading>div{display:grid;gap:4px}
+.distro-panel-heading strong{color:#e0e5ef;font-size:11px}
+.distro-panel-heading small{color:#8994a8;font-size:9px}
+.distro-panel-heading>span{color:#a69bff;font-size:9px}
+.distro-panel-heading button{display:flex;align-items:center;gap:6px;font-size:9px}
+.distro-library-panel>p,.distro-lab-panel>p,.distro-downloads-panel>p{color:#8995a8;font-size:9px;line-height:1.6}
+.distro-library-path{display:block;overflow-wrap:anywhere;margin:8px 0;padding:8px;border-radius:6px;background:#111720;color:#aeb9ca;font:9px/1.5 ui-monospace,monospace}
+.distro-library-item{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid #2a3340}
+.distro-library-item>svg{flex:none;color:#b8adff}
+.distro-library-item>div{display:grid;gap:4px;min-width:0;flex:1}
+.distro-library-item strong{overflow:hidden;color:#dce2ed;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+.distro-library-item small{color:#8390a4;font-size:8px;overflow-wrap:anywhere}
+.distro-library-item>span{color:#92d2b2;font-size:8px;white-space:nowrap}
+.distro-lab-panel>p{margin:0 0 12px}
+.distro-lab-actions,.distro-profile-actions{display:flex;gap:7px;flex-wrap:wrap}
+.distro-lab-actions button,.distro-profile-actions button{display:flex;align-items:center;gap:6px;font-size:9px}
+.distro-lab-status{margin:8px 0;padding:8px;border-radius:6px;background:#111720;color:#aab5c6;font-size:9px;line-height:1.5}
+.distro-profile-actions{margin-top:10px}
+.distro-profile-preview{max-height:180px;overflow:auto;margin:10px 0 0;padding:10px;border:1px solid #303746;border-radius:6px;background:#10151e;color:#b9c7e4;font:9px/1.5 ui-monospace,monospace;white-space:pre}
+.distro-downloads-panel{max-width:1500px;width:100%;margin:0 auto}
+.distro-transfer-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,.5fr) auto;align-items:center;gap:12px;padding:9px 0;border-top:1px solid #2b3442}
+.distro-transfer-row>div:first-child{display:grid;gap:4px;min-width:0}
+.distro-transfer-row strong{color:#e1e6ef;font-size:9px;overflow-wrap:anywhere}
+.distro-transfer-row small{color:#8995a8;font-size:8px;overflow-wrap:anywhere}
+.distro-transfer-error{color:#e4a2a8!important}
+.distro-transfer-row .void-boot-download-progress{width:100%}
+@media(max-width:1100px){.distro-center-layout{grid-template-columns:minmax(0,1fr)}.distro-center-detail{position:static}.distro-center-toolbar{grid-template-columns:1fr 1fr}.distro-center-lower{grid-template-columns:1fr}}
+@media(max-width:700px){.distro-center-view{padding:16px}.distro-center-header{align-items:flex-start;flex-direction:column}.distro-center-toolbar{grid-template-columns:1fr}.distro-transfer-row{grid-template-columns:1fr}.distro-center-grid{grid-template-columns:1fr}}
