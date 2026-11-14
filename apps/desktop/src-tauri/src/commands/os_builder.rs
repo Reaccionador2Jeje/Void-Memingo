@@ -525,13 +525,13 @@ fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'st
             ("mkfs.fat", "dosfstools"),
             ("mtools", "mtools"),
             ("mount", "util-linux"),
+            ("unshare", "util-linux (user namespaces)"),
             ("mksquashfs", "squashfs-tools"),
             ("xorriso", "libisoburn / xorriso"),
             ("zstd", "zstd"),
             ("rsync", "rsync"),
             ("file", "file"),
             ("sha256sum", "coreutils"),
-            ("sudo", "sudo"),
         ]),
         other => Err(format!("Unsupported Linux image backend: {other}")),
     }
@@ -1131,7 +1131,7 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         packages.push("discover".into());
         packages.push("locales".into());
     } else if distribution == "arch" {
-        packages.extend(["linux", "linux-firmware", "mkinitcpio", "sudo"].iter().map(|p| p.to_string()));
+        packages.extend(["linux", "linux-firmware", "mkinitcpio", "mkinitcpio-archiso", "sudo"].iter().map(|p| p.to_string()));
         if !project.filesystem.locale.is_empty() { packages.push("glibc".into()); }
         match project.desktop.environment.as_str() {
             "gnome" => packages.push("gdm".into()),
@@ -1191,22 +1191,52 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
                 }
             }
         }
-    } else if distribution == "arch" && !project.filesystem.services_enabled.is_empty() {
+    } else if distribution == "arch" {
         #[cfg(unix)]
         {
             use std::os::unix::fs::symlink;
-            let wants = safe_create_project_directory(&overlay_target, "etc/systemd/system/multi-user.target.wants")?;
-            for service in &project.filesystem.services_enabled {
-                let link = wants.join(service);
-                if fs::symlink_metadata(&link).is_ok() {
-                    return Err(format!("Service link already exists in overlay: {service}"));
+            let mut services = project.filesystem.services_enabled.clone();
+            let display_manager = match project.desktop.environment.as_str() {
+                "gnome" => Some("gdm.service"),
+                "kde-plasma" => Some("sddm.service"),
+                "xfce" | "lxqt" | "cinnamon" | "mate" => Some("lightdm.service"),
+                _ => None,
+            };
+            if let Some(service) = display_manager {
+                services.push(service.into());
+            }
+            services.sort();
+            services.dedup();
+            if !services.is_empty() {
+                let wants = safe_create_project_directory(&overlay_target, "etc/systemd/system/multi-user.target.wants")?;
+                for service in services {
+                    let link = wants.join(&service);
+                    if fs::symlink_metadata(&link).is_ok() {
+                        return Err(format!("Service link already exists in overlay: {service}"));
+                    }
+                    symlink(format!("/usr/lib/systemd/system/{service}"), link)
+                        .map_err(|error| format!("Cannot enable Arch service {service}: {error}"))?;
                 }
-                symlink(format!("/usr/lib/systemd/system/{service}"), link)
-                    .map_err(|error| format!("Cannot enable Arch service {service}: {error}"))?;
+            }
+            if !project.filesystem.timezone.is_empty() {
+                let etc = safe_create_project_directory(&overlay_target, "etc")?;
+                let localtime = etc.join("localtime");
+                if fs::symlink_metadata(&localtime).is_ok() {
+                    return Err("The Arch overlay already contains /etc/localtime; remove it or leave timezone empty.".into());
+                }
+                symlink(format!("/usr/share/zoneinfo/{}", project.filesystem.timezone), localtime)
+                    .map_err(|error| format!("Cannot configure Arch timezone: {error}"))?;
+            }
+            if !project.filesystem.locale.is_empty() {
+                let hook_root = safe_create_project_directory(&overlay_target, "etc/pacman.d/hooks")?;
+                let locale_hook = hook_root.join("00-void-memingo-locale-gen.hook");
+                let hook = "# remove from airootfs!\n[Trigger]\nOperation = Install\nOperation = Upgrade\nType = Package\nTarget = glibc\n\n[Action]\nDescription = Generate configured locales\nWhen = PostTransaction\nDepends = glibc\nExec = /usr/bin/locale-gen\n";
+                fs::write(&locale_hook, hook)
+                    .map_err(|error| format!("Cannot write Arch locale generation hook: {error}"))?;
             }
         }
         #[cfg(not(unix))]
-        return Err("Arch service enablement requires generating the profile on a Unix host.".into());
+        return Err("Arch profile generation requires a Unix host for systemd links and timezone configuration.".into());
     }
 
 
@@ -1279,8 +1309,10 @@ set -eu
 command -v mkarchiso >/dev/null 2>&1 || {{ echo "Install archiso first." >&2; exit 127; }}
 command -v pacman >/dev/null 2>&1 || {{ echo "Archiso must run on an Arch Linux build host with pacman." >&2; exit 127; }}
 command -v pacstrap >/dev/null 2>&1 || {{ echo "Install arch-install-scripts first." >&2; exit 127; }}
+command -v unshare >/dev/null 2>&1 || {{ echo "Install util-linux with unshare support." >&2; exit 127; }}
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
+printf '\\niso_name=%s\\niso_version=%s\\niso_label=%s\\niso_publisher=%s\\n' {iso_name} {iso_version} {iso_label} {iso_publisher} >> {profile}/profiledef.sh
 cat {packages} >> {profile}/packages.x86_64
 sort -u {profile}/packages.x86_64 -o {profile}/packages.x86_64
 if [ -s {remove_packages} ]; then grep -Fvx -f {remove_packages} {profile}/packages.x86_64 > {profile}/packages.tmp || true; mv {profile}/packages.tmp {profile}/packages.x86_64; fi
@@ -1302,6 +1334,10 @@ sha256sum --check {checksum}
 echo "Arch Linux ISO validated and SHA-256 checksum created."
 "#,
             profile = shell_quote(&profile_path),
+            iso_name = shell_quote(&project.project.id),
+            iso_version = shell_quote(&project.project.version),
+            iso_label = shell_quote(iso_label),
+            iso_publisher = shell_quote(if project.project.publisher.is_empty() { "Void Memingo" } else { &project.project.publisher }),
             custom_overlay = shell_quote(&overlay_target.to_string_lossy()),
             packages = shell_quote(&packages_path),
             remove_packages = shell_quote(&remove_file.to_string_lossy()),
@@ -1326,7 +1362,11 @@ echo "Arch Linux ISO validated and SHA-256 checksum created."
         script_path: script_path.to_string_lossy().into_owned(),
         commands: vec![
             format!("cd {}", shell_quote(&build_root.to_string_lossy())),
-            format!("sudo {}", shell_quote(&script_path.to_string_lossy())),
+            if distribution == "arch" {
+                format!("sh {}", shell_quote(&script_path.to_string_lossy()))
+            } else {
+                format!("sudo {}", shell_quote(&script_path.to_string_lossy()))
+            },
         ],
         notes: vec![
             "This prepares a real distribution-specific backend workspace and executable build script; ISO creation starts only when the reviewed script is run.".into(),
