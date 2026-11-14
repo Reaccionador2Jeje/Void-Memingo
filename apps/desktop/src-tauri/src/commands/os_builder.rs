@@ -934,7 +934,7 @@ pub fn prepare_debian_live_project(
         shell_quote(&bootappend),
     );
     fs::write(&auto_config, auto_config_contents).map_err(|error| format!("Cannot write live-build auto/config: {error}"))?;
-    fs::write(&auto_clean, "#!/bin/sh\nset -eu\nlb clean noauto \"$@\"\n").map_err(|error| format!("Cannot write live-build auto/clean: {error}"))?;
+    fs::write(&auto_clean, "#!/bin/sh\nset -eu\nlb clean noauto \"$@\"\nrm -f config/binary config/bootstrap config/chroot config/common config/source\n").map_err(|error| format!("Cannot write live-build auto/clean: {error}"))?;
     fs::write(&auto_build, "#!/bin/sh\nset -eu\nlb build noauto \"$@\"\n").map_err(|error| format!("Cannot write live-build auto/build: {error}"))?;
     #[cfg(unix)]
     {
@@ -1116,6 +1116,8 @@ mod tests {
         assert!(auto_config.contains("--binary-images iso-hybrid"));
         assert!(auto_config.contains("--firmware-chroot true"));
         assert!(auto_config.contains("--debian-installer false"));
+        let auto_clean = fs::read_to_string(root.join(".void-memingo/debian-live/atdev-os/auto/clean")).unwrap();
+        assert!(auto_clean.contains("rm -f config/binary config/bootstrap config/chroot config/common config/source"));
         for auto_script in ["config", "clean", "build"] {
             let path = root.join(".void-memingo/debian-live/atdev-os/auto").join(auto_script);
             assert!(Command::new("sh").args(["-n", path.to_str().unwrap()]).status().unwrap().success());
