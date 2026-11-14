@@ -1795,10 +1795,11 @@ image=""
 for candidate in {output_dir}/*.iso; do [ -f "$candidate" ] || continue; count=$((count + 1)); image="$candidate"; done
 [ "$count" -eq 1 ] && [ -s "$image" ] || {{ echo "Expected exactly one non-empty Archiso image." >&2; exit 1; }}
 mkdir -p {final_dir}
-[ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
+[ ! -e {output} ] && [ ! -e {checksum} ] && [ ! -e {manifest_output} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
 install -m 0644 "$image" {output}
 file {output} | grep -qi "ISO 9660" || {{ echo "Output is not an ISO 9660 image." >&2; exit 1; }}
-xorriso -indev {output} -report_el_torito plain 2>&1 | grep -qi "El Torito" || {{ echo "ISO has no El Torito boot catalog." >&2; exit 1; }}
+boot_report=$(xorriso -indev {output} -report_el_torito plain 2>&1) || {{ echo "xorriso could not inspect the ISO boot catalog." >&2; exit 1; }}
+printf '%s\\n' "$boot_report" | grep -qi "El Torito" || {{ echo "ISO has no El Torito boot catalog." >&2; exit 1; }}
 sha256sum {output} > {checksum}
 sha256sum --check {checksum}
 cp {manifest_source} {manifest_output}
@@ -2044,13 +2045,22 @@ pub fn validate_os_build_artifact(
             Ok(manifest) => {
                 let manifest_project = manifest.get("project").and_then(|value| value.get("id")).and_then(toml::Value::as_str);
                 let manifest_backend = manifest.get("backend").and_then(toml::Value::as_str).map(str::to_string);
-                let passed = manifest_project == Some(project.project.id.as_str()) && manifest_backend.is_some();
+                let manifest_version = manifest.get("schema_version").and_then(toml::Value::as_integer);
+                let expected_backend = match project.base.distribution.as_str() {
+                    "debian" => "debian-live-build",
+                    "ubuntu" => "ubuntu-livecd-rootfs",
+                    "arch" => "archiso",
+                    _ => "unsupported",
+                };
+                let passed = manifest_project == Some(project.project.id.as_str())
+                    && manifest_backend.as_deref() == Some(expected_backend)
+                    && manifest_version == Some(1);
                 (
                     manifest_backend.clone(),
                     artifact_check(
                         "manifest", "Manifiesto de compilación", passed,
                         if passed { format!("Manifiesto asociado al proyecto {}.", project.project.id) }
-                        else { "El manifiesto no coincide con el proyecto o no declara backend.".into() }
+                        else { "El manifiesto no coincide con el proyecto, la versión de esquema o el backend seleccionado.".into() }
                     )
                 )
             }
