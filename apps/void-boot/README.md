@@ -52,3 +52,7 @@ The generated configuration assumes GRUB's $prefix points to /boot/grub. A futur
 Physical-device writing and a standalone graphical device manager are not implemented. Removable-device discovery currently supports Linux; Windows and macOS discovery adapters remain future work. Development and compatibility testing starts with disposable virtual disks and QEMU. The user's existing Ventoy USB must remain untouched. Do not treat the current menu ISO as a finished USB installer.
 
 Secure Boot is deferred until the signing and trust chain are designed and tested. No image should be marked supported until its profile is tested independently in BIOS and UEFI virtual machines.
+
+## Release readiness
+
+See [Void Boot release gates](../../docs/VOID_BOOT_RELEASE_GATES.md) for the requirements that must pass before a stable release.
