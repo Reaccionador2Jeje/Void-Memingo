@@ -27,7 +27,9 @@ Filter by distribution family or architecture (Windows uses the `windows` family
 
     cargo run -- catalog --family debian
     cargo run -- catalog --arch x86_64
-    cargo run -- catalog --family arch --arch x86_64\n    cargo run -- catalog --family windows\n    cargo run -- catalog --family windows --arch aarch64
+    cargo run -- catalog --family arch --arch x86_64
+    cargo run -- catalog --family windows
+    cargo run -- catalog --family windows --arch aarch64
 
 The catalogue links to official landing pages rather than storing version-specific mirror URLs, avoiding stale links. Open the listed page, select the edition and architecture, and save the ISO into your local library folder. Then inspect it with `cargo run -- scan /path/to/isos`.
 
