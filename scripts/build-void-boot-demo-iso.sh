@@ -16,6 +16,10 @@ mkdir -p "$STAGING_DIR/iso" "$(dirname "$OUTPUT_ISO")"
 cargo run --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" -- \
   render-menu "$PROFILE_FILE" "$STAGING_DIR/boot/grub"
 
+if command -v grub-script-check >/dev/null 2>&1; then
+  grub-script-check "$STAGING_DIR/boot/grub/grub.cfg"
+fi
+
 grub-mkrescue -o "$OUTPUT_ISO" "$STAGING_DIR"
 test -s "$OUTPUT_ISO"
 echo "Created bootable Void Boot menu ISO: $OUTPUT_ISO"
