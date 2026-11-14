@@ -391,6 +391,26 @@ pub fn check_os_build_preflight(workspace: String, project_toml: String) -> Resu
             });
         }
 
+        if distribution == "ubuntu" {
+            let os_release = fs::read_to_string("/etc/os-release").unwrap_or_default();
+            let host_id = os_release.lines()
+                .find_map(|line| line.strip_prefix("ID="))
+                .unwrap_or_default()
+                .trim_matches('"');
+            let supported_host = host_id == "ubuntu";
+            checks.push(PreflightCheck {
+                id: "ubuntu-host".into(),
+                label: "Host Ubuntu".into(),
+                available: supported_host,
+                required: true,
+                detail: if supported_host {
+                    "livecd-rootfs se ejecutará en un host Ubuntu.".into()
+                } else {
+                    "El backend livecd-rootfs requiere un host Ubuntu compatible; instala/ejecuta el constructor en Ubuntu.".into()
+                },
+            });
+        }
+
         if distribution == "arch" {
             let os_release = fs::read_to_string("/etc/os-release").unwrap_or_default();
             let mut host_id = String::new();
@@ -1738,6 +1758,8 @@ AUTO=/usr/share/livecd-rootfs/live-build/auto
 [ -x "$AUTO/clean" ] && [ -x "$AUTO/config" ] && [ -x "$AUTO/build" ] || {{ echo "Install the Ubuntu livecd-rootfs package." >&2; exit 127; }}
 command -v lb >/dev/null 2>&1 || {{ echo "Install Ubuntu live-build." >&2; exit 127; }}
 command -v debootstrap >/dev/null 2>&1 || {{ echo "Install debootstrap." >&2; exit 127; }}
+. /etc/os-release
+[ "${{ID:-}}" = "ubuntu" ] || {{ echo "Ubuntu livecd-rootfs must be built on an Ubuntu host." >&2; exit 1; }}
 cd {build_dir}
 find . -maxdepth 1 -type f -name 'livecd.{ubuntu_project}.iso' -delete
 ARCH=amd64 PROJECT={ubuntu_project} SUBPROJECT=live SUITE={codename} "$AUTO/clean"
