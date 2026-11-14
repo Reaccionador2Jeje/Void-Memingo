@@ -17,21 +17,21 @@ The generated menu uses GRUB's graphical gfxterm menu and profile-specific loopb
 
 ## Distribution Center
 
-The bundled catalogue currently includes Debian, Ubuntu, Fedora, Arch Linux, Linux Mint, Zorin OS, openSUSE, Pop!_OS, elementary OS, Kali Linux, EndeavourOS, Manjaro, MX Linux, NixOS, Void Linux, Rocky Linux, AlmaLinux, Alpine Linux and Mageia.
+The bundled catalogue includes 19 Linux distributions plus Windows 11 for x86-64 and ARM64. Windows is listed as an operating system, not mislabeled as a Linux distribution.
 
 Each entry includes its official project/download page, distribution family, known architectures, editions, release model, available image formats and verification guidance. View everything with:
 
     cargo run -- catalog
 
-Filter by distribution family or architecture:
+Filter by distribution family or architecture (Windows uses the `windows` family):
 
     cargo run -- catalog --family debian
     cargo run -- catalog --arch x86_64
-    cargo run -- catalog --family arch --arch x86_64
+    cargo run -- catalog --family arch --arch x86_64\n    cargo run -- catalog --family windows\n    cargo run -- catalog --family windows --arch aarch64
 
 The catalogue links to official landing pages rather than storing version-specific mirror URLs, avoiding stale links. Open the listed page, select the edition and architecture, and save the ISO into your local library folder. Then inspect it with `cargo run -- scan /path/to/isos`.
 
-**Download automation is not implemented in this milestone.** Void Boot does not yet fetch ISO files, verify publisher signatures automatically, or mark a distribution as boot-compatible. Follow each project's verification instructions and compare its published checksum/signature before using an image. A future downloader must use HTTPS-only transfers, publisher-authenticated verification, resumable downloads, safe filenames, disk-space checks and explicit consent before large downloads.
+**Download automation is not implemented in this milestone.** Void Boot does not yet fetch ISO files, verify publisher signatures automatically, or mark a distribution as boot-compatible. Windows entries link only to Microsoft's official download pages; Void Boot does not redistribute Windows images, automate Windows downloads, or claim that Windows ISO loopback boot works. Windows setup needs a dedicated, separately tested boot/install workflow and is currently catalog-only. Follow each publisher's verification instructions and compare its published checksum/signature before using an image. A future downloader must use HTTPS-only transfers, publisher-authenticated verification, resumable downloads, safe filenames, disk-space checks and explicit consent before large downloads.
 
 ## Commands
 
