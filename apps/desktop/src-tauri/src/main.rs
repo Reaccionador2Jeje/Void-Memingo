@@ -48,6 +48,8 @@ fn main() {
             commands::void_boot::create_void_boot_qemu_disk,
             commands::void_boot::scan_void_boot_iso_directory,
             commands::void_boot::verify_void_boot_iso_checksum_manifest,
+            commands::void_boot::load_void_boot_profile_catalog,
+            commands::void_boot::save_void_boot_profile_catalog,
             commands::void_boot::preview_void_boot_menu
         ])
         .run(tauri::generate_context!())
