@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn bundled_catalog_has_unique_ids_and_complete_https_metadata() {
         let entries = load_distributions().expect("bundled catalog should be valid");
-        assert!(entries.len() >= 20);
+        assert!(entries.len() >= 40);
         let mut ids = std::collections::HashSet::new();
         for entry in entries {
             assert!(ids.insert(entry.id), "catalog IDs must be unique");
@@ -121,7 +121,10 @@ mod tests {
     fn windows_entries_are_official_media_only_and_not_boot_compatible() {
         let entries = load_distributions().expect("catalog should load");
         let windows = filter_distributions(&entries, Some("windows"), None);
-        assert_eq!(windows.len(), 2);
+        assert_eq!(windows.len(), 5);
+        assert!(windows.iter().any(|entry| entry.id == "windows-10-home"));
+        assert!(windows.iter().any(|entry| entry.id == "windows-10-pro"));
+        assert!(windows.iter().any(|entry| entry.id == "windows-10-ltsc"));
         for entry in windows {
             assert_eq!(entry.kind, "operating_system");
             assert_eq!(entry.installation.delivery, "official_media_page_only");
@@ -130,6 +133,18 @@ mod tests {
                 .download_page
                 .starts_with("https://www.microsoft.com/"));
         }
+    }
+
+    #[test]
+    fn expanded_linux_catalog_contains_desktop_enterprise_and_specialist_systems() {
+        let entries = load_distributions().expect("catalog should load");
+        for id in [
+            "centos-stream", "gentoo", "slackware", "lubuntu", "kubuntu", "xubuntu",
+            "linux-lite", "deepin", "solus", "kde-neon", "oracle-linux", "antix",
+        ] {
+            assert!(entries.iter().any(|entry| entry.id == id), "missing {id}");
+        }
+        assert_eq!(entries.iter().filter(|entry| entry.kind == "linux_distribution").count(), 31);
     }
 
     #[test]
