@@ -23,7 +23,7 @@ Void Boot is a standalone Atdev Dev project and a first-class Void Memingo clien
 - **Boot runtime:** GRUB 2 for initial BIOS/UEFI prototype; replaceable behind a runtime boundary.
 - **Desktop manager:** future standalone GUI for catalog, profiles, validation and media preparation.
 - **Void Memingo client:** project-aware ISO inspection, TOML profile loading and generated GRUB menu preview using the shared Rust core.
-- **Test harness:** QEMU virtual machines, disposable virtual disks and a compatibility matrix.
+- **Test harness:** QEMU virtual machines, disposable virtual disks and a compatibility matrix.\n- **Installer package:** CI-generated ZIP with shell, PowerShell and browser-based folder deployment entry points. The current package copies menu/theme/profile files only; it is not a bootable USB writer.
 
 ## Graphical boot experience
 
@@ -49,7 +49,7 @@ Before a physical-media writer is enabled, it must enumerate devices using stabl
 4. **Profile coverage:** Debian Live recipe and manual full-boot QEMU test are implemented; confirm the test result before marking Debian verified, then add reviewed Ubuntu, Arch and rescue-image profiles against exact releases.
 5. **Void Memingo integration:** shared profile catalog, ISO compatibility display, TOML profile picker and generated menu preview.
 6. **Standalone GUI:** ISO library, profile editor, boot menu preview and safe media planner.
-7. **Media writer:** guarded USB preparation only after virtual testing and explicit user approval.
+7. **Installer package:** ZIP distribution with shell, PowerShell and web folder installers; menu/profile deployment only.\n8. **Media writer:** guarded USB preparation only after virtual testing and explicit user approval.
 8. **Compatibility expansion:** persistence, more distributions, Windows installer support where technically and legally appropriate.
 9. **Secure Boot:** after signing, key management and trust requirements are fully designed.
 
