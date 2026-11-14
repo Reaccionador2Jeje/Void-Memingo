@@ -20,6 +20,14 @@ if command -v grub-script-check >/dev/null 2>&1; then
   grub-script-check "$STAGING_DIR/boot/grub/grub.cfg"
 fi
 
+FONT_PATH="$(find /usr/share/grub /usr/share/grub2 -type f -name unicode.pf2 -print -quit 2>/dev/null || true)"
+if [[ -z "$FONT_PATH" ]]; then
+  echo "GRUB unicode.pf2 font was not found; cannot guarantee graphical menu rendering." >&2
+  exit 1
+fi
+mkdir -p "$STAGING_DIR/boot/grub/fonts"
+cp "$FONT_PATH" "$STAGING_DIR/boot/grub/fonts/unicode.pf2"
+
 grub-mkrescue -o "$OUTPUT_ISO" "$STAGING_DIR"
 test -s "$OUTPUT_ISO"
 echo "Created bootable Void Boot menu ISO: $OUTPUT_ISO"
