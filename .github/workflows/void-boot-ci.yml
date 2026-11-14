@@ -12,6 +12,9 @@ on:
   pull_request:
     paths:
       - "apps/void-boot/**"
+      - "apps/desktop/**"
+      - "docs/VOID_BOOT_ARCHITECTURE.md"
+      - "README.md"
       - ".github/workflows/void-boot-ci.yml"
   workflow_dispatch:
 
