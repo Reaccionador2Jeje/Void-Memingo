@@ -778,3 +778,17 @@ button:disabled {
 .workspace-search-result strong{max-width:100%;overflow-wrap:anywhere;font-size:10px}
 .workspace-search-result span{color:#8f9aad;font-size:9px}
 .workspace-search-result code{max-width:100%;overflow:hidden;color:#b6c2d8;font:9px/1.5 "JetBrains Mono",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+
+
+.settings-modal{width:min(480px,calc(100vw - 32px));padding:22px;border:1px solid #353d4b;border-radius:12px;background:#171c25;color:#e3e8f1;box-shadow:0 24px 80px #0009}
+.settings-modal-heading{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px}
+.settings-modal-heading h2{margin:7px 0 0;font-size:18px;font-weight:650}
+.settings-control{display:flex;flex-direction:column;gap:9px;margin:16px 0;color:#aab4c5;font-size:11px}
+.settings-control>span{display:flex;justify-content:space-between;gap:12px}
+.settings-control strong{color:#c6bcff;font-weight:600}
+.settings-control input[type=range]{width:100%;accent-color:#a69aff}
+.settings-control select{height:34px;padding:0 9px;border:1px solid #343b49;border-radius:6px;background:#11161e;color:#e2e7f0}
+.settings-checkbox{flex-direction:row;align-items:center}
+.settings-checkbox input{accent-color:#a69aff}
+.settings-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:24px}
+.settings-modal>p{margin:14px 0 0;color:#778296;font-size:9px}
