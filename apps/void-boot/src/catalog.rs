@@ -131,6 +131,24 @@ mod tests {
     }
 
     #[test]
+    fn filters_bsd_reactos_and_windows_architectures() {
+        let entries = load_distributions().expect("catalog should load");
+        let bsd = filter_distributions(&entries, Some("bsd"), Some("x86_64"));
+        assert_eq!(bsd.len(), 3);
+        assert!(bsd.iter().any(|entry| entry.id == "freebsd"));
+        assert!(bsd.iter().any(|entry| entry.id == "openbsd"));
+        assert!(bsd.iter().any(|entry| entry.id == "netbsd"));
+
+        let reactos = filter_distributions(&entries, Some("reactos"), Some("i686"));
+        assert_eq!(reactos.len(), 1);
+        assert_eq!(reactos[0].id, "reactos");
+
+        let windows_arm = filter_distributions(&entries, Some("windows"), Some("aarch64"));
+        assert_eq!(windows_arm.len(), 1);
+        assert_eq!(windows_arm[0].id, "windows-11-arm64");
+    }
+
+    #[test]
     fn catalog_distinguishes_linux_and_external_operating_systems() {
         let entries = load_distributions().expect("catalog should load");
         assert!(entries.iter().any(|entry| entry.kind == "linux_distribution"));
