@@ -6,7 +6,7 @@ import {
   Activity, AlertCircle, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Code2, Command, Cpu, FileCode2, FilePlus2, Folder, FolderOpen,
   GitBranch, LayoutDashboard, PanelBottom, PanelLeftClose, Plus, Search,
-  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3, Play, FolderOpen
+  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3, Play
 } from 'lucide-react';
 
 type FileEntry = {
