@@ -139,12 +139,28 @@ mod tests {
     fn expanded_linux_catalog_contains_desktop_enterprise_and_specialist_systems() {
         let entries = load_distributions().expect("catalog should load");
         for id in [
-            "centos-stream", "gentoo", "slackware", "lubuntu", "kubuntu", "xubuntu",
-            "linux-lite", "deepin", "solus", "kde-neon", "oracle-linux", "antix",
+            "centos-stream",
+            "gentoo",
+            "slackware",
+            "lubuntu",
+            "kubuntu",
+            "xubuntu",
+            "linux-lite",
+            "deepin",
+            "solus",
+            "kde-neon",
+            "oracle-linux",
+            "antix",
         ] {
             assert!(entries.iter().any(|entry| entry.id == id), "missing {id}");
         }
-        assert_eq!(entries.iter().filter(|entry| entry.kind == "linux_distribution").count(), 31);
+        assert_eq!(
+            entries
+                .iter()
+                .filter(|entry| entry.kind == "linux_distribution")
+                .count(),
+            31
+        );
     }
 
     #[test]
