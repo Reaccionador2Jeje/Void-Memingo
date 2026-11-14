@@ -1718,7 +1718,8 @@ mod tests {
         let root = fs::canonicalize(root).unwrap();
         let prepared = prepare_non_debian_project(&root, &project).expect("Ubuntu backend profile");
         let script = fs::read_to_string(&prepared.script_path).unwrap();
-        assert!(script.contains("AUTO=/usr/share/livecd-rootfs/live-build/auto"));\n        assert!(script.contains('[ -x "$AUTO/config" ]'));
+        assert!(script.contains("AUTO=/usr/share/livecd-rootfs/live-build/auto"));
+        assert!(script.contains("[ -x \"$AUTO/config\" ]"));
         assert!(script.contains("PROJECT=xubuntu SUBPROJECT=live SUITE=noble"));
         assert!(script.contains("livecd.xubuntu.iso"));
         assert!(script.contains("config/includes.chroot"));
