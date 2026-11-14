@@ -1918,7 +1918,7 @@ directory = ${quote(osOutputDir)}
             </section>
           )}
 
-          <section className="bottom-panel" style={{ display: bottomOpen && sidebarView !== 'boot' ? 'flex' : 'none' }}>
+          <section className="bottom-panel" style={{ display: bottomOpen && String(sidebarView) !== 'boot' ? 'flex' : 'none' }}>
               <div className="panel-tabs">
                 <button className={bottomView === 'problems' ? 'selected' : ''} onClick={() => setBottomView('problems')}>PROBLEMAS</button>
                 <button className={bottomView === 'output' ? 'selected' : ''} onClick={() => setBottomView('output')}>SALIDA</button>
