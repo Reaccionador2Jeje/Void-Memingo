@@ -37,7 +37,7 @@ pub fn base_capabilities() -> Vec<BaseCapabilities> {
             architectures: &["amd64"],
             desktops: &["gnome", "kde-plasma", "xfce", "lxqt", "cinnamon", "mate", "none"],
             boot_modes: &["uefi", "bios"],
-            notes: "Experimental Ubuntu live-build backend with casper integration; requires a Linux host with Ubuntu-compatible live-build tooling and end-to-end validation.",
+            notes: "Experimental Ubuntu livecd-rootfs backend with casper integration; requires the Ubuntu image-build toolchain and end-to-end validation.",
         },
         BaseCapabilities {
             id: "arch",
@@ -1522,7 +1522,7 @@ echo "Arch Linux ISO validated and SHA-256 checksum created."
         ],
         notes: vec![
             "This prepares a real distribution-specific backend workspace and executable build script; ISO creation starts only when the reviewed script is run.".into(),
-            "Ubuntu backend: live-build package lists, casper live boot configuration, root filesystem overlay and Ubuntu release codename mapping.".into(),
+            "Ubuntu backend: official livecd-rootfs clean/config/build pipeline, casper live boot, package list, root filesystem overlay and Ubuntu suite mapping.".into(),
             "Arch backend: upstream archiso releng profile, x86_64 package manifest, custom airootfs overlay and mkarchiso.".into(),
             "These backends are experimental previews until their output has been built and boot-tested on supported Linux hosts.".into(),
             "Local ISO creation currently requires a Linux host and the matching distribution build tools.".into(),
