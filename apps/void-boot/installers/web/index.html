@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Void Boot Web Installer</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #10151b; color: #e8f0f5; }
+    body { max-width: 760px; margin: 0 auto; padding: 2rem 1.2rem; }
+    main { background: #19232d; border: 1px solid #344553; border-radius: 16px; padding: 1.5rem; }
+    h1 { margin-top: 0; } p { line-height: 1.55; color: #c5d2dc; }
+    button { border: 0; border-radius: 9px; padding: .8rem 1rem; margin: .4rem .3rem .4rem 0; font-weight: 650; cursor: pointer; background: #8bd3c7; color: #10201e; }
+    button:disabled { opacity: .5; cursor: wait; }
+    #status { min-height: 1.5rem; white-space: pre-wrap; }
+    .warning { border-left: 4px solid #e5b65c; padding-left: 1rem; }
+    input { display: block; margin: .8rem 0; max-width: 100%; }
+    code { color: #a9e7db; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Void Boot Web Installer</h1>
+    <p>Select the extracted <code>payload</code> folder from the Void Boot ZIP, then choose the destination folder. The installer copies only the included menu, theme and profile files.</p>
+    <p class="warning"><strong>Important:</strong> This is a menu deployment preview. It does not install GRUB, create EFI boot files, partition or format a drive, or make a USB bootable.</p>
+    <label for="payload">1. Select the extracted payload folder</label>
+    <input id="payload" type="file" webkitdirectory multiple>
+    <button id="install" disabled>Choose destination and install files</button>
+    <p id="status" role="status" aria-live="polite"></p>
+    <p>For a terminal installer, use <code>install.sh</code> on Linux/macOS or <code>install.ps1</code> in PowerShell from the extracted ZIP.</p>
+  </main>
+  <script>
+    const payloadInput = document.getElementById("payload");
+    const installButton = document.getElementById("install");
+    const status = document.getElementById("status");
+
+    payloadInput.addEventListener("change", () => {
+      const files = Array.from(payloadInput.files || []);
+      const valid = files.some(file => /(^|\/)payload\/boot\/grub\/grub\.cfg$/.test(file.webkitRelativePath));
+      installButton.disabled = !valid;
+      status.textContent = valid
+        ? files.length + " payload file(s) selected."
+        : "Choose the payload folder inside the extracted Void-Boot package.";
+    });
+
+    installButton.addEventListener("click", async () => {
+      if (!("showDirectoryPicker" in window)) {
+        status.textContent = "This browser does not support folder installation. Use install.sh or install.ps1 from the ZIP.";
+        return;
+      }
+      installButton.disabled = true;
+      try {
+        const files = Array.from(payloadInput.files || []);
+        const destination = await window.showDirectoryPicker({ mode: "readwrite" });
+        const root = files[0].webkitRelativePath.split("/")[0];
+        let copied = 0;
+        for (const file of files) {
+          const parts = file.webkitRelativePath.split("/");
+          if (parts[0] !== root || parts[1] !== "payload") continue;
+          const relative = parts.slice(2);
+          if (!relative.length) continue;
+          let directory = destination;
+          for (const segment of relative.slice(0, -1)) {
+            directory = await directory.getDirectoryHandle(segment, { create: true });
+          }
+          const handle = await directory.getFileHandle(relative[relative.length - 1], { create: true });
+          const writable = await handle.createWritable();
+          await writable.write(file);
+          await writable.close();
+          copied++;
+        }
+        status.textContent = "Copied " + copied + " file(s). No bootloader was installed.";
+      } catch (error) {
+        status.textContent = error.name === "AbortError" ? "Installation cancelled." : "Installation failed: " + error.message;
+      } finally {
+        installButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
