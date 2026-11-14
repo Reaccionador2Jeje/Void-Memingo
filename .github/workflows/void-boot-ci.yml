@@ -120,6 +120,33 @@ jobs:
           sgdisk --verify "$RUNNER_TEMP/void-boot-media.img"
           test -s "$RUNNER_TEMP/void-boot-media.img"
           bash scripts/test-void-boot-media-uefi.sh "$RUNNER_TEMP/void-boot-media.img" "$RUNNER_TEMP/void-boot-media-uefi.log"
+      - name: Test importing multiple ISO payloads from a library folder
+        env:
+          VOID_BOOT_IMAGE_SIZE_MIB: "512"
+        run: |
+          mkdir -p "$RUNNER_TEMP/iso-library"
+          cp "$RUNNER_TEMP/fixture.iso" "$RUNNER_TEMP/iso-library/debian-fixture.iso"
+          cp "$RUNNER_TEMP/fixture.iso" "$RUNNER_TEMP/iso-library/rescue-fixture.iso"
+          cat > "$RUNNER_TEMP/library-profiles.toml" <<'PROFILES'
+          [[profiles]]
+          id = "debian-fixture"
+          name = "Debian fixture"
+          iso = "iso/debian-fixture.iso"
+          kernel = "live/vmlinuz"
+          initrd = "live/initrd.img"
+          linux_args = ["boot=live"]
+
+          [[profiles]]
+          id = "rescue-fixture"
+          name = "Rescue fixture"
+          iso = "iso/rescue-fixture.iso"
+          kernel = "boot/vmlinuz"
+          initrd = "boot/initrd.img"
+          linux_args = ["quiet"]
+          PROFILES
+          bash scripts/build-void-boot-media.sh "$RUNNER_TEMP/library-profiles.toml" "$RUNNER_TEMP/iso-library" "$RUNNER_TEMP/void-boot-library.img"
+          sgdisk --verify "$RUNNER_TEMP/void-boot-library.img"
+          bash scripts/test-void-boot-media-uefi.sh "$RUNNER_TEMP/void-boot-library.img" "$RUNNER_TEMP/void-boot-library-uefi.log"
       - name: Build Void Boot ZIP installer package
         run: bash scripts/package-void-boot.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-installer.zip"
       - name: Upload Void Boot ZIP installer
