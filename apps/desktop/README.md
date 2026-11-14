@@ -73,3 +73,9 @@ Installer generation, safe partition-selection UI, installation storage/filesyst
 ## IDE capabilities and remaining modules
 
 The IDE includes bounded workspace text search, persistent editor preferences, Tab indentation, Ctrl+S, and basic JSON/TOML syntax diagnostics. Full language-server diagnostics for programming languages, project-wide symbol indexing, language services and debugger integration remain planned.
+
+## Void Boot Distribution Center
+
+The Void Boot sidebar exposes the bundled distribution catalogue from the shared `void-boot` Rust library. Each entry shows its project family, architectures and editions, with a link to the official download page. Download the ISO from the publisher, save it into a local ISO library folder, then select that folder in Void Boot to inspect the image and its SHA-256 digest.
+
+This desktop milestone does not write to physical USB devices. Direct ISO downloading, publisher-signature verification, per-distribution boot-profile validation and the protected multiboot USB installation flow remain separate milestones. The eventual installer must preserve the Void Boot data layout, detect the exact target device, explain destructive operations and require an explicit final confirmation before writing.
