@@ -163,6 +163,9 @@ function App() {
   const [voidBootDirectory, setVoidBootDirectory] = useState<string | null>(null);
   const [voidBootEntries, setVoidBootEntries] = useState<BootIsoEntry[]>([]);
   const [voidBootBusy, setVoidBootBusy] = useState(false);
+  const [voidBootProfileFile, setVoidBootProfileFile] = useState<string | null>(null);
+  const [voidBootMenuPreview, setVoidBootMenuPreview] = useState<string | null>(null);
+  const [voidBootPreviewBusy, setVoidBootPreviewBusy] = useState(false);
   const [logs, setLogs] = useState<string[]>(['Void Memingo Desktop iniciado.']);
   const [busy, setBusy] = useState(false);
   const [osBuilderOpen, setOsBuilderOpen] = useState(false);
@@ -517,6 +520,38 @@ function App() {
     const selected = await open({ directory: true, multiple: false, title: 'Seleccionar carpeta que contiene ISOs' });
     if (typeof selected === 'string') await scanVoidBootDirectory(selected);
   }, [scanVoidBootDirectory]);
+
+  const chooseVoidBootProfile = useCallback(async () => {
+    const selected = await open({ directory: false, multiple: false, title: 'Seleccionar catálogo de perfiles Void Boot' });
+    if (typeof selected !== 'string') return;
+    setVoidBootProfileFile(selected);
+    setVoidBootPreviewBusy(true);
+    try {
+      const preview = await invoke<string>('preview_void_boot_menu', { profileFile: selected });
+      setVoidBootMenuPreview(preview);
+      addLog('Void Boot: vista previa del menú GRUB generada.');
+    } catch (error) {
+      setVoidBootMenuPreview(null);
+      addLog('No se pudo generar la vista previa de Void Boot: ' + String(error));
+    } finally {
+      setVoidBootPreviewBusy(false);
+    }
+  }, [addLog]);
+
+  const refreshVoidBootPreview = useCallback(async () => {
+    if (!voidBootProfileFile) return;
+    setVoidBootPreviewBusy(true);
+    try {
+      const preview = await invoke<string>('preview_void_boot_menu', { profileFile: voidBootProfileFile });
+      setVoidBootMenuPreview(preview);
+      addLog('Void Boot: vista previa actualizada.');
+    } catch (error) {
+      setVoidBootMenuPreview(null);
+      addLog('Error al actualizar la vista previa: ' + String(error));
+    } finally {
+      setVoidBootPreviewBusy(false);
+    }
+  }, [addLog, voidBootProfileFile]);
 
   const refreshWorkspace = useCallback(async (root: string) => {
     const result = await invoke<FileEntry[]>('list_directory', {
@@ -1188,6 +1223,15 @@ directory = ${quote(osOutputDir)}
                 <div className="git-toolbar"><span>ISO MANAGER · PREVIEW</span><button className="subtle-icon" onClick={() => voidBootDirectory && void scanVoidBootDirectory(voidBootDirectory)} disabled={!voidBootDirectory || voidBootBusy} title="Volver a inspeccionar"><Activity size={14} /></button></div>
                 <p className="git-provider-note">Inspección de solo lectura. Todavía no prepara ni modifica unidades USB.</p>
                 <button className="primary-button" onClick={() => void chooseVoidBootDirectory()} disabled={voidBootBusy}>{voidBootBusy ? 'Inspeccionando…' : 'Seleccionar carpeta de ISOs'}</button>
+                <div className="git-section-label">BOOT PROFILES</div>
+                <button className="secondary-button" onClick={() => void chooseVoidBootProfile()} disabled={voidBootPreviewBusy}>{voidBootPreviewBusy ? 'Generando vista previa…' : 'Abrir catálogo TOML'}</button>
+                {voidBootProfileFile && <div className="git-provider-note" title={voidBootProfileFile}>{voidBootProfileFile.split(/[\\/]/).filter(Boolean).pop()}</div>}
+                {voidBootMenuPreview && (
+                  <div className="void-boot-preview">
+                    <div className="git-toolbar"><span>GRUB MENU PREVIEW</span><button className="subtle-icon" onClick={() => void refreshVoidBootPreview()} disabled={voidBootPreviewBusy} title="Actualizar vista previa"><Activity size={14} /></button></div>
+                    <pre>{voidBootMenuPreview}</pre>
+                  </div>
+                )}
                 {voidBootDirectory && <div className="git-section-label" title={voidBootDirectory}>CARPETA: {voidBootDirectory.split(/[\\\\/]/).filter(Boolean).pop()}</div>}
                 {voidBootEntries.length === 0 && <div className="tree-empty">{voidBootBusy ? 'Leyendo archivos…' : 'No hay ISOs inspeccionadas.'}</div>}
                 {voidBootEntries.map((entry) => (
