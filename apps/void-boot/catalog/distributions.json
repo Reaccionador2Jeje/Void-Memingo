@@ -547,5 +547,60 @@
       "boot_profile_required": true,
       "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
     }
+  },
+  {
+    "id": "windows-11-x64",
+    "kind": "operating_system",
+    "name": "Windows 11 (x64)",
+    "description": "Sistema operativo de escritorio de Microsoft para equipos x86-64. El medio oficial puede contener varias ediciones; la activación depende de la licencia.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/windows-11",
+    "download_page": "https://www.microsoft.com/software-download/windows11",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Windows 11 Home",
+      "Windows 11 Pro",
+      "Otras ediciones según licencia"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO",
+      "USB installation media"
+    ],
+    "verification": "Descarga únicamente desde Microsoft y verifica la integridad del archivo según los datos publicados por Microsoft. No se admite una ISO de terceros como medio oficial.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlace oficial únicamente. El arranque e instalación multiboot de Windows requieren un flujo específico y todavía no están implementados ni validados en Void Boot."
+    }
+  },
+  {
+    "id": "windows-11-arm64",
+    "kind": "operating_system",
+    "name": "Windows 11 (ARM64)",
+    "description": "Edición de Windows 11 para dispositivos compatibles con procesadores ARM64.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/windows-11",
+    "download_page": "https://www.microsoft.com/software-download/windows11arm64",
+    "architectures": [
+      "aarch64"
+    ],
+    "editions": [
+      "Windows 11 ARM64"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Descarga únicamente desde Microsoft y verifica la integridad del archivo según los datos publicados por Microsoft.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlace oficial únicamente. El arranque e instalación multiboot de Windows requieren un flujo específico y todavía no están implementados ni validados en Void Boot."
+    }
   }
 ]
