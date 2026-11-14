@@ -187,7 +187,9 @@ impl DownloadManager {
                     .send()
                     .map_err(|e| format!("No se pudo consultar el servidor: {e}"))?;
                 if probe.url().scheme() != "https" {
-                    return Err("El servidor redirigió fuera de HTTPS; se cancela la descarga".into());
+                    return Err(
+                        "El servidor redirigió fuera de HTTPS; se cancela la descarga".into(),
+                    );
                 }
                 if probe.status() != reqwest::StatusCode::PARTIAL_CONTENT {
                     return Err("Este servidor no admite descargas por rangos. El modo acelerado requiere HTTP Range; no se inicia una descarga engañosamente paralela.".into());
@@ -267,7 +269,10 @@ impl DownloadManager {
                                 format!("Error de conexión en parte {}: {e}", index + 1)
                             })?;
                         if response.url().scheme() != "https" {
-                            return Err("El servidor redirigió fuera de HTTPS durante la transferencia".into());
+                            return Err(
+                                "El servidor redirigió fuera de HTTPS durante la transferencia"
+                                    .into(),
+                            );
                         }
                         if response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
                             return Err(format!(
