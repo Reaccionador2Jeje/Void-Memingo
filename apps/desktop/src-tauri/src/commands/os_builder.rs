@@ -1117,6 +1117,77 @@ fn apply_common_filesystem_defaults(overlay: &Path, project: &OsProject) -> Resu
     }
     Ok(())
 }
+fn desktop_defaults_script(project: &OsProject, wallpaper: &str) -> String {
+    let theme = shell_quote(&project.desktop.theme);
+    let icon_theme = shell_quote(&project.desktop.icon_theme);
+    let wallpaper = shell_quote(wallpaper);
+    let environment = shell_quote(&project.desktop.environment);
+    format!(r#"#!/bin/sh
+set -eu
+THEME={theme}
+ICON_THEME={icon_theme}
+WALLPAPER={wallpaper}
+DESKTOP={environment}
+CONFIG_HOME=$(printenv XDG_CONFIG_HOME 2>/dev/null || true)
+[ -n "$CONFIG_HOME" ] || CONFIG_HOME="$HOME/.config"
+MARKER="$CONFIG_HOME/void-memingo/desktop-defaults-applied"
+[ -e "$MARKER" ] && exit 0
+applied=0
+case "$DESKTOP" in
+  xfce)
+    if command -v xfconf-query >/dev/null 2>&1; then
+      if [ -n "$THEME" ]; then xfconf-query -c xsettings -p /Net/ThemeName --create -t string -s "$THEME" && applied=1 || true; fi
+      if [ -n "$ICON_THEME" ]; then xfconf-query -c xsettings -p /Net/IconThemeName --create -t string -s "$ICON_THEME" && applied=1 || true; fi
+      if [ -n "$WALLPAPER" ]; then
+        xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image --create -t string -s "$WALLPAPER" && applied=1 || true
+        xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/image-style --create -t int -s 5 && applied=1 || true
+      fi
+    fi
+    ;;
+  gnome)
+    if command -v gsettings >/dev/null 2>&1; then
+      if [ -n "$THEME" ]; then gsettings set org.gnome.desktop.interface gtk-theme "$THEME" && applied=1 || true; fi
+      if [ -n "$ICON_THEME" ]; then gsettings set org.gnome.desktop.interface icon-theme "$ICON_THEME" && applied=1 || true; fi
+      if [ -n "$WALLPAPER" ]; then
+        gsettings set org.gnome.desktop.background picture-uri "file://$WALLPAPER" && applied=1 || true
+        gsettings set org.gnome.desktop.background picture-uri-dark "file://$WALLPAPER" && applied=1 || true
+      fi
+    fi
+    ;;
+  cinnamon)
+    if command -v gsettings >/dev/null 2>&1; then
+      if [ -n "$THEME" ]; then gsettings set org.cinnamon.desktop.interface gtk-theme "$THEME" && applied=1 || true; fi
+      if [ -n "$ICON_THEME" ]; then gsettings set org.cinnamon.desktop.interface icon-theme "$ICON_THEME" && applied=1 || true; fi
+      if [ -n "$WALLPAPER" ]; then gsettings set org.cinnamon.desktop.background picture-uri "file://$WALLPAPER" && applied=1 || true; fi
+    fi
+    ;;
+  mate)
+    if command -v gsettings >/dev/null 2>&1; then
+      if [ -n "$THEME" ]; then gsettings set org.mate.interface gtk-theme "$THEME" && applied=1 || true; fi
+      if [ -n "$ICON_THEME" ]; then gsettings set org.mate.interface icon-theme "$ICON_THEME" && applied=1 || true; fi
+      if [ -n "$WALLPAPER" ]; then gsettings set org.mate.background picture-filename "$WALLPAPER" && applied=1 || true; fi
+    fi
+    ;;
+  kde-plasma)
+    if [ -n "$WALLPAPER" ] && command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then
+      plasma-apply-wallpaperimage "$WALLPAPER" && applied=1 || true
+    fi
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      if [ -n "$THEME" ]; then kwriteconfig6 --file kdeglobals --group General --key ColorScheme "$THEME" && applied=1 || true; fi
+      if [ -n "$ICON_THEME" ]; then kwriteconfig6 --file kdeglobals --group Icons --key Theme "$ICON_THEME" && applied=1 || true; fi
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      if [ -n "$THEME" ]; then kwriteconfig5 --file kdeglobals --group General --key ColorScheme "$THEME" && applied=1 || true; fi
+      if [ -n "$ICON_THEME" ]; then kwriteconfig5 --file kdeglobals --group Icons --key Theme "$ICON_THEME" && applied=1 || true; fi
+    fi
+    ;;
+esac
+if [ "$applied" -eq 1 ]; then
+  mkdir -p "$(dirname "$MARKER")"
+  : > "$MARKER"
+fi
+"#)
+}
+
 fn apply_desktop_defaults(root: &Path, overlay: &Path, project: &OsProject) -> Result<(), String> {
     if !project.desktop.theme.is_empty() || !project.desktop.icon_theme.is_empty() {
         let gtk_dir = safe_create_project_directory(overlay, "etc/skel/.config/gtk-3.0")?;
@@ -1127,9 +1198,13 @@ fn apply_desktop_defaults(root: &Path, overlay: &Path, project: &OsProject) -> R
         if !project.desktop.icon_theme.is_empty() {
             settings.push_str(&format!("gtk-icon-theme-name={}\n", project.desktop.icon_theme));
         }
-        fs::write(gtk_dir.join("settings.ini"), settings)
+        let settings_path = gtk_dir.join("settings.ini");
+        reject_symlink_target(&settings_path)?;
+        fs::write(settings_path, settings)
             .map_err(|error| format!("Cannot write GTK desktop defaults: {error}"))?;
     }
+
+    let mut wallpaper_path = String::new();
     if !project.desktop.wallpaper.is_empty() {
         let source = resolve_project_path_no_symlinks(root, &project.desktop.wallpaper)?
             .ok_or_else(|| format!("Wallpaper '{}' does not exist.", project.desktop.wallpaper))?;
@@ -1138,13 +1213,40 @@ fn apply_desktop_defaults(root: &Path, overlay: &Path, project: &OsProject) -> R
         }
         let extension = source.extension().and_then(|value| value.to_str()).unwrap_or("img");
         let name = format!("wallpaper.{extension}");
+        wallpaper_path = format!("/usr/share/backgrounds/void-memingo/{name}");
         let destination = safe_create_project_directory(overlay, "usr/share/backgrounds/void-memingo")?.join(&name);
+        reject_symlink_target(&destination)?;
         fs::copy(source, destination).map_err(|error| format!("Cannot copy wallpaper into image: {error}"))?;
         let profile = safe_create_project_directory(overlay, "etc/skel/.config/void-memingo")?;
-        fs::write(profile.join("desktop-profile.conf"), format!(
-            "theme={}\nicon_theme={}\nwallpaper=/usr/share/backgrounds/void-memingo/{name}\n",
-            project.desktop.theme, project.desktop.icon_theme
+        let profile_path = profile.join("desktop-profile.conf");
+        reject_symlink_target(&profile_path)?;
+        fs::write(profile_path, format!(
+            "theme={}\nicon_theme={}\nwallpaper={}\n",
+            project.desktop.theme, project.desktop.icon_theme, wallpaper_path
         )).map_err(|error| format!("Cannot write desktop profile: {error}"))?;
+    }
+
+    if !project.desktop.theme.is_empty() || !project.desktop.icon_theme.is_empty() || !wallpaper_path.is_empty() {
+        let script_path = safe_create_project_directory(overlay, "usr/local/bin")?
+            .join("void-memingo-apply-desktop-defaults");
+        reject_symlink_target(&script_path)?;
+        fs::write(&script_path, desktop_defaults_script(project, &wallpaper_path))
+            .map_err(|error| format!("Cannot write first-login desktop defaults script: {error}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = fs::metadata(&script_path)
+                .map_err(|error| format!("Cannot inspect desktop defaults script: {error}"))?
+                .permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&script_path, permissions)
+                .map_err(|error| format!("Cannot make desktop defaults script executable: {error}"))?;
+        }
+        let autostart = safe_create_project_directory(overlay, "etc/skel/.config/autostart")?
+            .join("void-memingo-desktop-defaults.desktop");
+        reject_symlink_target(&autostart)?;
+        fs::write(autostart, "[Desktop Entry]\nType=Application\nName=Void Memingo Desktop Defaults\nExec=/usr/local/bin/void-memingo-apply-desktop-defaults\nNoDisplay=true\nX-GNOME-Autostart-enabled=true\n")
+            .map_err(|error| format!("Cannot write desktop defaults autostart entry: {error}"))?;
     }
     Ok(())
 }
