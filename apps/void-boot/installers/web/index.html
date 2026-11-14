@@ -20,9 +20,9 @@
 <body>
   <main>
     <h1>Void Boot Web Installer</h1>
-    <p>Select the extracted <code>payload</code> folder from the Void Boot ZIP, then choose the destination folder. The installer copies only the included menu, theme and profile files.</p>
+    <p>Select the extracted <code>Void-Boot</code> package folder (the folder containing <code>payload</code>), then choose the destination folder. The installer copies only the included menu, theme and profile files.</p>
     <p class="warning"><strong>Important:</strong> This is a menu deployment preview. It does not install GRUB, create EFI boot files, partition or format a drive, or make a USB bootable.</p>
-    <label for="payload">1. Select the extracted payload folder</label>
+    <label for="payload">1. Select the extracted Void-Boot package folder</label>
     <input id="payload" type="file" webkitdirectory multiple>
     <button id="install" disabled>Choose destination and install files</button>
     <p id="status" role="status" aria-live="polite"></p>
@@ -39,7 +39,7 @@
       installButton.disabled = !valid;
       status.textContent = valid
         ? files.length + " payload file(s) selected."
-        : "Choose the payload folder inside the extracted Void-Boot package.";
+        : "Choose the extracted Void-Boot package folder that contains the payload directory.";
     });
 
     installButton.addEventListener("click", async () => {
