@@ -2,72 +2,62 @@
 
 ## Product shape
 
-Void Boot is a standalone Atdev Dev project and a first-class Void Memingo client. Both use shared Rust core capabilities; neither should duplicate ISO parsing, validation, profile definitions, or media layout logic.
+Void Boot is a standalone Atdev Dev project and a first-class Void Memingo client. Both use shared Rust core capabilities.
 
-Proposed repository layout:
-
-```text
-apps/
-  void-boot/
-    src/                 # standalone CLI and future desktop shell
-    core/                # shared ISO, profile, manifest and media logic (planned)
-    profiles/            # reviewed boot profiles (planned)
-    assets/              # menu theme and icons (planned)
-  desktop/
-    src/features/void-boot/  # Void Memingo feature (planned)
-docs/
-  VOID_BOOT_ARCHITECTURE.md
-```
-
-The current implementation is a small standalone CLI in `apps/void-boot/src/main.rs`. The future shared core should move into a library crate once the first profile and media contracts are stable.
+    apps/
+      void-boot/
+        src/                 # CLI and shared Rust core
+        profiles/            # reviewed per-ISO boot recipes
+        assets/grub/         # graphical pre-boot theme
+      desktop/
+        src/                 # Void Memingo integration
+    docs/
+      VOID_BOOT_ARCHITECTURE.md
 
 ## Components
 
-- **ISO catalog:** file metadata, SHA-256, ISO 9660 and El Torito descriptor inspection.
-- **Boot profiles:** explicit per-distribution configuration describing supported firmware modes, kernel/initrd strategy, required files, boot arguments and known limitations.
-- **Media planner:** calculates a proposed partition/filesystem layout without changing a device.
-- **Boot runtime:** menu and bootloader configuration for BIOS/UEFI.
-- **Desktop manager:** add/remove ISO entries, inspect compatibility, verify hashes and prepare media.
-- **Void Memingo client:** project-aware access to the same catalog and build artifacts.
+- **ISO catalog:** file metadata, SHA-256, ISO 9660 and El Torito inspection.
+- **Boot profiles:** per-image kernel/initrd paths, kernel arguments and compatibility notes.
+- **GRUB menu generator:** creates a graphical pre-OS menu and profile-driven entries.
+- **Media planner:** future dry-run partition/filesystem layout.
+- **Boot runtime:** GRUB 2 for initial BIOS/UEFI prototype; replaceable behind a runtime boundary.
+- **Desktop manager:** future standalone GUI for catalog, profiles, validation and media preparation.
+- **Void Memingo client:** project-aware access to the same catalog and profile contracts.
 - **Test harness:** QEMU virtual machines, disposable virtual disks and a compatibility matrix.
+
+## Graphical boot experience
+
+The boot-time GUI is not a desktop window: it runs before the operating system as GRUB's graphical gfxterm menu. Void Boot supplies a branded theme and generates menu entries from reviewed profiles. The pre-boot interface must remain usable without Linux, Windows or a running Void Memingo instance.
+
+The first generated menu supports GRUB loopback entries for profiles that explicitly provide the correct ISO path, kernel path, initrd path and kernel arguments. Generic loopback is not universal. Profiles must be validated against exact ISO releases, and unsupported images must be labelled as such rather than offered as working boot choices.
 
 ## Boot strategy
 
-Do not attempt to invent a firmware bootloader. Evaluate a mature bootloader (GRUB2 is the initial candidate) and keep the boot-runtime boundary replaceable. The first proof of concept targets x86_64 BIOS and UEFI without Secure Boot. Secure Boot requires a separate signing and trust-chain design.
-
-ISO boot is not universally interchangeable. Some distributions support loopback boot, while others require extraction, custom kernel/initrd handling, or image-specific configuration. Every supported ISO family therefore needs a reviewed profile and repeatable QEMU tests. A profile must state its supported release range and known limitations.
+Use a mature bootloader rather than inventing firmware startup code. GRUB 2 is the initial candidate for x86_64 BIOS and UEFI. Secure Boot is deferred until a signing and trust-chain design is tested. BIOS and UEFI require separate installation and QEMU test results.
 
 ## Media safety
 
-The initial and current CLI is read-only. No physical-drive writing, formatting, partitioning, or automatic device selection is included.
+The current CLI and menu generator are read-only. They do not install GRUB, format, partition or write physical devices.
 
-Before any future physical-media writer is enabled, it must:
-- Enumerate devices using stable identifiers and display model, capacity and mount state.
-- Require an explicit target chosen by the user; never guess based on removable status alone.
-- Refuse the running system disk and any device containing the active workspace.
-- Present the exact partition plan and explain that existing contents will be erased.
-- Require a second, immediate confirmation after the final device identity is re-read.
-- Verify written files and boot structures afterward.
-- Keep a dry-run planner and QEMU virtual-disk test path.
+Before a physical-media writer is enabled, it must enumerate devices using stable identifiers, show model/capacity/mount state, refuse the active system disk, display the exact destructive plan, require a separate immediate confirmation, and verify the written result. The user's existing Ventoy USB must remain untouched throughout development.
 
-The user's existing Ventoy USB must remain untouched during development.
+## Current milestones
 
-## Milestones
-
-1. **Foundation (in progress):** standalone CLI, ISO inventory, SHA-256, ISO 9660 and El Torito descriptor checks.
-2. **Profiles:** declarative profiles for selected Debian, Ubuntu and Arch images; profile validation and test fixtures.
-3. **Virtual boot prototype:** generated boot configuration and QEMU tests using disposable virtual disks.
-4. **Void Memingo integration:** initial read-only ISO scanner is integrated in the IDE; shared profile catalog and advanced management UI remain pending.
-5. **USB media planner:** device discovery and dry-run partition layout only.
-6. **Media writer:** explicit, guarded writing after extensive virtual testing.
-7. **Compatibility expansion:** more distributions, persistence, rescue tools, Windows installer support where technically and legally appropriate.
-8. **Secure Boot:** only after signing, key management and trust requirements are fully designed.
+1. **Foundation:** ISO inventory, SHA-256, ISO 9660 and El Torito checks.
+2. **Boot-menu foundation:** validated profile schema, GRUB menu generator, graphical theme and tests.
+3. **Virtual boot prototype:** disposable virtual disk, GRUB BIOS/UEFI setup and QEMU boot verification.
+4. **Profile coverage:** reviewed Debian, Ubuntu, Arch and rescue-image profiles tested against exact releases.
+5. **Void Memingo integration:** shared profile catalog, compatibility display and menu preview.
+6. **Standalone GUI:** ISO library, profile editor, boot menu preview and safe media planner.
+7. **Media writer:** guarded USB preparation only after virtual testing and explicit user approval.
+8. **Compatibility expansion:** persistence, more distributions, Windows installer support where technically and legally appropriate.
+9. **Secure Boot:** after signing, key management and trust requirements are fully designed.
 
 ## Acceptance criteria
 
-- ISO inspection is deterministic and reports a SHA-256 digest.
-- Unknown or unsupported images are labelled honestly rather than guessed.
-- Boot profiles are versioned and tested in QEMU before being marked supported.
-- BIOS and UEFI results are recorded separately.
+- ISO inspection is deterministic and reports SHA-256.
+- Profile parsing rejects path traversal and unsafe GRUB input.
+- Generated menu clearly distinguishes examples from verified compatibility.
+- Every supported image is tested in BIOS and UEFI separately.
 - No test requires modifying a user's physical USB drive.
-- Void Memingo and the standalone manager consume the same profile and catalog contracts.
+- Void Memingo and the standalone manager consume the same profile contracts.
