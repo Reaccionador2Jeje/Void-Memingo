@@ -369,14 +369,14 @@ impl DownloadManager {
                         return Err(format!("El SHA-256 no coincide. Esperado: {expected}; recibido: {actual_sha256}. Se descartaron las partes para evitar reanudar datos no verificados."));
                     }
                 }
+                fs::rename(&merged_path, &final_path)
+                    .map_err(|e| format!("No se pudo finalizar la ISO: {e}"))?;
                 if let Ok(mut map) = tasks.lock() {
                     if let Some(task) = map.get_mut(&thread_id) {
                         task.snapshot.sha256 = Some(actual_sha256);
                         task.snapshot.checksum_verified = expected_sha256.is_some();
                     }
                 }
-                fs::rename(&merged_path, &final_path)
-                    .map_err(|e| format!("No se pudo finalizar la ISO: {e}"))?;
                 for path in part_paths {
                     let _ = fs::remove_file(path);
                 }
