@@ -22,7 +22,7 @@ Void Boot is a standalone Atdev Dev project and a first-class Void Memingo clien
 - **Media planner:** future dry-run partition/filesystem layout.
 - **Boot runtime:** GRUB 2 for initial BIOS/UEFI prototype; replaceable behind a runtime boundary.
 - **Desktop manager:** future standalone GUI for catalog, profiles, validation and media preparation.
-- **Void Memingo client:** project-aware access to the same catalog and profile contracts.
+- **Void Memingo client:** project-aware ISO inspection, TOML profile loading and generated GRUB menu preview using the shared Rust core.
 - **Test harness:** QEMU virtual machines, disposable virtual disks and a compatibility matrix.
 
 ## Graphical boot experience
@@ -44,10 +44,10 @@ Before a physical-media writer is enabled, it must enumerate devices using stabl
 ## Current milestones
 
 1. **Foundation:** ISO inventory, SHA-256, ISO 9660 and El Torito checks.
-2. **Boot-menu foundation:** validated profile schema, GRUB menu generator, graphical theme and tests.
-3. **Virtual boot prototype:** disposable virtual disk, GRUB BIOS/UEFI setup and QEMU boot verification.
+2. **Boot-menu foundation:** validated profile schema, GRUB menu generator, graphical theme, bundled Unicode font, ISO discovery and tests.
+3. **Virtual boot prototype:** bootable GRUB menu ISO plus serial-console smoke tests for BIOS and UEFI using QEMU/OVMF; full graphical screenshot verification and disposable virtual-disk tests remain follow-up work.
 4. **Profile coverage:** reviewed Debian, Ubuntu, Arch and rescue-image profiles tested against exact releases.
-5. **Void Memingo integration:** shared profile catalog, compatibility display and menu preview.
+5. **Void Memingo integration:** shared profile catalog, ISO compatibility display, TOML profile picker and generated menu preview.
 6. **Standalone GUI:** ISO library, profile editor, boot menu preview and safe media planner.
 7. **Media writer:** guarded USB preparation only after virtual testing and explicit user approval.
 8. **Compatibility expansion:** persistence, more distributions, Windows installer support where technically and legally appropriate.
