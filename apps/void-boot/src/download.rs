@@ -459,7 +459,7 @@ impl DownloadManager {
 
 #[cfg(test)]
 mod tests {
-    use super::{checksum_matches, normalize_expected_sha256, safe_file_name, sha256_reader};
+    use super::{checksum_matches, normalize_expected_sha256, parse_content_range, safe_file_name, sha256_reader};
 
     #[test]
     fn accepts_simple_iso_file_names() {
