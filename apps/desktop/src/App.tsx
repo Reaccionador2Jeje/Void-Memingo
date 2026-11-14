@@ -16,6 +16,8 @@ type FileEntry = {
   size: number | null;
 };
 
+type WorkspaceSearchMatch = { path: string; lineNumber: number; column: number; preview: string };
+
 type OpenTab = {
   path: string;
   name: string;
@@ -138,6 +140,10 @@ function App() {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [tabs, setTabs] = useState<OpenTab[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [searchResults, setSearchResults] = useState<WorkspaceSearchMatch[]>([]);
   const [sidebarView, setSidebarView] = useState<SidebarView>('explorer');
   const [bottomView, setBottomView] = useState<BottomView>('output');
   const [bottomOpen, setBottomOpen] = useState(true);
@@ -353,6 +359,7 @@ function App() {
       setWorkspace(selected);
       setTabs([]);
       setActivePath(null);
+      setSearchResults([]);
       addLog('Workspace abierto: ' + selected);
     } catch (error) {
       addLog('Error al abrir workspace: ' + String(error));
@@ -492,6 +499,30 @@ directory = ${quote(osOutputDir)}
       addLog('No se pudo abrir ' + entry.name + ': ' + String(error));
     }
   }, [addLog, tabs, workspace]);
+
+  const runWorkspaceSearch = useCallback(async () => {
+    if (!workspace || !searchQuery.trim()) return;
+    setSearchBusy(true);
+    try {
+      const results = await invoke<WorkspaceSearchMatch[]>('search_workspace', {
+        root: workspace,
+        query: searchQuery.trim(),
+        caseSensitive: searchCaseSensitive
+      });
+      setSearchResults(results);
+      addLog(`Búsqueda completada: ${results.length} coincidencias.`);
+    } catch (error) {
+      setSearchResults([]);
+      addLog('Error en búsqueda global: ' + String(error));
+    } finally {
+      setSearchBusy(false);
+    }
+  }, [addLog, searchCaseSensitive, searchQuery, workspace]);
+
+  const openSearchResult = useCallback((result: WorkspaceSearchMatch) => {
+    const name = result.path.split('/').pop() || result.path;
+    void openFile({ name, path: result.path, isDir: false, size: null });
+  }, [openFile]);
 
   const updateActiveContent = (content: string) => {
     if (!activePath) return;
@@ -903,9 +934,29 @@ directory = ${quote(osOutputDir)}
             )}
 
             {sidebarView === 'search' && (
-              <div className="sidebar-empty">
-                <Search size={25} />
-                <p>La búsqueda global del workspace llegará en la siguiente etapa.</p>
+              <div className="workspace-search">
+                {!workspace ? (
+                  <div className="sidebar-empty"><Search size={25} /><p>Abre una carpeta para buscar en sus archivos.</p><button className="text-action" onClick={() => void openWorkspace()}>Abrir carpeta</button></div>
+                ) : (
+                  <>
+                    <form className="workspace-search-form" onSubmit={(event) => { event.preventDefault(); void runWorkspaceSearch(); }}>
+                      <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Buscar en archivos" aria-label="Texto a buscar" maxLength={256} />
+                      <label><input type="checkbox" checked={searchCaseSensitive} onChange={(event) => setSearchCaseSensitive(event.target.checked)} /> Distinguir mayúsculas</label>
+                      <button className="primary-button" type="submit" disabled={searchBusy || !searchQuery.trim()}>{searchBusy ? 'Buscando…' : 'Buscar'}</button>
+                    </form>
+                    <div className="workspace-search-summary">{searchResults.length} coincidencias · se omiten binarios, dependencias y archivos grandes</div>
+                    <div className="workspace-search-results">
+                      {searchResults.map((result, index) => (
+                        <button className="workspace-search-result" key={result.path + ':' + result.lineNumber + ':' + index} onClick={() => openSearchResult(result)}>
+                          <strong>{result.path}</strong>
+                          <span>Línea {result.lineNumber}, columna {result.column}</span>
+                          <code>{result.preview}</code>
+                        </button>
+                      ))}
+                      {!searchBusy && searchResults.length === 0 && <div className="tree-empty">{searchQuery.trim() ? 'No se encontraron coincidencias.' : 'Escribe un texto y pulsa Buscar.'}</div>}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
