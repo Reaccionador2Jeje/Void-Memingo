@@ -175,7 +175,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!(
                 "Void Boot — multiboot tools\n\nUsage:\n  \
                  void-boot catalog [--family <family>] [--arch <architecture>]\n  \
-                 void-boot scan <directory> [--json]\\n  \\\n                 void-boot verify-checksum <image.iso> <SHA256SUMS>\n  \
+                 void-boot scan <directory> [--json]\n  \
+                 void-boot verify-checksum <image.iso> <SHA256SUMS>\n  \
                  void-boot list-devices [--json]\n  \
                  void-boot validate-profiles <profiles.toml>\n  \
                  void-boot render-menu <profiles.toml> <output-directory>"
