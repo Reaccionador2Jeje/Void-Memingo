@@ -272,6 +272,97 @@ fn search_workspace_files(
     Ok(matches)
 }
 
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileDiagnostic {
+    severity: String,
+    message: String,
+    line: usize,
+    column: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagnosticReport {
+    supported: bool,
+    language: String,
+    diagnostics: Vec<FileDiagnostic>,
+}
+
+fn source_line_column(source: &str, byte_offset: usize) -> (usize, usize) {
+    let safe_offset = byte_offset.min(source.len());
+    let prefix = &source[..source.floor_char_boundary(safe_offset)];
+    let line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
+    let column = prefix.rsplit('\n').next().unwrap_or_default().chars().count() + 1;
+    (line, column)
+}
+
+#[tauri::command]
+pub fn diagnose_text_file(root: String, relative_path: String) -> Result<DiagnosticReport, String> {
+    let root = canonical_root(&root)?;
+    let path = resolve_existing(&root, &relative_path)?;
+    if !path.is_file() {
+        return Err("El elemento seleccionado no es un archivo.".into());
+    }
+    let metadata = fs::metadata(&path).map_err(|error| format!("No se pudo inspeccionar el archivo: {error}"))?;
+    if metadata.len() > 1_048_576 {
+        return Err("El análisis está limitado a archivos de hasta 1 MiB.".into());
+    }
+    let source = fs::read_to_string(&path)
+        .map_err(|error| format!("El archivo no es texto UTF-8 compatible: {error}"))?;
+    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
+    let mut diagnostics = Vec::new();
+
+    let language = match extension.as_str() {
+        "toml" => {
+            if let Err(error) = toml::from_str::<toml::Value>(&source) {
+                let (line, column) = error.span()
+                    .map(|span| source_line_column(&source, span.start))
+                    .unwrap_or((1, 1));
+                diagnostics.push(FileDiagnostic {
+                    severity: "error".into(),
+                    message: error.to_string(),
+                    line,
+                    column,
+                });
+            }
+            "TOML"
+        }
+        "json" | "jsonc" => {
+            if extension == "jsonc" {
+                return Ok(DiagnosticReport {
+                    supported: false,
+                    language: "JSONC".into(),
+                    diagnostics,
+                });
+            }
+            if let Err(error) = serde_json::from_str::<serde_json::Value>(&source) {
+                diagnostics.push(FileDiagnostic {
+                    severity: "error".into(),
+                    message: error.to_string(),
+                    line: error.line().max(1),
+                    column: error.column().max(1),
+                });
+            }
+            "JSON"
+        }
+        _ => {
+            return Ok(DiagnosticReport {
+                supported: false,
+                language: extension.to_ascii_uppercase(),
+                diagnostics,
+            });
+        }
+    };
+
+    Ok(DiagnosticReport {
+        supported: true,
+        language: language.into(),
+        diagnostics,
+    })
+}
+
 #[tauri::command]
 pub async fn search_workspace(
     root: String,
