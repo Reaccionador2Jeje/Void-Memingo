@@ -207,8 +207,11 @@ mod tests {
     fn profile_catalog_round_trips_through_toml_for_gui_editor() {
         let original = sample();
         let encoded = toml::to_string_pretty(&original).expect("serialize profile catalog");
-        let decoded: ProfileCatalog = toml::from_str(&encoded).expect("deserialize profile catalog");
-        decoded.validate().expect("validate round-tripped profile catalog");
+        let decoded: ProfileCatalog =
+            toml::from_str(&encoded).expect("deserialize profile catalog");
+        decoded
+            .validate()
+            .expect("validate round-tripped profile catalog");
         assert_eq!(decoded.profiles, original.profiles);
     }
 
