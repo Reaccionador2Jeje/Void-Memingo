@@ -5,7 +5,8 @@ Void Boot is Atdev Dev's independent, open-source multiboot project and a first-
 ## Current capabilities
 
 - Read-only ISO inventory with SHA-256, ISO 9660 and El Torito descriptor inspection.
-- Declarative boot profiles with validation of IDs, labels, relative paths and kernel arguments.
+- Declarative boot profiles with validation of IDs, labels, ISO/kernel/initrd paths, argument limits and duplicate IDs.
+- `validate-profiles` command for checking profile catalogs before generating a menu.
 - GRUB 2 configuration generator for a pre-operating-system boot menu.
 - Graphical GRUB theme with Void Boot branding, boot menu, restart and shutdown entries.
 - CLI and reusable Rust library shared with Void Memingo.
@@ -21,6 +22,7 @@ Requires Rust stable.
     cargo test
     cargo run -- scan /path/to/iso-folder
     cargo run -- scan /path/to/iso-folder --json
+    cargo run -- validate-profiles profiles/example-profiles.toml
     cargo run -- render-menu profiles/example-profiles.toml /tmp/void-boot-menu
 
 From the repository root, build a bootable graphical menu ISO for a virtual machine:
@@ -44,6 +46,6 @@ The generated configuration assumes GRUB's $prefix points to /boot/grub. A futur
 
 ## Safety and compatibility
 
-Physical-device writing is not implemented. Development and compatibility testing starts with disposable virtual disks and QEMU. The user's existing Ventoy USB must remain untouched.
+Physical-device writing and a standalone graphical device manager are not implemented. Development and compatibility testing starts with disposable virtual disks and QEMU. The user's existing Ventoy USB must remain untouched. Do not treat the current menu ISO as a finished USB installer.
 
 Secure Boot is deferred until the signing and trust chain are designed and tested. No image should be marked supported until its profile is tested independently in BIOS and UEFI virtual machines.
