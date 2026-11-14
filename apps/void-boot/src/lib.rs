@@ -276,9 +276,10 @@ mod tests {
         let manifest = unique_temp_path("SHA256SUMS");
         fs::write(&iso, b"abc").expect("write fixture ISO");
         let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
-        fs::write(&manifest, format!("{digest}  manifest.iso\n")).expect("write manifest");
+        let iso_name = iso.file_name().unwrap().to_string_lossy();
+        fs::write(&manifest, format!("{digest}  {iso_name}\n")).expect("write manifest");
         assert!(verify_iso_sha256_manifest(&iso, &manifest).is_ok());
-        fs::write(&manifest, format!("{}  manifest.iso\n", "a".repeat(64)))
+        fs::write(&manifest, format!("{}  {iso_name}\n", "a".repeat(64)))
             .expect("replace manifest");
         assert_eq!(
             verify_iso_sha256_manifest(&iso, &manifest)
