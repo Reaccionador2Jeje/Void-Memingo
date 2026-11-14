@@ -25,7 +25,7 @@ Windows 11 x64 and ARM64 are catalogue-only entries at this stage. Their cards o
 
 ## Distribution Center
 
-The bundled catalogue includes 19 Linux distributions plus Windows 11 for x86-64 and ARM64. Windows is listed as an operating system, not mislabeled as a Linux distribution.
+The bundled catalogue includes 19 Linux distributions, Windows 11 for x86-64 and ARM64, FreeBSD, OpenBSD, NetBSD and ReactOS. Non-Linux systems are typed as operating systems and are not mislabeled as Linux distributions.
 
 Each entry includes its official project/download page, distribution family, known architectures, editions, release model, available image formats and verification guidance. View everything with:
 
@@ -41,7 +41,7 @@ Filter by distribution family or architecture (Windows uses the `windows` family
 
 The catalogue links to official landing pages rather than storing version-specific mirror URLs, avoiding stale links. Open the listed page, select the edition and architecture, and save the ISO into your local library folder. Then inspect it with `cargo run -- scan /path/to/isos`.
 
-**Download automation is not implemented in this milestone.** Void Boot does not yet fetch ISO files, verify publisher signatures automatically, or mark a distribution as boot-compatible. Windows entries link only to Microsoft's official download pages; Void Boot does not redistribute Windows images, automate Windows downloads, or claim that Windows ISO loopback boot works. Windows setup needs a dedicated, separately tested boot/install workflow and is currently catalog-only. Follow each publisher's verification instructions and compare its published checksum/signature before using an image. A future downloader must use HTTPS-only transfers, publisher-authenticated verification, resumable downloads, safe filenames, disk-space checks and explicit consent before large downloads.
+**Download automation is not implemented in this milestone.** Void Boot does not yet fetch ISO files, verify publisher signatures automatically, or mark a distribution as boot-compatible. Windows entries link only to Microsoft's official download pages; BSD and ReactOS entries link to their respective official project or mirror pages. Void Boot does not redistribute Windows images, automate external-OS downloads, or claim that Windows, BSD or ReactOS loopback boot works. These entries are catalog-only until dedicated, separately tested boot/install workflows exist. Follow each publisher's verification instructions and compare its published checksum/signature before using an image. A future downloader must use HTTPS-only transfers, publisher-authenticated verification, resumable downloads, safe filenames, disk-space checks and explicit consent before large downloads.
 
 ## Commands
 
