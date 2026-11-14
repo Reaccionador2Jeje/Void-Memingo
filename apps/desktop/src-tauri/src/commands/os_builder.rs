@@ -1332,6 +1332,8 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
             other => return Err(format!("Unsupported Ubuntu release: {other}")),
         };
         let package_file = build_root.join("packages.list");
+        let hooks_dir = build_root.join("hooks");
+        reject_symlink_target(&package_file)?;
         fs::write(&package_file, format!("{}\n", packages.join("\n")))
             .map_err(|error| format!("Cannot write Ubuntu package list: {error}"))?;
         format!(r#"#!/bin/sh
@@ -1364,7 +1366,7 @@ echo "Ubuntu live ISO validated and SHA-256 checksum created."
             codename = codename,
             packages_file = shell_quote(&package_file.to_string_lossy()),
             overlay = shell_quote(&overlay_target.to_string_lossy()),
-            hooks = shell_quote(&hook_root.to_string_lossy()),
+            hooks = shell_quote(&hooks_dir.to_string_lossy()),
             label = shell_quote(iso_label),
             output_dir = output_dir_q,
             output = output_q,
@@ -1372,13 +1374,14 @@ echo "Ubuntu live ISO validated and SHA-256 checksum created."
         )
     } else {
         let package_file = profile_root.join("packages.x86_64");
-        let arch_profile = profile_root.join("archiso-profile");
-        fs::create_dir_all(&arch_profile).map_err(|error| format!("Cannot create Archiso profile: {error}"))?;
+        reject_symlink_target(&package_file)?;
+        let arch_profile = safe_create_project_directory(root, &format!("{build_relative}/profile/archiso-profile"))?;
         fs::write(&package_file, format!("{}\n", packages.join("\n")))
             .map_err(|error| format!("Cannot write Arch package list: {error}"))?;
         let profile_path = arch_profile.to_string_lossy().to_string();
         let packages_path = package_file.to_string_lossy().to_string();
         let remove_file = build_root.join("packages.remove");
+        reject_symlink_target(&remove_file)?;
         fs::write(&remove_file, format!("{}\n", project.packages.remove.join("\n")))
             .map_err(|error| format!("Cannot write Arch package removal list: {error}"))?;
         format!(r#"#!/bin/sh
