@@ -913,7 +913,7 @@ pub fn prepare_debian_live_project(
     }
     if !project.filesystem.timezone.is_empty() {
         hook.push_str(&format!("printf '%s\\n' {} > /etc/timezone\n", shell_quote(&project.filesystem.timezone)));
-        hook.push_str(&format!("if [ -e /usr/share/zoneinfo/{0} ]; then ln -snf {0} /etc/localtime; fi\n", project.filesystem.timezone));
+        hook.push_str(&format!("if [ -e /usr/share/zoneinfo/{0} ]; then ln -snf /usr/share/zoneinfo/{0} /etc/localtime; fi\n", project.filesystem.timezone));
     }
     if !project.filesystem.locale.is_empty() {
         hook.push_str(&format!("printf '%s\\n' {} > /etc/default/locale\n", shell_quote(&format!("LANG={}", project.filesystem.locale))));
@@ -1315,7 +1315,7 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         }
         if !project.filesystem.timezone.is_empty() {
             hook.push_str(&format!("printf '%s\\n' {} > /etc/timezone\n", shell_quote(&project.filesystem.timezone)));
-            hook.push_str(&format!("if [ -e /usr/share/zoneinfo/{0} ]; then ln -snf {0} /etc/localtime; fi\n", project.filesystem.timezone));
+            hook.push_str(&format!("if [ -e /usr/share/zoneinfo/{0} ]; then ln -snf /usr/share/zoneinfo/{0} /etc/localtime; fi\n", project.filesystem.timezone));
         }
         if !project.filesystem.locale.is_empty() {
             let locale_line = format!("{} UTF-8", project.filesystem.locale);
