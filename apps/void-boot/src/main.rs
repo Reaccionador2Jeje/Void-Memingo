@@ -88,7 +88,7 @@ fn print_catalog(
         );
     }
 
-    println!("These are official project pages, not direct ISO URLs. Downloads and publisher verification are not automated yet. Windows entries are catalog-only; Windows multiboot is not implemented or validated.");
+    println!("These are official project pages, not direct ISO URLs. Downloads and publisher verification are not automated in this CLI. External operating-system entries are catalog-only; their multiboot workflows are not implemented or validated.");
     Ok(())
 }
 
