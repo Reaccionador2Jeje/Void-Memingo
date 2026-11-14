@@ -55,15 +55,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     match args.next().as_deref() {
         Some("catalog") | Some("list-distributions") => {
             let entries = load_distributions()?;
-            println!("Void Boot Distribution Center — official download sources\\n");
+            println!("Void Boot Distribution Center — official download sources\n");
             for entry in entries {
                 println!(
-                    "{} ({})\\n  {}\\n  Project: {}\\n  Downloads: {}\\n  Formats: {}\\n  Verify: {}\\n",
+                    "{} ({})\n  {}\n  Project: {}\n  Downloads: {}\n  Formats: {}\n  Verify: {}\n",
                     entry.name, entry.id, entry.description, entry.project_url,
                     entry.download_page, entry.formats.join(", "), entry.verification
                 );
             }
-            println!("\\nThis catalogue links to official project pages. It does not download or trust an ISO automatically.");
+            println!("\nThis catalogue links to official project pages. It does not download or trust an ISO automatically.");
             Ok(())
         }
         Some("scan") => {
@@ -126,7 +126,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         _ => {
             eprintln!(
                 "Void Boot — multiboot tools\n\nUsage:\n  \
-                 void-boot catalog\\n  \\\n                 void-boot scan <directory> [--json]\n  \
+                 void-boot catalog\n  \\n                 void-boot scan <directory> [--json]\n  \
                  void-boot list-devices [--json]\n  \
                  void-boot validate-profiles <profiles.toml>\n  \
                  void-boot render-menu <profiles.toml> <output-directory>"
