@@ -1,4 +1,5 @@
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
@@ -24,6 +25,8 @@ pub struct DownloadSnapshot {
     pub connections: u8,
     pub status: String,
     pub error: Option<String>,
+    pub sha256: Option<String>,
+    pub checksum_verified: bool,
 }
 
 struct DownloadTask {
@@ -74,6 +77,7 @@ impl DownloadManager {
         url: String,
         file_name: String,
         directory: String,
+        expected_sha256: Option<String>,
     ) -> Result<String, String> {
         let parsed = reqwest::Url::parse(&url).map_err(|e| format!("URL inválida: {e}"))?;
         if parsed.scheme() != "https"
@@ -82,6 +86,15 @@ impl DownloadManager {
             || parsed.password().is_some()
         {
             return Err("Solo se permiten enlaces HTTPS públicos sin credenciales".into());
+        }
+
+        let expected_sha256 = expected_sha256
+            .map(|value| value.trim().to_ascii_lowercase())
+            .filter(|value| !value.is_empty());
+        if expected_sha256.as_ref().is_some_and(|value| {
+            value.len() != 64 || !value.chars().all(|character| character.is_ascii_hexdigit())
+        }) {
+            return Err("El SHA-256 esperado debe contener exactamente 64 caracteres hexadecimales".into());
         }
 
         let file_name = safe_file_name(&file_name)?;
@@ -121,6 +134,8 @@ impl DownloadManager {
                         connections: DOWNLOAD_CONNECTIONS as u8,
                         status: "queued".into(),
                         error: None,
+                        sha256: None,
+                        checksum_verified: false,
                     },
                     pause: pause.clone(),
                 },
@@ -131,6 +146,7 @@ impl DownloadManager {
         let thread_id = id.clone();
         thread::spawn(move || {
             let result = (|| -> Result<(), String> {
+                let expected_sha256 = expected_sha256.clone();
                 let client = reqwest::blocking::Client::builder()
                     .user_agent("VoidBoot-Downloader/0.2")
                     .timeout(std::time::Duration::from_secs(60))
@@ -324,6 +340,28 @@ impl DownloadManager {
                             .into(),
                     );
                 }
+                let mut merged_file = File::open(&merged_path).map_err(|e| e.to_string())?;
+                let mut hasher = Sha256::new();
+                let mut hash_buffer = [0u8; BUFFER_SIZE];
+                loop {
+                    let count = merged_file.read(&mut hash_buffer).map_err(|e| e.to_string())?;
+                    if count == 0 { break; }
+                    hasher.update(&hash_buffer[..count]);
+                }
+                let actual_sha256 = format!("{:x}", hasher.finalize());
+                if let Some(expected) = expected_sha256.as_ref() {
+                    if &actual_sha256 != expected {
+                        let _ = fs::remove_file(&merged_path);
+                        for path in &part_paths { let _ = fs::remove_file(path); }
+                        return Err(format!("El SHA-256 no coincide. Esperado: {expected}; recibido: {actual_sha256}. Se descartaron las partes para evitar reanudar datos no verificados."));
+                    }
+                }
+                if let Ok(mut map) = tasks.lock() {
+                    if let Some(task) = map.get_mut(&thread_id) {
+                        task.snapshot.sha256 = Some(actual_sha256);
+                        task.snapshot.checksum_verified = expected_sha256.is_some();
+                    }
+                }
                 fs::rename(&merged_path, &final_path)
                     .map_err(|e| format!("No se pudo finalizar la ISO: {e}"))?;
                 for path in part_paths {
@@ -388,6 +426,14 @@ mod tests {
             safe_file_name("void_boot_01.iso").unwrap(),
             "void_boot_01.iso"
         );
+    }
+
+    #[test]
+    fn validates_expected_sha256_format() {
+        let valid = "a".repeat(64);
+        assert_eq!(valid.len(), 64);
+        assert!(valid.chars().all(|character| character.is_ascii_hexdigit()));
+        assert!(!"not-a-checksum".chars().all(|character| character.is_ascii_hexdigit()));
     }
 
     #[test]
