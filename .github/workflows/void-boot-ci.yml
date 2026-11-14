@@ -29,6 +29,9 @@ on:
       - "docs/VOID_BOOT_ARCHITECTURE.md"
       - "README.md"
       - "scripts/build-void-boot-demo-iso.sh"
+      - "scripts/package-void-boot.sh"
+      - "scripts/install-void-boot.sh"
+      - "scripts/install-void-boot.ps1"
       - ".github/workflows/void-boot-ci.yml"
   workflow_dispatch:
 
