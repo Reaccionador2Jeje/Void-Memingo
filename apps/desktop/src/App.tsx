@@ -51,7 +51,7 @@ type GitSnapshot = {
 
 type OsValidation = { valid: boolean; errors: string[]; warnings: string[] };
 type BuildPreflight = { supportedHost: boolean; ready: boolean; distribution: string; checks: { id: string; label: string; available: boolean; required: boolean; detail: string }[]; warnings: string[] };
-type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; bootTestScriptPath?: string | null; commands: string[]; notes: string[] };
+type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; bootTestScriptPath?: string | null; uefiBootTestScriptPath?: string | null; commands: string[]; notes: string[] };
 
 function FileNode({
   root,
@@ -655,6 +655,31 @@ directory = ${quote(osOutputDir)}
     addLog('Prueba de arranque BIOS solicitada en QEMU.');
   }, [addLog, buildPreparation, buildPreflight]);
 
+  const runOsUefiBootTest = useCallback(() => {
+    if (!buildPreparation?.uefiBootTestScriptPath) {
+      addLog('Prepara primero el backend para generar el script de prueba UEFI.');
+      return;
+    }
+    const qemuCheck = buildPreflight?.checks.find((check) => check.id === 'qemu-system-x86_64');
+    const firmwareCheck = buildPreflight?.checks.find((check) => check.id === 'uefi-firmware');
+    if (!qemuCheck?.available || !firmwareCheck?.available) {
+      addLog('La prueba UEFI requiere QEMU y firmware OVMF. Instálalos y vuelve a comprobar los requisitos.');
+      return;
+    }
+    const script = "'" + buildPreparation.uefiBootTestScriptPath.replace(/'/g, "'\\''") + "'";
+    const command = 'sh ' + script;
+    const confirmed = window.confirm(
+      'Se iniciará una máquina virtual QEMU con firmware UEFI para probar el ISO.\n\n' +
+      command + '\n\nEl ISO debe existir antes de iniciar la prueba. ¿Continuar?'
+    );
+    if (!confirmed) return;
+    setTerminalMounted(true);
+    setBottomOpen(true);
+    setBottomView('terminal');
+    setTerminalCommand(command);
+    addLog('Prueba de arranque UEFI solicitada en QEMU.');
+  }, [addLog, buildPreparation, buildPreflight]);
+
   const publishToOsHub = useCallback(async () => {
     if (!workspace) {
       addLog('Abre primero la carpeta del proyecto OS.');
@@ -1079,6 +1104,9 @@ directory = ${quote(osOutputDir)}
                 <button className="secondary-button" onClick={runOsBootTest} disabled={osBusy || !isLinuxHost || !buildPreparation?.bootTestScriptPath || !buildPreflight?.checks.some((check) => check.id === 'qemu-system-x86_64' && check.available)} title="Iniciar una prueba de arranque BIOS del ISO en QEMU">
                   <Cpu size={15} /> Probar ISO (QEMU)
                 </button>
+                <button className="secondary-button" onClick={runOsUefiBootTest} disabled={osBusy || !isLinuxHost || !buildPreparation?.uefiBootTestScriptPath || !buildPreflight?.checks.some((check) => check.id === 'qemu-system-x86_64' && check.available) || !buildPreflight?.checks.some((check) => check.id === 'uefi-firmware' && check.available)} title="Iniciar una prueba de arranque UEFI del ISO en QEMU">
+                  <Cpu size={15} /> Probar UEFI (QEMU)
+                </button>
                 <button className="secondary-button" onClick={() => void publishToOsHub()} disabled={osBusy || !workspace} title="Sincronizar el manifiesto del sistema con Atdev OS Hub">
                   <Layers3 size={15} /> Publicar en OS Hub
                 </button>
@@ -1104,7 +1132,8 @@ directory = ${quote(osOutputDir)}
                   <b>{buildPreparation.backend} preparado</b>
                   <p>Directorio: {buildPreparation.buildDirectory}</p>
                   <p>Script generado: {buildPreparation.scriptPath}</p>
-                  {buildPreparation.bootTestScriptPath && <p>Prueba QEMU: {buildPreparation.bootTestScriptPath}</p>}
+                  {buildPreparation.bootTestScriptPath && <p>Prueba BIOS QEMU: {buildPreparation.bootTestScriptPath}</p>}
+                  {buildPreparation.uefiBootTestScriptPath && <p>Prueba UEFI QEMU: {buildPreparation.uefiBootTestScriptPath}</p>}
                   {buildPreparation.commands.map((command, index) => <p key={index}><code>{command}</code></p>)}
                   {buildPreparation.notes.map((note, index) => <p key={'n'+index}>Aviso: {note}</p>)}
                 </div>
