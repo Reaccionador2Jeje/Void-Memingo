@@ -14,7 +14,7 @@ Desde el espacio de trabajo Void Boot de Void Memingo puedes:
 - Inspeccionar ISO de forma no destructiva y consultar su tamaño, estructura ISO 9660, descriptor El Torito y SHA-256.
 - Verificar una ISO con un manifiesto SHA-256 del editor mediante un selector gráfico de archivos. Se admiten los formatos GNU `SHA256SUMS` y BSD `SHA256 (filename) = digest`.
 - Descargar y reanudar imágenes Linux desde enlaces HTTPS directos, con progreso, pausa y verificación SHA-256 opcional.
-- Seleccionar catálogos de perfiles, validar su contenido y previsualizar el menú gráfico GRUB generado.
+- Abrir, crear, editar y eliminar perfiles desde un editor visual; guardar catálogos TOML validados y previsualizar el menú gráfico GRUB generado.
 - Crear discos virtuales QCOW2 desechables y probarlos mediante QEMU cuando las dependencias estén instaladas.
 
 El motor Rust es interno y compartido con Void Memingo; no constituye una interfaz de usuario independiente. La experiencia de usuario de Void Boot permanece en la aplicación gráfica.
@@ -45,6 +45,6 @@ El menú gráfico previo al sistema operativo utiliza GRUB gfxterm y un tema de 
 
 ## Estado de desarrollo
 
-La aplicación gráfica ya integra catálogo, biblioteca ISO, descargas, verificación de integridad, vista previa de perfiles y laboratorio QEMU. Siguen pendientes la verificación automática de firmas de editor, perfiles validados para más versiones y arquitecturas, adaptadores de inventario para Windows/macOS, y flujos dedicados para medios de instalación de sistemas no Linux.
+La aplicación gráfica ya integra catálogo, biblioteca ISO, descargas, verificación de integridad, editor visual de perfiles con validación y guardado, vista previa GRUB y laboratorio QEMU. Siguen pendientes la verificación automática de firmas de editor, perfiles validados para más versiones y arquitecturas, adaptadores de inventario para Windows/macOS, y flujos dedicados para medios de instalación de sistemas no Linux.
 
 Consulta [Void Boot release gates](../../docs/VOID_BOOT_RELEASE_GATES.md) para los criterios de validación previos a una versión estable.
