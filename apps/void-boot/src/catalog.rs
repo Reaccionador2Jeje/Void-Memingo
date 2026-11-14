@@ -13,6 +13,15 @@ pub struct Distribution {
     pub release_model: String,
     pub formats: Vec<String>,
     pub verification: String,
+    pub installation: InstallationMetadata,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct InstallationMetadata {
+    pub delivery: String,
+    pub requires_full_image: bool,
+    pub boot_profile_required: bool,
+    pub note: String,
 }
 
 const DISTRIBUTIONS_JSON: &str = include_str!("../catalog/distributions.json");
@@ -29,9 +38,13 @@ pub fn load_distributions() -> Result<Vec<Distribution>, serde_json::Error> {
             || entry.editions.is_empty()
             || entry.formats.is_empty()
             || entry.verification.trim().is_empty()
+            || entry.installation.delivery != "direct_iso_to_void_data_partition"
+            || !entry.installation.requires_full_image
+            || !entry.installation.boot_profile_required
+            || entry.installation.note.trim().is_empty()
         {
             return Err(<serde_json::Error as serde::de::Error>::custom(
-                "catalog entries require identity, HTTPS sources, architectures, editions, formats and verification guidance",
+                "catalog entries require identity, HTTPS sources, architectures, editions, formats, verification and safe installation metadata",
             ));
         }
     }
@@ -74,6 +87,9 @@ mod tests {
             assert!(!entry.editions.is_empty());
             assert!(!entry.formats.is_empty());
             assert!(!entry.verification.is_empty());
+            assert_eq!(entry.installation.delivery, "direct_iso_to_void_data_partition");
+            assert!(entry.installation.requires_full_image);
+            assert!(entry.installation.boot_profile_required);
         }
     }
 
