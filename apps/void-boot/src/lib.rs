@@ -134,11 +134,8 @@ fn parse_manifest_sha256(contents: &str, file_name: &str) -> io::Result<String> 
             continue;
         }
         let rest = &line[64..];
-        let name = rest
-            .trim_start()
-            .strip_prefix('*')
-            .or_else(|| rest.trim_start().strip_prefix(' '))
-            .unwrap_or("");
+        let normalized_name = rest.trim_start();
+        let name = normalized_name.strip_prefix('*').unwrap_or(normalized_name);
         if name == file_name {
             matches.push(digest.to_ascii_lowercase());
         }
