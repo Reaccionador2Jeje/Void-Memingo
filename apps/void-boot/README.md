@@ -21,7 +21,7 @@ Requires Rust stable.
 
     cd apps/void-boot
     cargo test
-    cargo run -- scan /path/to/iso-folder
+    cargo run -- catalog\n    cargo run -- scan /path/to/iso-folder
     cargo run -- scan /path/to/iso-folder --json
     cargo run -- list-devices
     cargo run -- list-devices --json
