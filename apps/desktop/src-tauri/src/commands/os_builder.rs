@@ -1098,6 +1098,19 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn generates_ubuntu_server_livecd_rootfs_backend() {
+        let (root, project) = temporary_os_project("ubuntu", "26.04 LTS", "amd64");
+        let root = fs::canonicalize(root).unwrap();
+        let prepared = prepare_non_debian_project(&root, &project).expect("Ubuntu server backend profile");
+        let script = fs::read_to_string(&prepared.script_path).unwrap();
+        assert!(script.contains("PROJECT=ubuntu-server SUBPROJECT=live SUITE=resolute"));
+        assert!(script.contains("livecd.ubuntu-server.iso"));
+        assert!(Command::new("sh").args(["-n", prepared.script_path.as_str()]).status().unwrap().success());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn generates_archiso_releng_backend_and_customizations() {
         let (root, project) = temporary_os_project("arch", "rolling", "x86_64");
         let root = fs::canonicalize(root).unwrap();
@@ -1259,7 +1272,9 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     }
     if distribution == "ubuntu" {
         packages.push("casper".into());
-        packages.push("discover".into());
+        if project.desktop.environment != "none" {
+            packages.push("discover".into());
+        }
         packages.push("locales".into());
     } else if distribution == "arch" {
         packages.extend(["linux", "linux-firmware", "mkinitcpio", "mkinitcpio-archiso", "sudo"].iter().map(|p| p.to_string()));
@@ -1410,6 +1425,7 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
             other => return Err(format!("Unsupported Ubuntu release: {other}")),
         };
         let ubuntu_project = match project.desktop.environment.as_str() {
+            "none" => "ubuntu-server",
             "kde-plasma" => "kubuntu",
             "xfce" => "xubuntu",
             "lxqt" => "lubuntu",
