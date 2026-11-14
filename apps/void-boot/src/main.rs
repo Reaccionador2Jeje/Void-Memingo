@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
     process::ExitCode,
 };
-use void_boot::{profiles::ProfileCatalog, scan_directory, IsoEntry};
+use void_boot::{devices::list_removable_devices, profiles::ProfileCatalog, scan_directory, IsoEntry};
 
 fn print_entries(entries: &[IsoEntry], json: bool) -> Result<(), Box<dyn std::error::Error>> {
     if json {
@@ -58,6 +58,28 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let json = args.any(|arg| arg == "--json");
             let entries = scan_directory(Path::new(&directory))?;
             print_entries(&entries, json)
+        }
+        Some("list-devices") => {
+            let json = args.any(|arg| arg == "--json");
+            let devices = list_removable_devices()?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&devices)?);
+            } else if devices.is_empty() {
+                println!("No removable block devices detected.");
+            } else {
+                for device in &devices {
+                    println!(
+                        "{} — {} — {} bytes — {} — {}",
+                        device.device_path,
+                        if device.model.is_empty() { "Unknown model" } else { &device.model },
+                        device.size_bytes,
+                        if device.read_only { "read-only" } else { "writable" },
+                        if device.mounted { "mounted" } else { "not mounted" }
+                    );
+                }
+            }
+            println!("Read-only inventory: no device was opened for writing or modified.");
+            Ok(())
         }
         Some("validate-profiles") => {
             let profile_file = args.next().ok_or("missing profile catalog path")?;
