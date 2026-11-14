@@ -1214,7 +1214,7 @@ fn desktop_packages_for(distribution: &str, environment: &str) -> Vec<&'static s
 fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildPreparation, String> {
     let distribution = project.base.distribution.as_str();
     let backend = match distribution {
-        "ubuntu" => "Ubuntu Live / casper",
+        "ubuntu" => "Ubuntu Live / livecd-rootfs + casper",
         "arch" => "Archiso",
         _ => return Err("Unsupported Linux image backend.".into()),
     };
