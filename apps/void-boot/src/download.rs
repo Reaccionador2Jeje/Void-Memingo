@@ -87,6 +87,16 @@ impl DownloadManager {
                 let status = response.status();
                 if !(status.is_success()) { return Err(format!("El servidor respondió HTTP {status}")); }
                 let append = offset > 0 && status == reqwest::StatusCode::PARTIAL_CONTENT;
+                if append {
+                    let expected_prefix = format!("bytes {offset}-");
+                    let actual_range = response.headers()
+                        .get(reqwest::header::CONTENT_RANGE)
+                        .and_then(|value| value.to_str().ok())
+                        .unwrap_or("");
+                    if !actual_range.starts_with(&expected_prefix) {
+                        return Err("El servidor devolvió un rango distinto al solicitado; el archivo parcial se conserva".into());
+                    }
+                }
                 let start_at = if append { offset } else { 0 };
                 let total = response.content_length().map(|n| n + start_at);
                 let mut file = OpenOptions::new().create(true).write(true)
@@ -150,5 +160,25 @@ impl DownloadManager {
     pub fn list(&self) -> Result<Vec<DownloadSnapshot>, String> {
         let map = self.tasks.lock().map_err(|_| "Gestor de descargas bloqueado".to_string())?;
         Ok(map.values().map(|task| task.snapshot.clone()).collect())
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::safe_file_name;
+
+    #[test]
+    fn accepts_simple_iso_file_names() {
+        assert_eq!(safe_file_name("debian-live.iso").unwrap(), "debian-live.iso");
+        assert_eq!(safe_file_name("void_boot_01.iso").unwrap(), "void_boot_01.iso");
+    }
+
+    #[test]
+    fn rejects_paths_and_non_iso_names() {
+        assert!(safe_file_name("../debian.iso").is_err());
+        assert!(safe_file_name("folder/debian.iso").is_err());
+        assert!(safe_file_name("debian.zip").is_err());
+        assert!(safe_file_name("debian.iso/other.iso").is_err());
     }
 }
