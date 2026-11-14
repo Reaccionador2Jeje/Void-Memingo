@@ -977,11 +977,61 @@ mod tests {
     fn backend_dependencies_are_distribution_specific() {
         let ubuntu = required_build_commands("ubuntu").expect("Ubuntu backend");
         let arch = required_build_commands("arch").expect("Arch backend");
+        assert!(ubuntu.iter().any(|(command, _)| *command == "livecd-rootfs"));
         assert!(ubuntu.iter().any(|(command, _)| *command == "lb"));
         assert!(!ubuntu.iter().any(|(command, _)| *command == "mkarchiso"));
         assert!(arch.iter().any(|(command, _)| *command == "mkarchiso"));
         assert!(arch.iter().any(|(command, _)| *command == "pacstrap"));
+        assert!(arch.iter().any(|(command, _)| *command == "unshare"));
         assert!(!arch.iter().any(|(command, _)| *command == "lb"));
+        assert!(!arch.iter().any(|(command, _)| *command == "sudo"));
+    }
+
+    fn temporary_os_project(distribution: &str, release: &str, architecture: &str) -> (PathBuf, OsProject) {
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let root = std::env::temp_dir().join(format!("void-memingo-{distribution}-{}-{nonce}", std::process::id()));
+        fs::create_dir_all(root.join("filesystem")).unwrap();
+        let mut project = sample();
+        project.base.distribution = distribution.into();
+        project.base.release = release.into();
+        project.base.architecture = architecture.into();
+        project.filesystem.overlay = "filesystem".into();
+        project.filesystem.locale = "es_CL.UTF-8".into();
+        project.filesystem.timezone = "America/Santiago".into();
+        (root, project)
+    }
+
+    #[test]
+    fn generates_ubuntu_livecd_rootfs_backend() {
+        let (root, project) = temporary_os_project("ubuntu", "24.04 LTS", "amd64");
+        let root = fs::canonicalize(root).unwrap();
+        let prepared = prepare_non_debian_project(&root, &project).expect("Ubuntu backend profile");
+        let script = fs::read_to_string(&prepared.script_path).unwrap();
+        assert!(script.contains("/usr/share/livecd-rootfs/live-build/auto/config"));
+        assert!(script.contains("PROJECT=ubuntu SUBPROJECT=live SUITE=noble"));
+        assert!(script.contains("livecd.ubuntu.iso"));
+        assert!(script.contains("config/includes.chroot"));
+        assert!(script.contains("void-memingo.list.chroot"));
+        assert!(script.contains("locale-gen"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn generates_archiso_releng_backend_and_customizations() {
+        let (root, project) = temporary_os_project("arch", "rolling", "x86_64");
+        let root = fs::canonicalize(root).unwrap();
+        let prepared = prepare_non_debian_project(&root, &project).expect("Archiso backend profile");
+        let script = fs::read_to_string(&prepared.script_path).unwrap();
+        assert!(script.contains("/usr/share/archiso/configs/releng"));
+        assert!(script.contains("mkarchiso -v"));
+        assert!(script.contains("iso_name=%s"));
+        assert!(script.contains("packages.x86_64"));
+        assert!(script.contains("unshare"));
+        assert!(prepared.commands[1].starts_with("sh "));
+        assert!(root.join(".void-memingo/archiso/atdev-os/profile/custom-airootfs/etc/pacman.d/hooks/00-void-memingo-locale-gen.hook").is_file());
+        assert!(root.join(".void-memingo/archiso/atdev-os/profile/custom-airootfs/etc/locale.conf").is_file());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -1256,7 +1306,6 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         let package_file = build_root.join("packages.list");
         fs::write(&package_file, format!("{}\n", packages.join("\n")))
             .map_err(|error| format!("Cannot write Ubuntu package list: {error}"))?;
-        let hostname = if project.filesystem.hostname.is_empty() { "void-memingo" } else { &project.filesystem.hostname };
         format!(r#"#!/bin/sh
 set -eu
 AUTO=/usr/share/livecd-rootfs/live-build/auto
@@ -1312,7 +1361,7 @@ command -v pacstrap >/dev/null 2>&1 || {{ echo "Install arch-install-scripts fir
 command -v unshare >/dev/null 2>&1 || {{ echo "Install util-linux with unshare support." >&2; exit 127; }}
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
-printf '\\niso_name=%s\\niso_version=%s\\niso_label=%s\\niso_publisher=%s\\n' {iso_name} {iso_version} {iso_label} {iso_publisher} >> {profile}/profiledef.sh
+printf '\niso_name=%s\niso_version=%s\niso_label=%s\niso_publisher=%s\n' {iso_name} {iso_version} {iso_label} {iso_publisher} >> {profile}/profiledef.sh
 cat {packages} >> {profile}/packages.x86_64
 sort -u {profile}/packages.x86_64 -o {profile}/packages.x86_64
 if [ -s {remove_packages} ]; then grep -Fvx -f {remove_packages} {profile}/packages.x86_64 > {profile}/packages.tmp || true; mv {profile}/packages.tmp {profile}/packages.x86_64; fi
