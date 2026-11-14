@@ -36,3 +36,25 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Run tests
         run: cargo test --all-targets
+
+  desktop-integration:
+    name: Void Memingo integration checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install desktop dependencies
+        working-directory: apps/desktop
+        run: npm ci
+      - name: Typecheck and build desktop frontend
+        working-directory: apps/desktop
+        run: npm run build
+      - name: Test desktop Rust backend
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
