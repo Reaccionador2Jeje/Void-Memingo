@@ -1,8 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+fn default_kind() -> String {
+    "linux_distribution".to_owned()
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Distribution {
     pub id: String,
+    #[serde(default = "default_kind")]
+    pub kind: String,
     pub name: String,
     pub description: String,
     pub family: String,
@@ -28,23 +34,34 @@ const DISTRIBUTIONS_JSON: &str = include_str!("../catalog/distributions.json");
 
 pub fn load_distributions() -> Result<Vec<Distribution>, serde_json::Error> {
     let entries: Vec<Distribution> = serde_json::from_str(DISTRIBUTIONS_JSON)?;
+    let mut ids = std::collections::HashSet::new();
+
     for entry in &entries {
+        let safe_linux_entry = entry.kind == "linux_distribution"
+            && entry.installation.delivery == "direct_iso_to_void_data_partition"
+            && entry.installation.requires_full_image
+            && entry.installation.boot_profile_required;
+        let safe_external_os_entry = entry.kind == "operating_system"
+            && entry.installation.delivery == "official_media_page_only"
+            && entry.installation.requires_full_image
+            && !entry.installation.boot_profile_required;
+
         if !entry.project_url.starts_with("https://")
             || !entry.download_page.starts_with("https://")
             || entry.id.trim().is_empty()
+            || !ids.insert(entry.id.to_ascii_lowercase())
             || entry.name.trim().is_empty()
+            || entry.description.trim().is_empty()
             || entry.family.trim().is_empty()
             || entry.architectures.is_empty()
             || entry.editions.is_empty()
             || entry.formats.is_empty()
             || entry.verification.trim().is_empty()
-            || entry.installation.delivery != "direct_iso_to_void_data_partition"
-            || !entry.installation.requires_full_image
-            || !entry.installation.boot_profile_required
+            || !(safe_linux_entry || safe_external_os_entry)
             || entry.installation.note.trim().is_empty()
         {
             return Err(<serde_json::Error as serde::de::Error>::custom(
-                "catalog entries require identity, HTTPS sources, architectures, editions, formats, verification and safe installation metadata",
+                "catalog entries require unique identity, HTTPS sources, architectures, editions, formats, verification and a supported safe delivery mode",
             ));
         }
     }
@@ -76,23 +93,18 @@ mod tests {
 
     #[test]
     fn bundled_catalog_has_unique_ids_and_complete_https_metadata() {
-        let entries = load_distributions().expect("bundled distribution catalog should be valid");
-        assert!(entries.len() >= 18);
+        let entries = load_distributions().expect("bundled catalog should be valid");
+        assert!(entries.len() >= 20);
         let mut ids = std::collections::HashSet::new();
         for entry in entries {
-            assert!(ids.insert(entry.id), "distribution IDs must be unique");
+            assert!(ids.insert(entry.id), "catalog IDs must be unique");
             assert!(entry.project_url.starts_with("https://"));
             assert!(entry.download_page.starts_with("https://"));
             assert!(!entry.architectures.is_empty());
             assert!(!entry.editions.is_empty());
             assert!(!entry.formats.is_empty());
             assert!(!entry.verification.is_empty());
-            assert_eq!(
-                entry.installation.delivery,
-                "direct_iso_to_void_data_partition"
-            );
-            assert!(entry.installation.requires_full_image);
-            assert!(entry.installation.boot_profile_required);
+            assert!(!entry.installation.note.is_empty());
         }
     }
 
@@ -103,5 +115,27 @@ mod tests {
         assert!(results.iter().any(|entry| entry.id == "debian"));
         assert!(results.iter().any(|entry| entry.id == "kali"));
         assert!(!results.iter().any(|entry| entry.id == "fedora"));
+    }
+
+    #[test]
+    fn windows_entries_are_official_media_only_and_not_boot_compatible() {
+        let entries = load_distributions().expect("catalog should load");
+        let windows = filter_distributions(&entries, Some("windows"), None);
+        assert_eq!(windows.len(), 2);
+        for entry in windows {
+            assert_eq!(entry.kind, "operating_system");
+            assert_eq!(entry.installation.delivery, "official_media_page_only");
+            assert!(!entry.installation.boot_profile_required);
+            assert!(entry.download_page.starts_with("https://www.microsoft.com/"));
+        }
+    }
+
+    #[test]
+    fn legacy_entries_default_to_linux_distribution_kind() {
+        let entries = load_distributions().expect("catalog should load");
+        assert!(entries
+            .iter()
+            .filter(|entry| entry.family != "windows")
+            .all(|entry| entry.kind == "linux_distribution"));
     }
 }
