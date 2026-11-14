@@ -27,6 +27,7 @@ type OpenTab = {
 };
 
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
+type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean };
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean };
 type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
@@ -180,6 +181,9 @@ function App() {
   const [voidBootBusy, setVoidBootBusy] = useState(false);
   const [voidBootChecksumStatus, setVoidBootChecksumStatus] = useState<Record<string, string>>({});
   const [voidBootProfileFile, setVoidBootProfileFile] = useState<string | null>(null);
+  const [voidBootProfiles, setVoidBootProfiles] = useState<VoidBootProfile[]>([]);
+  const [voidBootProfileSelected, setVoidBootProfileSelected] = useState(0);
+  const [voidBootProfileStatus, setVoidBootProfileStatus] = useState<string | null>(null);
   const [voidBootMenuPreview, setVoidBootMenuPreview] = useState<string | null>(null);
   const [voidBootPreviewBusy, setVoidBootPreviewBusy] = useState(false);
   const [qemuImagePath, setQemuImagePath] = useState<string | null>(null);
@@ -683,21 +687,49 @@ function App() {
   }, [addLog]);
 
   const chooseVoidBootProfile = useCallback(async () => {
-    const selected = await open({ directory: false, multiple: false, title: 'Seleccionar catálogo de perfiles Void Boot', filters: [{ name: 'Perfiles Void Boot', extensions: ['toml'] }] });
+    const selected = await open({ directory: false, multiple: false, title: 'Abrir catálogo de perfiles Void Boot', filters: [{ name: 'Perfiles Void Boot', extensions: ['toml'] }] });
     if (typeof selected !== 'string') return;
-    setVoidBootProfileFile(selected);
     setVoidBootPreviewBusy(true);
     try {
+      const profiles = await invoke<VoidBootProfile[]>('load_void_boot_profile_catalog', { profileFile: selected });
+      setVoidBootProfileFile(selected);
+      setVoidBootProfiles(profiles);
+      setVoidBootProfileSelected(0);
       const preview = await invoke<string>('preview_void_boot_menu', { profileFile: selected });
       setVoidBootMenuPreview(preview);
-      addLog('Void Boot: vista previa del menú GRUB generada.');
+      setVoidBootProfileStatus(`Catálogo cargado: ${profiles.length} perfil(es).`);
+      addLog('Void Boot: catálogo de perfiles cargado en el editor visual.');
     } catch (error) {
       setVoidBootMenuPreview(null);
-      addLog('No se pudo generar la vista previa de Void Boot: ' + String(error));
+      setVoidBootProfileStatus('No se pudo abrir el catálogo: ' + String(error));
+      addLog('No se pudo abrir el catálogo de perfiles Void Boot: ' + String(error));
     } finally {
       setVoidBootPreviewBusy(false);
     }
   }, [addLog]);
+
+  const saveVoidBootProfileCatalog = useCallback(async () => {
+    const destination = await save({
+      title: 'Guardar catálogo de perfiles Void Boot',
+      defaultPath: voidBootProfileFile ?? 'void-boot-profiles.toml',
+      filters: [{ name: 'Perfiles Void Boot', extensions: ['toml'] }]
+    });
+    if (typeof destination !== 'string') return;
+    setVoidBootPreviewBusy(true);
+    try {
+      await invoke('save_void_boot_profile_catalog', { profileFile: destination, profiles: voidBootProfiles });
+      setVoidBootProfileFile(destination);
+      const preview = await invoke<string>('preview_void_boot_menu', { profileFile: destination });
+      setVoidBootMenuPreview(preview);
+      setVoidBootProfileStatus(`Guardado y validado: ${voidBootProfiles.length} perfil(es).`);
+      addLog('Void Boot: catálogo guardado y validado; vista previa GRUB actualizada.');
+    } catch (error) {
+      setVoidBootProfileStatus('No se pudo guardar: ' + String(error));
+      addLog('Void Boot: error al guardar perfiles: ' + String(error));
+    } finally {
+      setVoidBootPreviewBusy(false);
+    }
+  }, [addLog, voidBootProfileFile, voidBootProfiles]);
 
   const refreshVoidBootPreview = useCallback(async () => {
     if (!voidBootProfileFile) return;
@@ -705,9 +737,11 @@ function App() {
     try {
       const preview = await invoke<string>('preview_void_boot_menu', { profileFile: voidBootProfileFile });
       setVoidBootMenuPreview(preview);
+      setVoidBootProfileStatus('Vista previa actualizada desde el catálogo guardado.');
       addLog('Void Boot: vista previa actualizada.');
     } catch (error) {
       setVoidBootMenuPreview(null);
+      setVoidBootProfileStatus('Error de vista previa: ' + String(error));
       addLog('Error al actualizar la vista previa: ' + String(error));
     } finally {
       setVoidBootPreviewBusy(false);
@@ -1535,7 +1569,29 @@ directory = ${quote(osOutputDir)}
                   </div>
                   {qemuImagePath && <small className="distro-library-path">{qemuImagePath}</small>}
                   {qemuStatus && <div className="distro-lab-status">{qemuStatus}</div>}
-                  <div className="distro-profile-actions"><button className="secondary-button" onClick={() => void chooseVoidBootProfile()} disabled={voidBootPreviewBusy}>{voidBootPreviewBusy ? 'Leyendo perfil…' : 'Abrir perfil GRUB TOML'}</button><button className="secondary-button" onClick={() => void refreshVoidBootPreview()} disabled={!voidBootProfileFile || voidBootPreviewBusy}>Actualizar vista previa</button></div>
+                  <div className="distro-profile-actions"><button className="secondary-button" onClick={() => void chooseVoidBootProfile()} disabled={voidBootPreviewBusy}>{voidBootPreviewBusy ? 'Cargando…' : 'Abrir catálogo'}</button><button className="secondary-button" onClick={() => setVoidBootProfiles((current) => [...current, { id: 'new-profile', name: 'Nuevo sistema', iso: 'iso/system.iso', kernel: 'live/vmlinuz', initrd: 'live/initrd.img', linux_args: ['boot=live'], findiso: true }])} disabled={voidBootPreviewBusy}>＋ Añadir perfil</button><button className="secondary-button" onClick={() => void saveVoidBootProfileCatalog()} disabled={voidBootPreviewBusy || voidBootProfiles.length === 0}>Guardar catálogo</button><button className="secondary-button" onClick={() => void refreshVoidBootPreview()} disabled={!voidBootProfileFile || voidBootPreviewBusy}>Actualizar vista previa</button></div>
+                  {voidBootProfiles.length > 0 && (
+                    <div className="void-boot-profile-editor">
+                      <div className="void-boot-profile-list" role="list" aria-label="Perfiles del catálogo">
+                        {voidBootProfiles.map((profile, index) => <button key={profile.id + '-' + index} className={'void-boot-profile-tab' + (voidBootProfileSelected === index ? ' active' : '')} onClick={() => setVoidBootProfileSelected(index)}>{profile.name || 'Perfil sin nombre'}</button>)}
+                      </div>
+                      {voidBootProfiles[voidBootProfileSelected] && (() => {
+                        const profile = voidBootProfiles[voidBootProfileSelected];
+                        const updateProfile = (patch: Partial<VoidBootProfile>) => setVoidBootProfiles((current) => current.map((item, index) => index === voidBootProfileSelected ? { ...item, ...patch } : item));
+                        return <div className="void-boot-profile-fields">
+                          <label>ID interno<input value={profile.id} onChange={(event) => updateProfile({ id: event.target.value })} placeholder="debian-live" /></label>
+                          <label>Nombre visible<input value={profile.name} onChange={(event) => updateProfile({ name: event.target.value })} placeholder="Debian Live" /></label>
+                          <label>Ruta de ISO<input value={profile.iso} onChange={(event) => updateProfile({ iso: event.target.value })} placeholder="iso/debian-live.iso" /></label>
+                          <label>Ruta del kernel<input value={profile.kernel} onChange={(event) => updateProfile({ kernel: event.target.value })} placeholder="live/vmlinuz" /></label>
+                          <label>Ruta del initrd<input value={profile.initrd} onChange={(event) => updateProfile({ initrd: event.target.value })} placeholder="live/initrd.img" /></label>
+                          <label>Argumentos del kernel<input value={profile.linux_args.join(' ')} onChange={(event) => updateProfile({ linux_args: event.target.value.split(/\\s+/).filter(Boolean) })} placeholder="boot=live quiet" /></label>
+                          <label className="void-boot-profile-check"><input type="checkbox" checked={profile.findiso} onChange={(event) => updateProfile({ findiso: event.target.checked })} /> Añadir búsqueda automática de ISO (findiso)</label>
+                          <button className="text-action" onClick={() => { setVoidBootProfiles((current) => current.filter((_, index) => index !== voidBootProfileSelected)); setVoidBootProfileSelected((current) => Math.max(0, Math.min(current, voidBootProfiles.length - 2))); }}>Eliminar perfil seleccionado</button>
+                        </div>;
+                      })()}
+                    </div>
+                  )}
+                  {voidBootProfileStatus && <div className="distro-lab-status">{voidBootProfileStatus}</div>}
                   {voidBootMenuPreview && <pre className="distro-profile-preview">{voidBootMenuPreview}</pre>}
                 </section>
               </div>
