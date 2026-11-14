@@ -513,8 +513,11 @@ fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'st
             ("pacman", "pacman (Arch Linux host)"),
             ("pacstrap", "pacstrap (arch-install-scripts)"),
             ("arch-chroot", "arch-install-scripts"),
+            ("bsdtar", "libarchive"),
+            ("mkfs.vfat", "dosfstools"),
             ("mksquashfs", "squashfs-tools"),
             ("xorriso", "libisoburn / xorriso"),
+            ("zstd", "zstd"),
             ("rsync", "rsync"),
             ("file", "file"),
             ("sha256sum", "coreutils"),
@@ -1147,12 +1150,26 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
             fs::write(&remove_hook, format!("#!/bin/sh\nset -eu\napt-get purge --yes -- {names}\napt-get autoremove --yes\n"))
                 .map_err(|error| format!("Cannot write Ubuntu package removal hook: {error}"))?;
         }
-        let service_hook = hook_root.join("020-void-memingo-services.hook.chroot");
+        let service_hook = hook_root.join("020-void-memingo-system-config.hook.chroot");
+        reject_symlink_target(&service_hook)?;
         let mut hook = String::from("#!/bin/sh\nset -eu\n");
+        if !project.filesystem.hostname.is_empty() {
+            hook.push_str(&format!("printf '%s\\n' {} > /etc/hostname\n", shell_quote(&project.filesystem.hostname)));
+        }
+        if !project.filesystem.timezone.is_empty() {
+            hook.push_str(&format!("printf '%s\\n' {} > /etc/timezone\n", shell_quote(&project.filesystem.timezone)));
+            hook.push_str(&format!("if [ -e /usr/share/zoneinfo/{0} ]; then ln -snf {0} /etc/localtime; fi\n", project.filesystem.timezone));
+        }
+        if !project.filesystem.locale.is_empty() {
+            let locale_line = format!("{} UTF-8", project.filesystem.locale);
+            hook.push_str(&format!("grep -qxF {} /etc/locale.gen || printf '%s\\n' {} >> /etc/locale.gen\n", shell_quote(&locale_line), shell_quote(&locale_line)));
+            hook.push_str(&format!("printf '%s\\n' {} > /etc/default/locale\n", shell_quote(&format!("LANG={}", project.filesystem.locale))));
+            hook.push_str("locale-gen\n");
+        }
         for service in &project.filesystem.services_enabled {
             hook.push_str(&format!("systemctl enable {}\n", shell_quote(service)));
         }
-        fs::write(&service_hook, hook).map_err(|error| format!("Cannot write Ubuntu service hook: {error}"))?;
+        fs::write(&service_hook, hook).map_err(|error| format!("Cannot write Ubuntu system configuration hook: {error}"))?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -1203,8 +1220,11 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         let hostname = if project.filesystem.hostname.is_empty() { "void-memingo" } else { &project.filesystem.hostname };
         format!(r#"#!/bin/sh
 set -eu
-command -v lb >/dev/null 2>&1 || {{ echo "Install live-build and Ubuntu live image dependencies first." >&2; exit 127; }}
+command -v lb >/dev/null 2>&1 || {{ echo "Install Ubuntu-compatible live-build and its host dependencies first." >&2; exit 127; }}
+command -v debootstrap >/dev/null 2>&1 || {{ echo "Install debootstrap first." >&2; exit 127; }}
 cd {build_dir}
+# Remove only stale ISO artifacts from this generated backend workspace.
+find . -maxdepth 1 -type f -name '*.iso' -delete
 lb config --distribution {codename} --architectures amd64 --binary-images iso-hybrid --archive-areas "main universe restricted multiverse" --bootappend-live "boot=casper hostname={hostname}" --iso-volume {label}
 lb build
 count=0
@@ -1241,6 +1261,8 @@ echo "Ubuntu live ISO validated and SHA-256 checksum created."
         format!(r#"#!/bin/sh
 set -eu
 command -v mkarchiso >/dev/null 2>&1 || {{ echo "Install archiso first." >&2; exit 127; }}
+command -v pacman >/dev/null 2>&1 || {{ echo "Archiso must run on an Arch Linux build host with pacman." >&2; exit 127; }}
+command -v pacstrap >/dev/null 2>&1 || {{ echo "Install arch-install-scripts first." >&2; exit 127; }}
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
 cat {packages} >> {profile}/packages.x86_64
@@ -1249,6 +1271,7 @@ if [ -s {remove_packages} ]; then grep -Fvx -f {remove_packages} {profile}/packa
 mkdir -p {profile}/airootfs
 cp -a {custom_overlay}/. {profile}/airootfs/
 mkdir -p {output_dir}
+find {output_dir} -maxdepth 1 -type f -name '*.iso' -delete
 mkarchiso -v -w {work}/work -o {output_dir} {profile}
 count=0
 image=""
