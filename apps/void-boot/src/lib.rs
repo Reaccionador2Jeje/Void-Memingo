@@ -110,6 +110,55 @@ pub fn inspect_iso(path: &Path) -> io::Result<IsoEntry> {
     })
 }
 
+
+fn parse_manifest_sha256(contents: &str, file_name: &str) -> io::Result<String> {
+    let mut matches = Vec::new();
+    for line in contents.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("SHA256 (") {
+            if let Some((name, digest)) = rest.split_once(") = ") {
+                let digest = digest.trim();
+                if name == file_name && digest.len() == 64 && digest.bytes().all(|b| b.is_ascii_hexdigit()) {
+                    matches.push(digest.to_ascii_lowercase());
+                }
+                continue;
+            }
+        }
+        if line.len() < 66 {
+            continue;
+        }
+        let digest = &line[..64];
+        if !digest.bytes().all(|b| b.is_ascii_hexdigit()) {
+            continue;
+        }
+        let rest = &line[64..];
+        let name = rest.trim_start().strip_prefix('*').or_else(|| rest.trim_start().strip_prefix(' ')).unwrap_or("");
+        if name == file_name {
+            matches.push(digest.to_ascii_lowercase());
+        }
+    }
+    matches.sort();
+    matches.dedup();
+    match matches.as_slice() {
+        [digest] => Ok(digest.clone()),
+        [] => Err(io::Error::new(io::ErrorKind::NotFound, format!("no SHA-256 entry for {file_name} in manifest"))),
+        _ => Err(io::Error::new(io::ErrorKind::InvalidData, format!("manifest contains conflicting SHA-256 entries for {file_name}"))),
+    }
+}
+
+/// Verify an ISO against a publisher-provided GNU sha256sum or BSD shasum manifest.
+pub fn verify_iso_sha256_manifest(iso_path: &Path, manifest_path: &Path) -> io::Result<()> {
+    let file_name = iso_path.file_name().and_then(|name| name.to_str())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "ISO path has no valid file name"))?;
+    let manifest = fs::read_to_string(manifest_path)?;
+    let expected = parse_manifest_sha256(&manifest, file_name)?;
+    let actual = inspect_iso(iso_path)?.sha256;
+    if !actual.eq_ignore_ascii_case(&expected) {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("SHA-256 mismatch for {file_name}: expected {expected}, got {actual}")));
+    }
+    Ok(())
+}
+
 pub fn scan_directory(directory: &Path) -> io::Result<Vec<IsoEntry>> {
     if !directory.is_dir() {
         return Err(io::Error::new(
@@ -170,6 +219,33 @@ mod tests {
         bytes[6] = 1;
         bytes[7..7 + identifier.len()].copy_from_slice(identifier);
         bytes
+    }
+
+
+    #[test]
+    fn parses_gnu_and_bsd_sha256_manifest_entries_by_exact_filename() {
+        let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assert_eq!(parse_manifest_sha256(&format!("{digest}  debian.iso\\n"), "debian.iso").unwrap(), digest);
+        assert_eq!(parse_manifest_sha256(&format!("{digest} *debian.iso\\n"), "debian.iso").unwrap(), digest);
+        assert_eq!(parse_manifest_sha256(&format!("SHA256 (debian.iso) = {digest}\\n"), "debian.iso").unwrap(), digest);
+        assert!(parse_manifest_sha256(&format!("{digest}  other.iso\\n"), "debian.iso").is_err());
+        assert!(parse_manifest_sha256(&format!("{digest}  debian.iso\\n{digest}  debian.iso\\n"), "debian.iso").is_ok());
+        let other = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        assert!(parse_manifest_sha256(&format!("{digest}  debian.iso\\n{other}  debian.iso\\n"), "debian.iso").is_err());
+    }
+
+    #[test]
+    fn verifies_iso_against_local_publisher_manifest() {
+        let iso = unique_temp_path("manifest.iso");
+        let manifest = unique_temp_path("SHA256SUMS");
+        fs::write(&iso, b"abc").expect("write fixture ISO");
+        let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        fs::write(&manifest, format!("{digest}  manifest.iso\\n")).expect("write manifest");
+        assert!(verify_iso_sha256_manifest(&iso, &manifest).is_ok());
+        fs::write(&manifest, format!("{}  manifest.iso\\n", "a".repeat(64))).expect("replace manifest");
+        assert_eq!(verify_iso_sha256_manifest(&iso, &manifest).unwrap_err().kind(), io::ErrorKind::InvalidData);
+        fs::remove_file(iso).expect("remove fixture ISO");
+        fs::remove_file(manifest).expect("remove manifest");
     }
 
     #[test]
