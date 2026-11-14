@@ -13,7 +13,7 @@ if ! command -v grub-mkrescue >/dev/null 2>&1; then
 fi
 
 mkdir -p "$STAGING_DIR/iso" "$(dirname "$OUTPUT_ISO")"
-cargo run --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" -- \
+cargo run --quiet --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" --features internal-cli --bin void-boot-internal -- \
   render-menu "$PROFILE_FILE" "$STAGING_DIR/boot/grub"
 
 if [[ "${VOID_BOOT_SERIAL_TEST:-0}" == "1" ]]; then
