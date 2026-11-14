@@ -60,11 +60,7 @@ fn print_catalog(
     let filtered = filter_distributions(&entries, family, architecture);
 
     println!("Void Boot Distro Center — official operating-system sources");
-    println!(
-        "{} of {} system(s) shown.\n",
-        filtered.len(),
-        entries.len()
-    );
+    println!("{} of {} system(s) shown.\n", filtered.len(), entries.len());
 
     for entry in filtered {
         println!(
