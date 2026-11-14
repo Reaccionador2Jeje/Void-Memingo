@@ -10,9 +10,27 @@ if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then
   exit 1
 fi
 
-OVMF_CODE="${OVMF_CODE:-$(find /usr/share/OVMF /usr/share/edk2 -type f \( -name 'OVMF_CODE.fd' -o -name 'OVMF_CODE_4M.fd' \) -print -quit 2>/dev/null || true)}"
-if [[ -z "$OVMF_CODE" ]]; then
-  echo "OVMF UEFI firmware was not found. Install the ovmf package." >&2
+OVMF_CODE="${OVMF_CODE:-}"
+OVMF_VARS="${OVMF_VARS:-}"
+
+# Prefer the standard firmware pair; 4M images are a fallback when both files exist.
+if [[ -z "$OVMF_CODE" || -z "$OVMF_VARS" ]]; then
+  for pair in \
+    "/usr/share/OVMF/OVMF_CODE.fd:/usr/share/OVMF/OVMF_VARS.fd" \
+    "/usr/share/OVMF/OVMF_CODE_4M.fd:/usr/share/OVMF/OVMF_VARS_4M.fd" \
+    "/usr/share/edk2/OVMF_CODE.fd:/usr/share/edk2/OVMF_VARS.fd" \
+    "/usr/share/edk2/OVMF_CODE_4M.fd:/usr/share/edk2/OVMF_VARS_4M.fd"; do
+    IFS=: read -r candidate_code candidate_vars <<< "$pair"
+    if [[ -z "$OVMF_CODE" && -r "$candidate_code" && -z "$OVMF_VARS" && -r "$candidate_vars" ]]; then
+      OVMF_CODE="$candidate_code"
+      OVMF_VARS="$candidate_vars"
+      break
+    fi
+  done
+fi
+
+if [[ -z "$OVMF_CODE" || ! -r "$OVMF_CODE" || -z "$OVMF_VARS" || ! -r "$OVMF_VARS" ]]; then
+  echo "A readable OVMF_CODE and matching OVMF_VARS firmware pair was not found." >&2
   exit 1
 fi
 
@@ -21,6 +39,9 @@ run_firmware_test() {
   shift
   local log_file="$LOG_DIR/$mode.log"
   rm -f "$log_file"
+  if [[ "$mode" == "uefi" ]]; then
+    cp "$OVMF_VARS" "$LOG_DIR/OVMF_VARS-uefi.fd"
+  fi
 
   set +e
   timeout 18s qemu-system-x86_64 \
@@ -58,4 +79,6 @@ run_firmware_test() {
 }
 
 run_firmware_test bios
-run_firmware_test uefi -bios "$OVMF_CODE"
+run_firmware_test uefi \
+  -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+  -drive "if=pflash,format=raw,file=$LOG_DIR/OVMF_VARS-uefi.fd"
