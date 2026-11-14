@@ -374,6 +374,32 @@ pub fn check_os_build_preflight(workspace: String, project_toml: String) -> Resu
             });
         }
 
+        if distribution == "arch" {
+            let os_release = fs::read_to_string("/etc/os-release").unwrap_or_default();
+            let mut host_id = String::new();
+            let mut host_like = String::new();
+            for line in os_release.lines() {
+                if let Some(value) = line.strip_prefix("ID=") {
+                    host_id = value.trim_matches('"').to_string();
+                } else if let Some(value) = line.strip_prefix("ID_LIKE=") {
+                    host_like = value.trim_matches('"').to_string();
+                }
+            }
+            let supported_host = host_id == "arch"
+                || host_like.split_whitespace().any(|value| value == "arch");
+            checks.push(PreflightCheck {
+                id: "arch-host".into(),
+                label: "Host compatible con Arch Linux".into(),
+                available: supported_host,
+                required: true,
+                detail: if supported_host {
+                    format!("Host detectado: {}.", if host_id.is_empty() { host_like } else { host_id })
+                } else {
+                    "Archiso requiere un host Arch Linux o una distribución que declare ID_LIKE=arch.".into()
+                },
+            });
+        }
+
         let mut warnings = Vec::new();
         let disk = Command::new("df").args(["-Pk"]).arg(&root).output();
         match disk {
@@ -1192,7 +1218,10 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         match project.desktop.environment.as_str() {
             "gnome" => packages.push("gdm".into()),
             "kde-plasma" => packages.push("sddm".into()),
-            "xfce" | "lxqt" | "cinnamon" | "mate" => packages.push("lightdm".into()),
+            "xfce" | "lxqt" | "cinnamon" | "mate" => {
+                packages.push("lightdm".into());
+                packages.push("lightdm-gtk-greeter".into());
+            },
             _ => {}
         }
     }
@@ -1390,6 +1419,8 @@ command -v mkarchiso >/dev/null 2>&1 || {{ echo "Install archiso first." >&2; ex
 command -v pacman >/dev/null 2>&1 || {{ echo "Archiso must run on an Arch Linux build host with pacman." >&2; exit 127; }}
 command -v pacstrap >/dev/null 2>&1 || {{ echo "Install arch-install-scripts first." >&2; exit 127; }}
 command -v unshare >/dev/null 2>&1 || {{ echo "Install util-linux with unshare support." >&2; exit 127; }}
+. /etc/os-release
+case " ${ID:-} ${ID_LIKE:-} " in *" arch "*) ;; *) echo "Archiso requires an Arch Linux compatible build host." >&2; exit 1 ;; esac
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
 printf '\niso_name=%s\niso_version=%s\niso_label=%s\niso_publisher=%s\n' {iso_name} {iso_version} {iso_label} {iso_publisher} >> {profile}/profiledef.sh
