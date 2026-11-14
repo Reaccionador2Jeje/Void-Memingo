@@ -17,6 +17,7 @@ type FileEntry = {
 };
 
 type WorkspaceSearchMatch = { path: string; lineNumber: number; column: number; preview: string };
+type DiagnosticReport = { supported: boolean; language: string; diagnostics: { severity: string; message: string; line: number; column: number }[] };
 
 type OpenTab = {
   path: string;
@@ -144,6 +145,8 @@ function App() {
   const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchResults, setSearchResults] = useState<WorkspaceSearchMatch[]>([]);
+  const [diagnosticReport, setDiagnosticReport] = useState<DiagnosticReport | null>(null);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsReady, setSettingsReady] = useState(false);
   const [editorFontSize, setEditorFontSize] = useState(13);
@@ -556,6 +559,28 @@ directory = ${quote(osOutputDir)}
     const name = result.path.split('/').pop() || result.path;
     void openFile({ name, path: result.path, isDir: false, size: null });
   }, [openFile]);
+
+  const runFileDiagnostics = useCallback(async () => {
+    if (!workspace || !activeTab) return;
+    setDiagnosticsBusy(true);
+    try {
+      const report = await invoke<DiagnosticReport>('diagnose_text_file', {
+        root: workspace,
+        relativePath: activeTab.path
+      });
+      setDiagnosticReport(report);
+      addLog(report.supported
+        ? report.diagnostics.length
+          ? `Diagnóstico de ${activeTab.path}: ${report.diagnostics.length} problema(s).`
+          : `Sin errores de sintaxis en ${activeTab.path}.`
+        : `No hay analizador integrado para ${report.language}.`);
+    } catch (error) {
+      setDiagnosticReport(null);
+      addLog('No se pudo analizar el archivo: ' + String(error));
+    } finally {
+      setDiagnosticsBusy(false);
+    }
+  }, [activeTab, addLog, workspace]);
 
   const updateActiveContent = (content: string) => {
     if (!activePath) return;
@@ -1326,7 +1351,32 @@ directory = ${quote(osOutputDir)}
               </div>
               <div className="panel-content">
                 {bottomView === 'problems' && (
-                  <div className="panel-empty"><Check size={16} /> El análisis de código y los diagnósticos todavía no están conectados.</div>
+                  <div className="diagnostics-panel">
+                    <div className="diagnostics-toolbar">
+                      <span>{activeTab ? activeTab.path : 'Abre un archivo para analizarlo'}</span>
+                      <button className="secondary-button" onClick={() => void runFileDiagnostics()} disabled={!activeTab || diagnosticsBusy}>
+                        {diagnosticsBusy ? 'Analizando…' : 'Analizar archivo'}
+                      </button>
+                    </div>
+                    {!activeTab ? (
+                      <div className="panel-empty">Selecciona un archivo de texto para ejecutar los diagnósticos disponibles.</div>
+                    ) : diagnosticReport && !diagnosticReport.supported ? (
+                      <div className="panel-empty">No hay analizador integrado para {diagnosticReport.language || 'este tipo de archivo'}. Los diagnósticos actuales cubren JSON y TOML.</div>
+                    ) : diagnosticReport && diagnosticReport.diagnostics.length === 0 ? (
+                      <div className="panel-empty"><Check size={16} /> No se encontraron errores de sintaxis en {diagnosticReport.language}.</div>
+                    ) : diagnosticReport ? (
+                      <div className="diagnostics-list">
+                        {diagnosticReport.diagnostics.map((item, index) => (
+                          <div className="diagnostic-item" key={index}>
+                            <strong>{item.severity.toUpperCase()} · Línea {item.line}, columna {item.column}</strong>
+                            <span>{item.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="panel-empty">Los diagnósticos integrados validan la sintaxis de archivos JSON y TOML. Pulsa Analizar archivo.</div>
+                    )}
+                  </div>
                 )}
                 {bottomView === 'output' && (
                   <div className="output-list">
