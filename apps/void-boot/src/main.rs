@@ -61,14 +61,14 @@ fn print_catalog(
 
     println!("Void Boot Distro Center — official operating-system sources");
     println!(
-        "{} of {} distribution(s) shown.\n",
+        "{} of {} system(s) shown.\n",
         filtered.len(),
         entries.len()
     );
 
     for entry in filtered {
         println!(
-            "{} ({})\n  {}\n  Family: {}\n  Project: {}\n  Downloads: {}\n  Architectures: {}\n  Editions: {}\n  Release: {}\n  Formats: {}\n  Verify: {}\n",
+            "{} ({})\n  Type: {}\n  {}\n  Family: {}\n  Project: {}\n  Official media: {}\n  Architectures: {}\n  Editions: {}\n  Release: {}\n  Formats: {}\n  Verify: {}\n",
             entry.name,
             entry.id,
             entry.description,
