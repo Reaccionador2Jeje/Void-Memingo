@@ -239,8 +239,16 @@ pub fn validate_project(project: &OsProject) -> ValidationReport {
             if !capability.desktops.contains(&project.desktop.environment.as_str()) {
                 errors.push(format!("Desktop '{}' is not available for {}.", project.desktop.environment, capability.name));
             }
-            if capability.backend_status != "ready" {
-                warnings.push(format!("The {} backend is not implemented yet; this project can be validated but not built into an ISO.", capability.name));
+            match capability.backend_status {
+                "ready" => {}
+                "preview" => warnings.push(format!(
+                    "The {} backend is in preview; generated profiles and scripts still require end-to-end ISO build and boot validation.",
+                    capability.name
+                )),
+                _ => warnings.push(format!(
+                    "The {} backend is not available yet; this project can be validated but its ISO build is not supported.",
+                    capability.name
+                )),
             }
         }
     }
@@ -747,6 +755,22 @@ mod tests {
     }
 
     #[test]
+    fn reports_debian_backend_as_preview_not_unimplemented() {
+        let report = validate_project(&sample());
+        assert!(report.warnings.iter().any(|warning| warning.contains("in preview")));
+        assert!(!report.warnings.iter().any(|warning| warning.contains("not available yet")));
+    }
+
+    #[test]
+    fn reports_ubuntu_backend_as_not_available_yet() {
+        let mut project = sample();
+        project.base.distribution = "ubuntu".into();
+        project.base.release = "24.04 LTS".into();
+        let report = validate_project(&project);
+        assert!(report.warnings.iter().any(|warning| warning.contains("not available yet")));
+    }
+
+    #[test]
     fn parses_the_documented_toml_manifest() {
         let manifest = r#"
 [project]
@@ -919,13 +943,13 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
         if !project.packages.remove.is_empty() {
             let remove_hook = hook_root.join("015-void-memingo-remove-packages.hook.chroot");
             let names = project.packages.remove.iter().map(|name| shell_quote(name)).collect::<Vec<_>>().join(" ");
-            fs::write(&remove_hook, format!("#!/bin/sh\\nset -eu\\napt-get purge --yes -- {names}\\napt-get autoremove --yes\\n"))
+            fs::write(&remove_hook, format!("#!/bin/sh\nset -eu\napt-get purge --yes -- {names}\napt-get autoremove --yes\n"))
                 .map_err(|error| format!("Cannot write Ubuntu package removal hook: {error}"))?;
         }
         let service_hook = hook_root.join("020-void-memingo-services.hook.chroot");
-        let mut hook = String::from("#!/bin/sh\\nset -eu\\n");
+        let mut hook = String::from("#!/bin/sh\nset -eu\n");
         for service in &project.filesystem.services_enabled {
-            hook.push_str(&format!("systemctl enable {}\\n", shell_quote(service)));
+            hook.push_str(&format!("systemctl enable {}\n", shell_quote(service)));
         }
         fs::write(&service_hook, hook).map_err(|error| format!("Cannot write Ubuntu service hook: {error}"))?;
         #[cfg(unix)]
