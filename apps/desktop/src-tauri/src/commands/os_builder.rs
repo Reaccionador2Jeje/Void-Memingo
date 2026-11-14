@@ -1420,7 +1420,7 @@ command -v pacman >/dev/null 2>&1 || {{ echo "Archiso must run on an Arch Linux 
 command -v pacstrap >/dev/null 2>&1 || {{ echo "Install arch-install-scripts first." >&2; exit 127; }}
 command -v unshare >/dev/null 2>&1 || {{ echo "Install util-linux with unshare support." >&2; exit 127; }}
 . /etc/os-release
-case " ${ID:-} ${ID_LIKE:-} " in *" arch "*) ;; *) echo "Archiso requires an Arch Linux compatible build host." >&2; exit 1 ;; esac
+case " ${{ID:-}} ${{ID_LIKE:-}} " in *" arch "*) ;; *) echo "Archiso requires an Arch Linux compatible build host." >&2; exit 1 ;; esac
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 cp -a /usr/share/archiso/configs/releng/. {profile}/
 printf '\niso_name=%s\niso_version=%s\niso_label=%s\niso_publisher=%s\n' {iso_name} {iso_version} {iso_label} {iso_publisher} >> {profile}/profiledef.sh
