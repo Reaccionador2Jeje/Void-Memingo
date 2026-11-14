@@ -5,6 +5,9 @@ on:
     branches: [feature/void-boot-foundation]
     paths:
       - "apps/void-boot/**"
+      - "apps/desktop/**"
+      - "docs/VOID_BOOT_ARCHITECTURE.md"
+      - "README.md"
       - ".github/workflows/void-boot-ci.yml"
   pull_request:
     paths:
@@ -52,7 +55,7 @@ jobs:
           node-version: 22
       - name: Install desktop dependencies
         working-directory: apps/desktop
-        run: npm ci
+        run: npm install
       - name: Typecheck and build desktop frontend
         working-directory: apps/desktop
         run: npm run build
