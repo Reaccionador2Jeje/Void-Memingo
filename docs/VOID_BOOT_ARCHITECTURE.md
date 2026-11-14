@@ -29,7 +29,7 @@ Void Boot is a standalone Atdev Dev project and a first-class Void Memingo clien
 
 The boot-time GUI is not a desktop window: it runs before the operating system as GRUB's graphical gfxterm menu. Void Boot supplies a branded theme and generates menu entries from reviewed profiles. The pre-boot interface must remain usable without Linux, Windows or a running Void Memingo instance.
 
-The first generated menu supports GRUB loopback entries for profiles that explicitly provide the correct ISO path, kernel path, initrd path and kernel arguments. Debian Live has an initial amd64 recipe in `apps/void-boot/profiles/debian-live-loopback.toml`, using the documented `/live/vmlinuz`, `/live/initrd.img`, `boot=live` and `findiso` convention. This is a recipe foundation, not yet a verified boot result: it still needs to be tested against a pinned Debian Live ISO in QEMU. Generic loopback is not universal. Profiles must be validated against exact ISO releases, and unsupported images must be labelled as such rather than offered as working boot choices.
+The first generated menu supports GRUB loopback entries for profiles that explicitly provide the correct ISO path, kernel path, initrd path and kernel arguments. Debian Live has a general amd64 recipe in `apps/void-boot/profiles/debian-live-loopback.toml`, using the documented `/live/vmlinuz`, `/live/initrd.img`, `boot=live` and `findiso` convention. A separate QEMU profile adds a serial console for observable end-to-end testing. The manual `debian-live-integration` workflow downloads the pinned Debian Live 13.7.0 standard ISO, checks its SHA-256 against Debian's published `SHA256SUMS`, places it on a disposable virtual FAT disk, and attempts a full boot through Void Boot in QEMU. This heavyweight test is manual-only; a successful GRUB menu smoke test is not a substitute for a successful Linux userspace boot. Generic loopback is not universal. Profiles must be validated against exact ISO releases, and unsupported images must be labelled as such rather than offered as working boot choices.
 
 ## Boot strategy
 
@@ -46,7 +46,7 @@ Before a physical-media writer is enabled, it must enumerate devices using stabl
 1. **Foundation:** ISO inventory, SHA-256, ISO 9660 and El Torito checks.
 2. **Boot-menu foundation:** validated profile schema, GRUB menu generator, graphical theme, bundled Unicode font, ISO discovery and tests.
 3. **Virtual boot prototype:** bootable GRUB menu ISO plus serial-console smoke tests for BIOS and UEFI using QEMU/OVMF; full graphical screenshot verification and disposable virtual-disk tests remain follow-up work.
-4. **Profile coverage:** Debian Live loopback recipe added; next, test it against a pinned ISO in QEMU, then add reviewed Ubuntu, Arch and rescue-image profiles against exact releases.
+4. **Profile coverage:** Debian Live recipe and manual full-boot QEMU test are implemented; confirm the test result before marking Debian verified, then add reviewed Ubuntu, Arch and rescue-image profiles against exact releases.
 5. **Void Memingo integration:** shared profile catalog, ISO compatibility display, TOML profile picker and generated menu preview.
 6. **Standalone GUI:** ISO library, profile editor, boot menu preview and safe media planner.
 7. **Media writer:** guarded USB preparation only after virtual testing and explicit user approval.
