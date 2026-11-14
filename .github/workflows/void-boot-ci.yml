@@ -1,0 +1,38 @@
+name: Void Boot CI
+
+on:
+  push:
+    branches: [feature/void-boot-foundation]
+    paths:
+      - "apps/void-boot/**"
+      - ".github/workflows/void-boot-ci.yml"
+  pull_request:
+    paths:
+      - "apps/void-boot/**"
+      - ".github/workflows/void-boot-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust checks (Void Boot)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/void-boot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/void-boot
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run tests
+        run: cargo test --all-targets
