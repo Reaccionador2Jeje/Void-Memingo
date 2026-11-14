@@ -147,11 +147,12 @@ function App() {
   const [osBuilderOpen, setOsBuilderOpen] = useState(false);
   const [osBases, setOsBases] = useState<OsBase[]>([]);
   const [osBaseId, setOsBaseId] = useState('debian');
-  const [osProjectName, setOsProjectName] = useState('Atdev OS');
-  const [osProjectId, setOsProjectId] = useState('atdev-os');
+  const [osProjectName, setOsProjectName] = useState('My OS');
+  const [osProjectId, setOsProjectId] = useState('my-os');
   const [osProjectVersion, setOsProjectVersion] = useState('0.1.0');
-  const [osProjectDescription, setOsProjectDescription] = useState('A custom Linux distribution built with Void Memingo');
-  const [osIsoLabel, setOsIsoLabel] = useState('ATDEV_OS');
+  const [osProjectDescription, setOsProjectDescription] = useState('A custom operating system built with Void Memingo');
+  const [osPublisher, setOsPublisher] = useState('');
+  const [osIsoLabel, setOsIsoLabel] = useState('MY_OS');
   const [osRelease, setOsRelease] = useState('stable');
   const [osDesktop, setOsDesktop] = useState('xfce');
   const [osTheme, setOsTheme] = useState('');
@@ -159,10 +160,10 @@ function App() {
   const [osWallpaper, setOsWallpaper] = useState('');
   const [osPackages, setOsPackages] = useState('');
   const [osOverlay, setOsOverlay] = useState('filesystem');
-  const [osLocale, setOsLocale] = useState('es_CL.UTF-8');
-  const [osTimezone, setOsTimezone] = useState('America/Santiago');
-  const [osHostname, setOsHostname] = useState('atdev-os');
-  const [osServices, setOsServices] = useState('NetworkManager.service');
+  const [osLocale, setOsLocale] = useState('');
+  const [osTimezone, setOsTimezone] = useState('');
+  const [osHostname, setOsHostname] = useState('my-os');
+  const [osServices, setOsServices] = useState('');
   const [osStorageFs, setOsStorageFs] = useState('ext4');
   const [osOutputDir, setOsOutputDir] = useState('dist');
   const [osIsoName, setOsIsoName] = useState('atdev-os-0.1.0.iso');
@@ -343,7 +344,7 @@ function App() {
 name = ${quote(osProjectName)}
 id = ${quote(osProjectId)}
 version = ${quote(osProjectVersion)}
-publisher = "Atdev Dev"
+publisher = ${quote(osPublisher)}
 description = ${quote(osProjectDescription)}
 iso_label = ${quote(osIsoLabel)}
 
@@ -403,7 +404,7 @@ directory = ${quote(osOutputDir)}
     } finally {
       setOsBusy(false);
     }
-  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osIconTheme, osIsoLabel, osIsoName, osLocale, osOutputDir, osOverlay, osPackages, osProjectDescription, osProjectId, osProjectName, osProjectVersion, osRelease, osServices, osStorageFs, osTheme, osTimezone, osWallpaper, refreshWorkspace, workspace]);
+  }, [addLog, openWorkspace, osBaseId, osDesktop, osHostname, osIconTheme, osIsoLabel, osIsoName, osLocale, osOutputDir, osOverlay, osPackages, osProjectDescription, osProjectId, osProjectName, osProjectVersion, osPublisher, osRelease, osServices, osStorageFs, osTheme, osTimezone, osWallpaper, refreshWorkspace, workspace]);
 
   const cloneGitRepository = useCallback(async () => {
     const url = window.prompt('URL Git (GitHub, GitLab o servidor compatible):');
@@ -874,10 +875,11 @@ directory = ${quote(osOutputDir)}
                   }}><Layers3 size={14} /> Cargar perfil PondOS</button>
                 </div>
               </div>
-              <div className="os-builder-controls pondos-project-fields">
+              <div className="os-builder-controls os-project-fields">
                 <label><span>Nombre del sistema</span><input value={osProjectName} onChange={(event) => setOsProjectName(event.target.value)} /></label>
                 <label><span>ID del proyecto</span><input value={osProjectId} onChange={(event) => setOsProjectId(event.target.value)} /></label>
                 <label><span>Versión</span><input value={osProjectVersion} onChange={(event) => setOsProjectVersion(event.target.value)} /></label>
+                <label><span>Autor / editor</span><input value={osPublisher} onChange={(event) => setOsPublisher(event.target.value)} placeholder="Tu nombre u organización" /></label>
                 <label><span>Etiqueta ISO</span><input value={osIsoLabel} onChange={(event) => setOsIsoLabel(event.target.value)} /></label>
                 <label className="os-packages-field"><span>Descripción</span><input value={osProjectDescription} onChange={(event) => setOsProjectDescription(event.target.value)} /></label>
               </div>
