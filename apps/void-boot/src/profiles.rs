@@ -185,7 +185,9 @@ mod tests {
     #[test]
     fn renders_graphical_grub_menu_with_profile_entries() {
         let rendered = sample().render_grub_config();
+        assert!(rendered.contains("loadfont $prefix/fonts/unicode.pf2"));
         assert!(rendered.contains("terminal_output gfxterm"));
+        assert!(rendered.contains("search --no-floppy --file --set=root \"$isofile\""));
         assert!(rendered.contains("menuentry \"Debian Live\""));
         assert!(rendered.contains("loopback loop \"$isofile\""));
         assert!(rendered.contains("linux (loop)/live/vmlinuz boot=live components"));
