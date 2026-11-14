@@ -15,11 +15,23 @@ Void Boot is Atdev Dev's independent, open-source multiboot project and a first-
 
 The generated menu uses GRUB's graphical gfxterm menu and profile-specific loopback entries. **A profile is only a boot recipe, not proof that an ISO is compatible.** Kernel/initrd paths and arguments must match the exact image. Some ISOs need extraction or a custom boot method.
 
-## Distribution Center (catalogue milestone)
+## Distribution Center
 
-Void Boot includes a catalogue of official project and download pages for Debian, Ubuntu, Fedora, Arch Linux, Linux Mint and Zorin OS. View it with `void-boot catalog` (also `list-distributions`). Open a listed download page, choose the edition and architecture, and save the ISO into your local library folder. Then inspect it with `void-boot scan /path/to/isos`.
+The bundled catalogue currently includes Debian, Ubuntu, Fedora, Arch Linux, Linux Mint, Zorin OS, openSUSE, Pop!_OS, elementary OS, Kali Linux, EndeavourOS, Manjaro, MX Linux, NixOS, Void Linux, Rocky Linux, AlmaLinux, Alpine Linux and Mageia.
 
-The catalogue points to official landing pages rather than versioned mirror URLs, avoiding stale download links. **This milestone does not download ISO files automatically, verify publisher signatures, or mark any distro as boot-compatible.** Follow each project's verification instructions and compare its published checksum/signature before using an image. A future downloader must implement HTTPS-only transfers, publisher-authenticated verification, resumable downloads and clear consent before large downloads.
+Each entry includes its official project/download page, distribution family, known architectures, editions, release model, available image formats and verification guidance. View everything with:
+
+    cargo run -- catalog
+
+Filter by distribution family or architecture:
+
+    cargo run -- catalog --family debian
+    cargo run -- catalog --arch x86_64
+    cargo run -- catalog --family arch --arch x86_64
+
+The catalogue links to official landing pages rather than storing version-specific mirror URLs, avoiding stale links. Open the listed page, select the edition and architecture, and save the ISO into your local library folder. Then inspect it with `cargo run -- scan /path/to/isos`.
+
+**Download automation is not implemented in this milestone.** Void Boot does not yet fetch ISO files, verify publisher signatures automatically, or mark a distribution as boot-compatible. Follow each project's verification instructions and compare its published checksum/signature before using an image. A future downloader must use HTTPS-only transfers, publisher-authenticated verification, resumable downloads, safe filenames, disk-space checks and explicit consent before large downloads.
 
 ## Commands
 
@@ -27,7 +39,8 @@ Requires Rust stable.
 
     cd apps/void-boot
     cargo test
-    cargo run -- catalog\n    cargo run -- scan /path/to/iso-folder
+    cargo run -- catalog
+    cargo run -- scan /path/to/iso-folder
     cargo run -- scan /path/to/iso-folder --json
     cargo run -- list-devices
     cargo run -- list-devices --json
@@ -44,7 +57,6 @@ CI also builds a serial-console test image and smoke-tests the menu using QEMU w
     bash scripts/test-void-boot-qemu.sh /tmp/void-boot-qemu.iso
 
 The render command writes grub.cfg and copies the graphical theme into the output folder. It does not install GRUB or write to a USB drive. Void Memingo can also open a profile TOML file and show the generated GRUB menu without writing it.
-
 
 ## UEFI media image builder (virtual image only)
 
