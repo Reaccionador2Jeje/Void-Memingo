@@ -818,3 +818,28 @@ button:disabled {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+
+/* Void Boot profile preview */
+.void-boot-preview {
+  margin-top: 12px;
+  min-height: 0;
+  border: 1px solid #303746;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #10151e;
+}
+.void-boot-preview .git-toolbar {
+  padding: 8px 10px;
+  border-bottom: 1px solid #303746;
+}
+.void-boot-preview pre {
+  max-height: 300px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  color: #b9c7e4;
+  font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre;
+  tab-size: 2;
+}
