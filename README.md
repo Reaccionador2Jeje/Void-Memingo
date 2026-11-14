@@ -37,7 +37,7 @@ Release automation is being extended to publish Linux \`.deb\` / \`.rpm\` / AppI
 
 ## OS development and publishing
 
-Void Memingo includes an OS Builder for Debian, Ubuntu, and Arch Linux profile preparation, filesystem overlays, package customization, desktop selection, and local build-script execution. These backends remain profile previews until reproducible ISO builds and boot tests have passed.
+Void Memingo includes separate OS image backends: Debian Live uses live-build; Ubuntu uses Ubuntu's livecd-rootfs auto clean/config/build pipeline with casper; Arch Linux uses the upstream archiso releng profile and mkarchiso. Each backend generates its own package list, filesystem overlay and build script, then checks the resulting ISO and SHA-256 checksum. The backends remain experimental previews until reproducible builds and boot tests have passed on supported Linux hosts.
 
 [PondOS](examples/pondos/README.md) is the first showcase project: an Ubuntu-based system with LXQt, a green/blue pond-inspired identity, and a minimalist frog-and-leaf logo.
 
