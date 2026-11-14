@@ -415,6 +415,24 @@ pub fn check_os_build_preflight(workspace: String, project_toml: String) -> Resu
                     "Archiso requiere un host Arch Linux o una distribución que declare ID_LIKE=arch.".into()
                 },
             });
+            let host_architecture = Command::new("uname")
+                .arg("-m")
+                .output()
+                .ok()
+                .filter(|output| output.status.success())
+                .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string());
+            let host_arch_matches = host_architecture.as_deref() == Some("x86_64");
+            checks.push(PreflightCheck {
+                id: "arch-host-architecture".into(),
+                label: "Arquitectura del host x86_64".into(),
+                available: host_arch_matches,
+                required: true,
+                detail: if host_arch_matches {
+                    "El host coincide con la arquitectura x86_64 del perfil.".into()
+                } else {
+                    format!("Archiso está configurado para x86_64; arquitectura del host: {}.", host_architecture.unwrap_or_else(|| "desconocida".into()))
+                },
+            });
             let user_namespaces = Command::new("unshare")
                 .args(["-Ur", "true"])
                 .status()
@@ -1776,6 +1794,7 @@ command -v pacstrap >/dev/null 2>&1 || {{ echo "Install arch-install-scripts fir
 command -v unshare >/dev/null 2>&1 || {{ echo "Install util-linux with unshare support." >&2; exit 127; }}
 . /etc/os-release
 case " ${{ID:-}} ${{ID_LIKE:-}} " in *" arch "*) ;; *) echo "Archiso requires an Arch Linux compatible build host." >&2; exit 1 ;; esac
+[ "$(uname -m)" = "x86_64" ] || {{ echo "This Archiso profile targets x86_64; build on an x86_64 host." >&2; exit 1; }}
 [ -d /usr/share/archiso/configs/releng ] || {{ echo "Archiso releng profile not found." >&2; exit 1; }}
 [ ! -L {profile} ] || {{ echo "Generated Archiso profile must not be a symbolic link." >&2; exit 1; }}
 mkdir -p {profile}
