@@ -81,3 +81,18 @@ The Void Boot sidebar exposes the bundled distribution catalogue from the shared
 The Flash-style downloader accepts a direct HTTPS ISO URL copied from the selected publisher's official download page. It probes HTTP Range support, then divides the file into up to eight byte ranges and downloads them concurrently. Each range is stored separately so pause/retry can resume incomplete parts without discarding completed ones. The UI displays total downloaded bytes, total size and connection count. When all ranges finish, Void Boot joins them in order into the ISO file, which can then be scanned in the local ISO library.
 
 Important limitations: the catalogue currently stores official landing pages, not versioned direct ISO URLs or publisher checksum metadata. The downloader therefore does not automatically choose a mirror or authenticate the ISO against the publisher's checksum/signature yet; the displayed SHA-256 is an inspection digest, not proof of authenticity. A direct link must be copied from the official publisher page. Physical USB writing remains disabled until per-distribution boot profiles and the protected multiboot installation flow are validated. The installer must preserve existing distributions and never overwrite the whole device for each ISO.
+
+
+### Descarga directa y pruebas QEMU
+
+El Distribution Center declara para las 19 entradas el mismo método de entrega: descargar el archivo ISO directamente en el directorio de destino elegido. Si el usuario selecciona el punto de montaje de la partición de datos VOIDDATA, la descarga se escribe allí y no crea una segunda copia en el disco interno. El gestor conserva partes reanudables y usa hasta ocho rangos HTTP cuando el servidor lo admite.
+
+Esto **no equivale a escribir una imagen cruda sobre el dispositivo**: no formatea, no cambia particiones ni instala el cargador de arranque. Cada ISO necesita un perfil GRUB validado antes de anunciarse como arrancable. Los enlaces directos y checksums oficiales todavía deben configurarse por versión.
+
+Para probar una imagen virtual UEFI sin tocar unidades físicas:
+
+```bash
+scripts/run-void-boot-qemu.sh /tmp/void-boot-test/void-boot.img
+```
+
+El lanzador usa OVMF, desactiva la red y ejecuta el disco virtual en modo snapshot. Los cambios del invitado se descartan al cerrar QEMU; el archivo original permanece intacto.
