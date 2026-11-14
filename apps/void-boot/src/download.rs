@@ -58,9 +58,15 @@ fn safe_file_name(value: &str) -> Result<String, String> {
 }
 
 fn normalize_expected_sha256(value: Option<String>) -> Result<Option<String>, String> {
-    let normalized = value.map(|value| value.trim().to_ascii_lowercase()).filter(|value| !value.is_empty());
-    if normalized.as_ref().is_some_and(|value| value.len() != 64 || !value.chars().all(|character| character.is_ascii_hexdigit())) {
-        return Err("El SHA-256 esperado debe contener exactamente 64 caracteres hexadecimales".into());
+    let normalized = value
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty());
+    if normalized.as_ref().is_some_and(|value| {
+        value.len() != 64 || !value.chars().all(|character| character.is_ascii_hexdigit())
+    }) {
+        return Err(
+            "El SHA-256 esperado debe contener exactamente 64 caracteres hexadecimales".into(),
+        );
     }
     Ok(normalized)
 }
@@ -357,15 +363,21 @@ impl DownloadManager {
                 let mut hasher = Sha256::new();
                 let mut hash_buffer = [0u8; BUFFER_SIZE];
                 loop {
-                    let count = merged_file.read(&mut hash_buffer).map_err(|e| e.to_string())?;
-                    if count == 0 { break; }
+                    let count = merged_file
+                        .read(&mut hash_buffer)
+                        .map_err(|e| e.to_string())?;
+                    if count == 0 {
+                        break;
+                    }
                     hasher.update(&hash_buffer[..count]);
                 }
                 let actual_sha256 = format!("{:x}", hasher.finalize());
                 if let Some(expected) = expected_sha256.as_ref() {
                     if !checksum_matches(&actual_sha256, Some(expected)) {
                         let _ = fs::remove_file(&merged_path);
-                        for path in &part_paths { let _ = fs::remove_file(path); }
+                        for path in &part_paths {
+                            let _ = fs::remove_file(path);
+                        }
                         return Err(format!("El SHA-256 no coincide. Esperado: {expected}; recibido: {actual_sha256}. Se descartaron las partes para evitar reanudar datos no verificados."));
                     }
                 }
@@ -444,7 +456,10 @@ mod tests {
     #[test]
     fn normalizes_and_validates_publisher_sha256() {
         let uppercase = "A".repeat(64);
-        assert_eq!(normalize_expected_sha256(Some(uppercase)).unwrap(), Some("a".repeat(64)));
+        assert_eq!(
+            normalize_expected_sha256(Some(uppercase)).unwrap(),
+            Some("a".repeat(64))
+        );
         assert_eq!(normalize_expected_sha256(None).unwrap(), None);
         assert!(normalize_expected_sha256(Some("not-a-checksum".into())).is_err());
         assert!(normalize_expected_sha256(Some("a".repeat(63))).is_err());
