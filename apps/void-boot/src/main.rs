@@ -1,4 +1,8 @@
-use std::{env, fs, path::{Path, PathBuf}, process::ExitCode};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::ExitCode,
+};
 use void_boot::{profiles::ProfileCatalog, scan_directory, IsoEntry};
 
 fn print_entries(entries: &[IsoEntry], json: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -13,12 +17,18 @@ fn print_entries(entries: &[IsoEntry], json: bool) -> Result<(), Box<dyn std::er
                 entry.name, entry.size_bytes, entry.status, entry.sha256
             );
         }
-        println!("\n{} ISO file(s) inspected. No drives were modified.", entries.len());
+        println!(
+            "\n{} ISO file(s) inspected. No drives were modified.",
+            entries.len()
+        );
     }
     Ok(())
 }
 
-fn render_menu(profile_file: &Path, output_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn render_menu(
+    profile_file: &Path,
+    output_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     let catalog = ProfileCatalog::load(profile_file)?;
     fs::create_dir_all(output_dir)?;
     let theme_dir = output_dir.join("themes").join("void-boot");
@@ -56,7 +66,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             eprintln!(
-                "Void Boot — multiboot tools\n\n                 Usage:\n  void-boot scan <directory> [--json]\n                   void-boot render-menu <profiles.toml> <output-directory>"
+                "Void Boot — multiboot tools\n\nUsage:\n  \
+                 void-boot scan <directory> [--json]\n  \
+                 void-boot render-menu <profiles.toml> <output-directory>"
             );
             Err("expected 'scan' or 'render-menu' command".into())
         }
