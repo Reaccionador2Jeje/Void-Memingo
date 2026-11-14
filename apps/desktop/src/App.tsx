@@ -538,7 +538,7 @@ function App() {
       setVoidBootSelectedDistro((current) => current ?? entries[0] ?? null);
       addLog(`Void Distro Center: ${entries.length} sistemas disponibles.`);
     } catch (error) {
-      addLog('No se pudo cargar el Distribution Center: ' + String(error));
+      addLog('No se pudo cargar Void Distro Center: ' + String(error));
     } finally {
       setVoidBootCatalogBusy(false);
     }
@@ -1265,7 +1265,7 @@ directory = ${quote(osOutputDir)}
             <button className="rail-button" onClick={() => setBottomOpen(!bottomOpen)} title="Panel inferior">
               <PanelBottom size={20} />
             </button>
-            <button className={'rail-button ' + (sidebarView === 'boot' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('boot'); setSidebarOpen(true); void loadVoidBootCatalog(); void invoke<BootDownload[]>('list_void_boot_downloads').then(setVoidBootDownloads).catch((error) => addLog('Descargas Void Boot: ' + String(error))); }} title="Void Boot — administrador de ISOs">
+            <button className={'rail-button ' + (sidebarView === 'boot' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('boot'); setSidebarOpen(true); void loadVoidBootCatalog(); void invoke<BootDownload[]>('list_void_boot_downloads').then(setVoidBootDownloads).catch((error) => addLog('Descargas Void Boot: ' + String(error))); }} title="Void Distro Center — catálogo universal de sistemas">
               <Disc3 size={20} />
             </button>
             <button className={'rail-button ' + (osBuilderOpen ? 'active' : '')} onClick={() => { setOsBuilderOpen(true); setSidebarOpen(false); }} title="OS Builder">
