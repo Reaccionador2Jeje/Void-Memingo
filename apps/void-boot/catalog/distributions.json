@@ -6,11 +6,29 @@
     "family": "debian",
     "project_url": "https://www.debian.org/",
     "download_page": "https://www.debian.org/distrib/",
-    "architectures": ["x86_64", "aarch64", "armhf", "ppc64el", "s390x"],
-    "editions": ["netinst", "Live", "DVD"],
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "armhf",
+      "ppc64el",
+      "s390x"
+    ],
+    "editions": [
+      "netinst",
+      "Live",
+      "DVD"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Consulta los checksums y firmas publicados junto a cada imagen."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Consulta los checksums y firmas publicados junto a cada imagen.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "ubuntu",
@@ -19,11 +37,29 @@
     "family": "ubuntu",
     "project_url": "https://ubuntu.com/",
     "download_page": "https://ubuntu.com/download",
-    "architectures": ["x86_64", "arm64", "armhf", "ppc64el", "s390x"],
-    "editions": ["Desktop", "Server", "Flavours"],
+    "architectures": [
+      "x86_64",
+      "arm64",
+      "armhf",
+      "ppc64el",
+      "s390x"
+    ],
+    "editions": [
+      "Desktop",
+      "Server",
+      "Flavours"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Verifica el SHA-256 usando los archivos oficiales SHA256SUMS y su firma."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Verifica el SHA-256 usando los archivos oficiales SHA256SUMS y su firma.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "fedora",
@@ -32,11 +68,27 @@
     "family": "fedora",
     "project_url": "https://fedoraproject.org/",
     "download_page": "https://fedoraproject.org/workstation/download",
-    "architectures": ["x86_64", "aarch64"],
-    "editions": ["Workstation", "Server", "Spins", "Atomic Desktops"],
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Workstation",
+      "Server",
+      "Spins",
+      "Atomic Desktops"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Usa la verificación oficial de descarga de Fedora antes de arrancar la imagen."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa la verificación oficial de descarga de Fedora antes de arrancar la imagen.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "arch",
@@ -45,11 +97,23 @@
     "family": "arch",
     "project_url": "https://archlinux.org/",
     "download_page": "https://archlinux.org/download/",
-    "architectures": ["x86_64"],
-    "editions": ["Installation medium"],
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Installation medium"
+    ],
     "release_model": "rolling",
-    "formats": ["ISO"],
-    "verification": "Comprueba la firma PGP y el checksum publicados por Arch Linux."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Comprueba la firma PGP y el checksum publicados por Arch Linux.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "linux-mint",
@@ -58,11 +122,26 @@
     "family": "ubuntu/debian",
     "project_url": "https://linuxmint.com/",
     "download_page": "https://linuxmint.com/download.php",
-    "architectures": ["x86_64"],
-    "editions": ["Cinnamon", "MATE", "Xfce", "LMDE"],
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Cinnamon",
+      "MATE",
+      "Xfce",
+      "LMDE"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Sigue las instrucciones oficiales para verificar integridad y autenticidad."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Sigue las instrucciones oficiales para verificar integridad y autenticidad.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "zorin-os",
@@ -71,11 +150,25 @@
     "family": "ubuntu",
     "project_url": "https://zorin.com/os/",
     "download_page": "https://zorin.com/os/download/",
-    "architectures": ["x86_64"],
-    "editions": ["Core", "Pro", "Education"],
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Core",
+      "Pro",
+      "Education"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Compara el checksum publicado por el proyecto para la versión descargada."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Compara el checksum publicado por el proyecto para la versión descargada.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "opensuse",
@@ -84,11 +177,28 @@
     "family": "suse",
     "project_url": "https://www.opensuse.org/",
     "download_page": "https://get.opensuse.org/",
-    "architectures": ["x86_64", "aarch64", "ppc64le", "s390x"],
-    "editions": ["Leap", "Tumbleweed"],
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "ppc64le",
+      "s390x"
+    ],
+    "editions": [
+      "Leap",
+      "Tumbleweed"
+    ],
     "release_model": "fixed/rolling",
-    "formats": ["ISO", "Network installer"],
-    "verification": "Comprueba los checksums y firmas publicados por openSUSE."
+    "formats": [
+      "ISO",
+      "Network installer"
+    ],
+    "verification": "Comprueba los checksums y firmas publicados por openSUSE.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "pop-os",
@@ -97,11 +207,26 @@
     "family": "ubuntu",
     "project_url": "https://system76.com/",
     "download_page": "https://system76.com/download-pop/",
-    "architectures": ["x86_64", "arm64"],
-    "editions": ["Intel/AMD", "NVIDIA", "ARM"],
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "editions": [
+      "Intel/AMD",
+      "NVIDIA",
+      "ARM"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Compara el SHA-256 que aparece en la página oficial para la variante exacta."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Compara el SHA-256 que aparece en la página oficial para la variante exacta.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "elementary-os",
@@ -110,11 +235,24 @@
     "family": "ubuntu",
     "project_url": "https://elementary.io/",
     "download_page": "https://elementary.io/",
-    "architectures": ["x86_64", "arm64"],
-    "editions": ["Desktop"],
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "editions": [
+      "Desktop"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Verifica el SHA-256 de la imagen descargada siguiendo la guía oficial."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Verifica el SHA-256 de la imagen descargada siguiendo la guía oficial.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "kali",
@@ -123,11 +261,27 @@
     "family": "debian",
     "project_url": "https://www.kali.org/",
     "download_page": "https://www.kali.org/get-kali/",
-    "architectures": ["x86_64", "arm64"],
-    "editions": ["Installer", "Live", "Weekly images"],
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "editions": [
+      "Installer",
+      "Live",
+      "Weekly images"
+    ],
     "release_model": "rolling",
-    "formats": ["ISO", "Images"],
-    "verification": "Comprueba SHA256SUMS y su firma GPG mediante las instrucciones oficiales."
+    "formats": [
+      "ISO",
+      "Images"
+    ],
+    "verification": "Comprueba SHA256SUMS y su firma GPG mediante las instrucciones oficiales.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "endeavouros",
@@ -136,11 +290,23 @@
     "family": "arch",
     "project_url": "https://endeavouros.com/",
     "download_page": "https://endeavouros.com/download/",
-    "architectures": ["x86_64"],
-    "editions": ["Live installer"],
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Live installer"
+    ],
     "release_model": "rolling",
-    "formats": ["ISO"],
-    "verification": "Verifica el checksum SHA-512 y la firma GPG de la imagen."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Verifica el checksum SHA-512 y la firma GPG de la imagen.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "manjaro",
@@ -149,11 +315,28 @@
     "family": "arch",
     "project_url": "https://manjaro.org/",
     "download_page": "https://manjaro.org/products/",
-    "architectures": ["x86_64", "aarch64"],
-    "editions": ["Xfce", "KDE Plasma", "GNOME", "ARM"],
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Xfce",
+      "KDE Plasma",
+      "GNOME",
+      "ARM"
+    ],
     "release_model": "rolling",
-    "formats": ["ISO", "Images"],
-    "verification": "Usa los checksums y las instrucciones de verificación publicados por Manjaro."
+    "formats": [
+      "ISO",
+      "Images"
+    ],
+    "verification": "Usa los checksums y las instrucciones de verificación publicados por Manjaro.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "mx-linux",
@@ -162,11 +345,25 @@
     "family": "debian",
     "project_url": "https://mxlinux.org/",
     "download_page": "https://mxlinux.org/download-links/",
-    "architectures": ["x86_64"],
-    "editions": ["Xfce", "KDE Plasma", "Fluxbox"],
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Xfce",
+      "KDE Plasma",
+      "Fluxbox"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Comprueba el checksum publicado para la imagen y el mirror elegidos."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Comprueba el checksum publicado para la imagen y el mirror elegidos.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "nixos",
@@ -175,11 +372,25 @@
     "family": "independent",
     "project_url": "https://nixos.org/",
     "download_page": "https://nixos.org/download/",
-    "architectures": ["x86_64", "aarch64"],
-    "editions": ["Graphical", "Minimal"],
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Graphical",
+      "Minimal"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Consulta los hashes y las instrucciones oficiales para la versión descargada."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Consulta los hashes y las instrucciones oficiales para la versión descargada.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "void-linux",
@@ -188,11 +399,30 @@
     "family": "independent",
     "project_url": "https://voidlinux.org/",
     "download_page": "https://voidlinux.org/download/",
-    "architectures": ["x86_64", "i686", "aarch64", "arm"],
-    "editions": ["Base", "Xfce", "glibc", "musl"],
+    "architectures": [
+      "x86_64",
+      "i686",
+      "aarch64",
+      "arm"
+    ],
+    "editions": [
+      "Base",
+      "Xfce",
+      "glibc",
+      "musl"
+    ],
     "release_model": "rolling",
-    "formats": ["ISO", "Root filesystem tarball"],
-    "verification": "Descarga y verifica el checksum y su firma siguiendo el Void Handbook."
+    "formats": [
+      "ISO",
+      "Root filesystem tarball"
+    ],
+    "verification": "Descarga y verifica el checksum y su firma siguiendo el Void Handbook.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "rocky-linux",
@@ -201,11 +431,28 @@
     "family": "rhel",
     "project_url": "https://rockylinux.org/",
     "download_page": "https://rockylinux.org/download",
-    "architectures": ["x86_64", "aarch64", "ppc64le", "s390x"],
-    "editions": ["Minimal", "DVD", "Boot"],
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "ppc64le",
+      "s390x"
+    ],
+    "editions": [
+      "Minimal",
+      "DVD",
+      "Boot"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Comprueba los checksums y firmas publicados para la versión elegida."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Comprueba los checksums y firmas publicados para la versión elegida.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "almalinux",
@@ -214,11 +461,29 @@
     "family": "rhel",
     "project_url": "https://almalinux.org/",
     "download_page": "https://almalinux.org/get-almalinux/",
-    "architectures": ["x86_64", "aarch64", "ppc64le", "s390x"],
-    "editions": ["DVD", "Boot", "Minimal", "Live"],
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "ppc64le",
+      "s390x"
+    ],
+    "editions": [
+      "DVD",
+      "Boot",
+      "Minimal",
+      "Live"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Compara el SHA-256 publicado y sigue las instrucciones oficiales de verificación."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Compara el SHA-256 publicado y sigue las instrucciones oficiales de verificación.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "alpine",
@@ -227,11 +492,32 @@
     "family": "independent",
     "project_url": "https://www.alpinelinux.org/",
     "download_page": "https://www.alpinelinux.org/downloads/",
-    "architectures": ["x86_64", "aarch64", "armv7", "ppc64le", "riscv64", "s390x"],
-    "editions": ["Standard", "Extended", "Virtual", "Netboot"],
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "armv7",
+      "ppc64le",
+      "riscv64",
+      "s390x"
+    ],
+    "editions": [
+      "Standard",
+      "Extended",
+      "Virtual",
+      "Netboot"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO", "Images"],
-    "verification": "Verifica el SHA-256 y la firma GPG publicados junto a cada imagen."
+    "formats": [
+      "ISO",
+      "Images"
+    ],
+    "verification": "Verifica el SHA-256 y la firma GPG publicados junto a cada imagen.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   },
   {
     "id": "mageia",
@@ -240,10 +526,26 @@
     "family": "independent",
     "project_url": "https://www.mageia.org/",
     "download_page": "https://www.mageia.org/en/downloads/",
-    "architectures": ["x86_64", "i686"],
-    "editions": ["Plasma", "GNOME", "Xfce", "Network installer"],
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Plasma",
+      "GNOME",
+      "Xfce",
+      "Network installer"
+    ],
     "release_model": "fixed",
-    "formats": ["ISO"],
-    "verification": "Comprueba la integridad de la imagen después de descargarla desde un mirror oficial."
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Comprueba la integridad de la imagen después de descargarla desde un mirror oficial.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
   }
 ]
