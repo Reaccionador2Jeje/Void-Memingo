@@ -46,11 +46,13 @@ Before a physical-media writer is enabled, it must enumerate devices using stabl
 
 1. **Foundation:** ISO inventory, SHA-256, ISO 9660 and El Torito checks.
 2. **Boot-menu foundation:** validated profile schema, GRUB menu generator, graphical theme, bundled Unicode font, ISO discovery and tests.
-3. **Virtual boot prototype:** bootable GRUB menu ISO plus serial-console smoke tests for BIOS and UEFI using QEMU/OVMF; full graphical screenshot verification and disposable virtual-disk tests remain follow-up work.
+3. **Virtual boot prototype:** bootable GRUB menu ISO with serial-console smoke tests in QEMU for legacy BIOS and OVMF UEFI. A disposable GPT/FAT32 media image is boot-tested under OVMF UEFI; BIOS media-image boot remains pending.
 4. **Profile coverage:** Debian Live recipe and manual full-boot QEMU test are implemented; confirm the test result before marking Debian verified, then add reviewed Ubuntu, Arch and rescue-image profiles against exact releases.
 5. **Void Memingo integration:** shared profile catalog, ISO compatibility display, TOML profile picker and generated menu preview.
 6. **Standalone GUI:** ISO library, profile editor, boot menu preview and safe media planner.
-7. **Installer package:** ZIP distribution with shell, PowerShell and web folder installers; menu/profile deployment only.\n8. **Media writer:** guarded USB preparation only after virtual testing and explicit user approval.
+7. **Installer package:** ZIP distribution with shell, PowerShell and web folder installers; menu/profile deployment only.
+8. **Virtual media validation:** disposable GPT/FAT32 media images, multi-ISO library import and OVMF UEFI boot checks run in CI; BIOS media-image boot remains pending.
+9. **Media writer:** guarded USB preparation only after virtual testing and explicit user approval.
 10. **Compatibility expansion:** persistence, more distributions, Windows installer support where technically and legally appropriate.
 11. **Secure Boot:** after signing, key management and trust requirements are fully designed.
 
