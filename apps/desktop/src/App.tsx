@@ -292,6 +292,16 @@ function App() {
       return matchesSearch && matchesFamily && matchesArchitecture && matchesCategory;
     });
   }, [voidBootCatalog, distroSearch, distroFamily, distroArchitecture, distroCategory]);
+
+  useEffect(() => {
+    if (filteredDistroCatalog.length === 0) {
+      setVoidBootSelectedDistro(null);
+      return;
+    }
+    if (!filteredDistroCatalog.some((entry) => entry.id === voidBootSelectedDistro?.id)) {
+      setVoidBootSelectedDistro(filteredDistroCatalog[0]);
+    }
+  }, [filteredDistroCatalog, voidBootSelectedDistro?.id]);
   const isLinuxHost = typeof navigator !== 'undefined' && /Linux/i.test(navigator.userAgent);
 
   const activeTab = useMemo(
