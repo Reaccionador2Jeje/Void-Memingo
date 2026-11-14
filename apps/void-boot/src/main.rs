@@ -4,7 +4,8 @@ use std::{
     process::ExitCode,
 };
 use void_boot::{
-    devices::list_removable_devices, profiles::ProfileCatalog, scan_directory, IsoEntry,
+    catalog::load_distributions, devices::list_removable_devices, profiles::ProfileCatalog,
+    scan_directory, IsoEntry,
 };
 
 fn print_entries(entries: &[IsoEntry], json: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -52,7 +53,7 @@ fn render_menu(profile_file: &Path, output_dir: &Path) -> Result<(), Box<dyn std
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
-        Some("scan") => {
+        Some("catalog") | Some("list-distributions") => {\n            let entries = load_distributions()?;\n            println!("Void Boot Distribution Center — official download sources\\n");\n            for entry in entries {\n                println!("{} ({})\\n  {}\\n  Project: {}\\n  Downloads: {}\\n  Formats: {}\\n  Verify: {}\\n", entry.name, entry.id, entry.description, entry.project_url, entry.download_page, entry.formats.join(", "), entry.verification);\n            }\n            println!("\\nThis catalogue links to official project pages. It does not download or trust an ISO automatically.");\n            Ok(())\n        }\n        Some("scan") => {
             let directory = args.next().ok_or("missing directory argument")?;
             let json = args.any(|arg| arg == "--json");
             let entries = scan_directory(Path::new(&directory))?;
