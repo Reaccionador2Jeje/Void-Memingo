@@ -188,7 +188,7 @@ export default function TerminalPanel({ workspace, onLog, command, onCommandCons
     if (interruptSignal <= lastInterruptRef.current) return;
     lastInterruptRef.current = interruptSignal;
     if (!activeId) return;
-    void invoke('write_terminal_input', { sessionId: activeId, data: '\\x03' })
+    void invoke('write_terminal_input', { sessionId: activeId, data: '\x03' })
       .then(() => onLog('Se envió Ctrl+C a la terminal activa.'))
       .catch((error) => onLog('No se pudo interrumpir la terminal: ' + String(error)));
   }, [interruptSignal, activeId, onLog]);
