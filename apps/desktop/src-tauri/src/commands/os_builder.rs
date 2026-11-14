@@ -463,6 +463,19 @@ pub fn check_os_build_preflight(workspace: String, project_toml: String) -> Resu
             },
         });
 
+        let shellcheck_available = command_available("shellcheck");
+        checks.push(PreflightCheck {
+            id: "shellcheck".into(),
+            label: "ShellCheck (lint opcional)".into(),
+            available: shellcheck_available,
+            required: false,
+            detail: if shellcheck_available {
+                "ShellCheck está disponible para revisar los scripts generados.".into()
+            } else {
+                "ShellCheck no está instalado; se mantiene la comprobación básica sh -n.".into()
+            },
+        });
+
         let mut warnings = Vec::new();
         let disk = Command::new("df").args(["-Pk"]).arg(&root).output();
         match disk {
@@ -1249,6 +1262,28 @@ mod tests {
         project.packages.remove.clear();
         project.packages.remove.push("mkinitcpio-archiso".into());
         assert!(!validate_project(&project).valid);
+    }
+
+    #[test]
+    fn maps_common_system_services_to_distribution_packages() {
+        let services = vec![
+            "NetworkManager.service".to_string(),
+            "ssh.service".to_string(),
+            "bluetooth.service".to_string(),
+            "cups.service".to_string(),
+            "avahi-daemon.service".to_string(),
+        ];
+        let debian = service_packages_for("debian", &services);
+        assert!(debian.contains(&"network-manager".to_string()));
+        assert!(debian.contains(&"openssh-server".to_string()));
+        assert!(debian.contains(&"bluez".to_string()));
+        assert!(debian.contains(&"cups".to_string()));
+        assert!(debian.contains(&"avahi-daemon".to_string()));
+
+        let arch = service_packages_for("arch", &services);
+        assert!(arch.contains(&"networkmanager".to_string()));
+        assert!(arch.contains(&"openssh".to_string()));
+        assert!(arch.contains(&"avahi".to_string()));
     }
 
     #[test]
