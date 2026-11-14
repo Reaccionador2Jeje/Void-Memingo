@@ -255,7 +255,8 @@ mod tests {
             digest
         );
         assert_eq!(
-            parse_manifest_sha256(&format!("SHA256 (debian.iso) = {digest}\n"), "debian.iso").unwrap(),
+            parse_manifest_sha256(&format!("SHA256 (debian.iso) = {digest}\n"), "debian.iso")
+                .unwrap(),
             digest
         );
         assert!(parse_manifest_sha256(&format!("{digest}  other.iso\n"), "debian.iso").is_err());
