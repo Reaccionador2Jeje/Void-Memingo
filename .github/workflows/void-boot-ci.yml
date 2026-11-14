@@ -82,7 +82,7 @@ jobs:
       - name: Validate Debian Live loopback profile rendering
         run: |
           cargo run --manifest-path apps/void-boot/Cargo.toml -- render-menu apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/debian-live-profile"
-          grep -F "linux (loop)/live/vmlinuz boot=live components quiet findiso=\\$isofile" "$RUNNER_TEMP/debian-live-profile/grub.cfg"
+          grep -F "linux (loop)/live/vmlinuz boot=live components quiet findiso=\$isofile" "$RUNNER_TEMP/debian-live-profile/grub.cfg"
       - name: Build pre-boot graphical menu ISO
         run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-demo.iso"
       - name: Verify ISO artifact exists
