@@ -87,7 +87,10 @@ mod tests {
             assert!(!entry.editions.is_empty());
             assert!(!entry.formats.is_empty());
             assert!(!entry.verification.is_empty());
-            assert_eq!(entry.installation.delivery, "direct_iso_to_void_data_partition");
+            assert_eq!(
+                entry.installation.delivery,
+                "direct_iso_to_void_data_partition"
+            );
             assert!(entry.installation.requires_full_image);
             assert!(entry.installation.boot_profile_required);
         }

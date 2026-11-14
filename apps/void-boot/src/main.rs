@@ -60,7 +60,11 @@ fn print_catalog(
     let filtered = filter_distributions(&entries, family, architecture);
 
     println!("Void Boot Distribution Center — official download sources");
-    println!("{} of {} distribution(s) shown.\n", filtered.len(), entries.len());
+    println!(
+        "{} of {} distribution(s) shown.\n",
+        filtered.len(),
+        entries.len()
+    );
 
     for entry in filtered {
         println!(
@@ -126,8 +130,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                             &device.model
                         },
                         device.size_bytes,
-                        if device.read_only { "read-only" } else { "writable" },
-                        if device.mounted { "mounted" } else { "not mounted" }
+                        if device.read_only {
+                            "read-only"
+                        } else {
+                            "writable"
+                        },
+                        if device.mounted {
+                            "mounted"
+                        } else {
+                            "not mounted"
+                        }
                     );
                 }
             }
@@ -160,7 +172,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                  void-boot validate-profiles <profiles.toml>\n  \
                  void-boot render-menu <profiles.toml> <output-directory>"
             );
-            Err("expected catalog, scan, list-devices, validate-profiles or render-menu command".into())
+            Err(
+                "expected catalog, scan, list-devices, validate-profiles or render-menu command"
+                    .into(),
+            )
         }
     }
 }
