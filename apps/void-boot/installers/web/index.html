@@ -26,7 +26,7 @@
     <input id="payload" type="file" webkitdirectory multiple>
     <button id="install" disabled>Choose destination and install files</button>
     <p id="status" role="status" aria-live="polite"></p>
-    <p>For a terminal installer, use <code>install.sh</code> on Linux/macOS or <code>install.ps1</code> in PowerShell from the extracted ZIP.</p>
+    <p>This graphical preview only copies menu files. It does not prepare bootable media.</p>
   </main>
   <script>
     const payloadInput = document.getElementById("payload");
@@ -44,7 +44,7 @@
 
     installButton.addEventListener("click", async () => {
       if (!("showDirectoryPicker" in window)) {
-        status.textContent = "This browser does not support folder installation. Use install.sh or install.ps1 from the ZIP.";
+        status.textContent = "This browser does not support graphical folder selection. Open the package in a supported desktop browser.";
         return;
       }
       installButton.disabled = true;
