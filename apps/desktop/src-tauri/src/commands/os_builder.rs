@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fs, path::{Component, Path, PathBuf}};
+use std::{fs, path::{Component, Path, PathBuf}, process::Command};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -333,6 +333,111 @@ pub fn validate_project(project: &OsProject) -> ValidationReport {
 }
 
 #[tauri::command]
+pub fn check_os_build_preflight(workspace: String, project_toml: String) -> Result<BuildPreflight, String> {
+    let root = super::workspace::canonical_root(&workspace)?;
+    let project: OsProject = toml::from_str(&project_toml)
+        .map_err(|error| format!("Invalid void-os.toml: {error}"))?;
+    let distribution = project.base.distribution.clone();
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        return Ok(BuildPreflight {
+            supported_host: false,
+            ready: false,
+            distribution,
+            checks: vec![PreflightCheck {
+                id: "linux-host".into(),
+                label: "Host Linux".into(),
+                available: false,
+                required: true,
+                detail: "La creación de imágenes está disponible únicamente desde un host Linux.".into(),
+            }],
+            warnings: vec!["Abre Void Memingo en Linux para ejecutar el constructor de ISO.".into()],
+        });
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let mut checks = Vec::new();
+        for (command, package) in required_build_commands(&distribution)? {
+            let available = command_available(command);
+            checks.push(PreflightCheck {
+                id: command.into(),
+                label: package.into(),
+                available,
+                required: true,
+                detail: if available {
+                    format!("{command} está disponible en PATH.")
+                } else {
+                    format!("No se encontró {command}. Instala el paquete {package}.")
+                },
+            });
+        }
+
+        let mut warnings = Vec::new();
+        let disk = Command::new("df").args(["-Pk"]).arg(&root).output();
+        match disk {
+            Ok(output) if output.status.success() => {
+                let text = String::from_utf8_lossy(&output.stdout);
+                let available_kib = text.lines().last()
+                    .and_then(|line| line.split_whitespace().nth(3))
+                    .and_then(|value| value.parse::<u64>().ok());
+                if let Some(kib) = available_kib {
+                    let available_gib = kib as f64 / 1024.0 / 1024.0;
+                    let enough = kib >= 15 * 1024 * 1024;
+                    checks.push(PreflightCheck {
+                        id: "disk-space".into(),
+                        label: "Espacio libre".into(),
+                        available: enough,
+                        required: false,
+                        detail: format!("{available_gib:.1} GiB disponibles; se recomiendan al menos 15 GiB."),
+                    });
+                    if !enough {
+                        warnings.push("El espacio libre es inferior a 15 GiB; una compilación puede quedarse sin almacenamiento.".into());
+                    }
+                } else {
+                    warnings.push("No se pudo interpretar el espacio libre del volumen del proyecto.".into());
+                }
+            }
+            _ => warnings.push("No se pudo consultar el espacio libre con df.".into()),
+        }
+
+        if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
+            let available_kib = meminfo.lines()
+                .find(|line| line.starts_with("MemAvailable:"))
+                .and_then(|line| line.split_whitespace().nth(1))
+                .and_then(|value| value.parse::<u64>().ok());
+            if let Some(kib) = available_kib {
+                let available_gib = kib as f64 / 1024.0 / 1024.0;
+                let enough = kib >= 4 * 1024 * 1024;
+                checks.push(PreflightCheck {
+                    id: "memory".into(),
+                    label: "Memoria disponible".into(),
+                    available: enough,
+                    required: false,
+                    detail: format!("{available_gib:.1} GiB disponibles; se recomiendan al menos 4 GiB."),
+                });
+                if !enough {
+                    warnings.push("La memoria disponible es inferior a 4 GiB; el proceso puede ser lento o fallar.".into());
+                }
+            }
+        }
+
+        let ready = checks.iter().filter(|check| check.required).all(|check| check.available);
+        if !ready {
+            warnings.push("Faltan dependencias obligatorias. Instálalas y vuelve a ejecutar la comprobación.".into());
+        }
+        Ok(BuildPreflight {
+            supported_host: true,
+            ready,
+            distribution,
+            checks,
+            warnings,
+        })
+    }
+}
+
+#[tauri::command]
 pub fn list_os_base_capabilities() -> Vec<BaseCapabilities> {
     base_capabilities()
 }
@@ -344,6 +449,67 @@ pub fn validate_os_project(project_toml: String) -> Result<ValidationReport, Str
     Ok(validate_project(&project))
 }
 
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreflightCheck {
+    pub id: String,
+    pub label: String,
+    pub available: bool,
+    pub required: bool,
+    pub detail: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildPreflight {
+    pub supported_host: bool,
+    pub ready: bool,
+    pub distribution: String,
+    pub checks: Vec<PreflightCheck>,
+    pub warnings: Vec<String>,
+}
+
+fn command_available(command: &str) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("sh")
+            .args(["-c", &format!("command -v {command} >/dev/null 2>&1")])
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = command;
+        false
+    }
+}
+
+fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'static str)>, String> {
+    match distribution {
+        "debian" | "ubuntu" => Ok(vec![
+            ("lb", "live-build (lb)"),
+            ("debootstrap", "debootstrap"),
+            ("mksquashfs", "squashfs-tools"),
+            ("xorriso", "xorriso"),
+            ("rsync", "rsync"),
+            ("file", "file"),
+            ("sha256sum", "coreutils"),
+            ("sudo", "sudo"),
+        ]),
+        "arch" => Ok(vec![
+            ("mkarchiso", "archiso"),
+            ("mksquashfs", "squashfs-tools"),
+            ("xorriso", "libisoburn / xorriso"),
+            ("rsync", "rsync"),
+            ("file", "file"),
+            ("sha256sum", "coreutils"),
+            ("sudo", "sudo"),
+        ]),
+        other => Err(format!("Unsupported Linux image backend: {other}")),
+    }
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
