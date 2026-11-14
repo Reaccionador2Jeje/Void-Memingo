@@ -89,6 +89,13 @@ jobs:
         run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-qemu-test.iso"
       - name: Boot test with legacy BIOS and UEFI in QEMU
         run: bash scripts/test-void-boot-qemu.sh "$RUNNER_TEMP/void-boot-qemu-test.iso" "$RUNNER_TEMP/void-boot-qemu-logs"
+      - name: Upload QEMU firmware logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-qemu-logs
+          path: ${{ runner.temp }}/void-boot-qemu-logs/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: void-boot-graphical-menu-iso
