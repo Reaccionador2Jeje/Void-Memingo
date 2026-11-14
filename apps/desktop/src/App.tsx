@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import TerminalPanel from './components/TerminalPanel';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -56,6 +56,7 @@ type OsValidation = { valid: boolean; errors: string[]; warnings: string[] };
 type BuildPreflight = { supportedHost: boolean; ready: boolean; distribution: string; checks: { id: string; label: string; available: boolean; required: boolean; detail: string }[]; warnings: string[] };
 type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; bootTestScriptPath?: string | null; uefiBootTestScriptPath?: string | null; commands: string[]; notes: string[] };
 type BuildArtifactReport = { valid: boolean; isoPath: string; sizeBytes: number; sha256: string | null; backend: string | null; checks: { id: string; label: string; passed: boolean; detail: string }[] };
+type BuildJobRecord = { id: string; backend: string; status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'; stage: string; startedAt: number; finishedAt: number | null; exitCode: number | null };
 
 function FileNode({
   root,
@@ -189,6 +190,12 @@ function App() {
   const [artifactReport, setArtifactReport] = useState<BuildArtifactReport | null>(null);
   const [osBusy, setOsBusy] = useState(false);
   const [buildRunning, setBuildRunning] = useState(false);
+  const [buildJobs, setBuildJobs] = useState<BuildJobRecord[]>([]);
+  const [activeBuildJobId, setActiveBuildJobId] = useState<string | null>(null);
+  const [buildStage, setBuildStage] = useState('idle');
+  const [selectedBuildLog, setSelectedBuildLog] = useState<string | null>(null);
+  const activeBuildJobRef = useRef<string | null>(null);
+  const buildStageRef = useRef('idle');
   const [terminalInterruptSignal, setTerminalInterruptSignal] = useState(0);
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null);
   const [gitBusy, setGitBusy] = useState(false);
@@ -238,16 +245,71 @@ function App() {
     setLogs((current) => [...current.slice(-99), '[' + stamp + '] ' + message]);
   }, []);
 
+  const refreshBuildJobs = useCallback(async () => {
+    if (!workspace) {
+      setBuildJobs([]);
+      return;
+    }
+    try {
+      setBuildJobs(await invoke<BuildJobRecord[]>('list_os_build_jobs', { workspace }));
+    } catch (error) {
+      addLog('No se pudo cargar el historial de compilaciones: ' + String(error));
+    }
+  }, [addLog, workspace]);
+
+  useEffect(() => { void refreshBuildJobs(); }, [refreshBuildJobs]);
+
   const handleTerminalCommandStarted = useCallback(() => {
     setBuildRunning(true);
-  }, []);
+    const jobId = activeBuildJobRef.current;
+    if (jobId && workspace) {
+      buildStageRef.current = 'building';
+      setBuildStage('building');
+      void invoke<BuildJobRecord>('update_os_build_job', {
+        workspace, jobId, status: 'running', stage: 'building', exitCode: null
+      }).then(() => refreshBuildJobs()).catch((error) => addLog('No se pudo actualizar el trabajo de build: ' + String(error)));
+    }
+  }, [addLog, refreshBuildJobs, workspace]);
+
+  const handleTerminalCommandOutput = useCallback((data: string) => {
+    const jobId = activeBuildJobRef.current;
+    if (!jobId || !workspace) return;
+    void invoke('append_os_build_job_log', { workspace, jobId, data }).catch(() => undefined);
+    const output = data.toLowerCase();
+    let nextStage = buildStageRef.current;
+    if (/lb clean|cleaning|clean workspace|limpiando/.test(output)) nextStage = 'cleaning';
+    else if (/lb config|configuring|configuración/.test(output)) nextStage = 'configuring';
+    else if (/debootstrap|pacstrap|installing packages|instalando paquetes|apt-get install|pacman -/.test(output)) nextStage = 'installing-packages';
+    else if (/mksquashfs|squashfs|filesystem.squashfs/.test(output)) nextStage = 'building-filesystem';
+    else if (/xorriso|creating iso|generating iso|creando iso/.test(output)) nextStage = 'creating-image';
+    else if (/sha256|checksum|validating|verifying artifact|verificando/.test(output)) nextStage = 'validating';
+    if (nextStage !== buildStageRef.current) {
+      buildStageRef.current = nextStage;
+      setBuildStage(nextStage);
+      void invoke('update_os_build_job', {
+        workspace, jobId, status: 'running', stage: nextStage, exitCode: null
+      }).then(() => refreshBuildJobs()).catch(() => undefined);
+    }
+  }, [refreshBuildJobs, workspace]);
 
   const handleTerminalCommandFinished = useCallback((exitCode: number) => {
     setBuildRunning(false);
     addLog(exitCode === 0
       ? 'Proceso finalizado correctamente.'
       : 'Proceso finalizado con código ' + exitCode + '.');
-  }, [addLog]);
+    const jobId = activeBuildJobRef.current;
+    if (jobId && workspace) {
+      const status = exitCode === 0 ? 'succeeded' : (exitCode === 130 || exitCode === 143 ? 'cancelled' : 'failed');
+      const stage = status === 'succeeded' ? 'completed' : status;
+      buildStageRef.current = stage;
+      setBuildStage(stage);
+      void invoke<BuildJobRecord>('update_os_build_job', {
+        workspace, jobId, status, stage, exitCode
+      }).then(() => refreshBuildJobs()).catch((error) => addLog('No se pudo cerrar el registro del build: ' + String(error)));
+      activeBuildJobRef.current = null;
+      setActiveBuildJobId(null);
+    }
+  }, [addLog, refreshBuildJobs, workspace]);
 
   const handleTerminalCommandConsumed = useCallback(() => {
     setTerminalCommand(null);
@@ -257,8 +319,14 @@ function App() {
     if (!buildRunning) return;
     if (!window.confirm('Enviar Ctrl+C a la terminal activa para interrumpir el proceso?')) return;
     setTerminalInterruptSignal((current) => current + 1);
+    const jobId = activeBuildJobRef.current;
+    if (jobId && workspace) {
+      buildStageRef.current = 'cancelling';
+      setBuildStage('cancelling');
+      void invoke('update_os_build_job', { workspace, jobId, status: 'running', stage: 'cancelling', exitCode: null }).catch(() => undefined);
+    }
     addLog('Solicitud de interrupción enviada.');
-  }, [addLog, buildRunning]);
+  }, [addLog, buildRunning, workspace]);
 
   const refreshGitSnapshot = useCallback(async (root: string) => {
     const snapshot = await invoke<GitSnapshot>('git_snapshot', { root });
@@ -718,13 +786,17 @@ directory = ${quote(osOutputDir)}
     }
   }, [addLog, workspace]);
 
-  const runOsBuild = useCallback(() => {
-    if (!buildPreparation) {
-      addLog('Prepara primero el backend y revisa el script generado.');
+  const runOsBuild = useCallback(async () => {
+    if (!workspace || !buildPreparation) {
+      addLog('Abre el proyecto y prepara primero el backend.');
       return;
     }
     if (!buildPreflight?.ready) {
       addLog('No se puede iniciar: ejecuta el preflight y resuelve las dependencias obligatorias.');
+      return;
+    }
+    if (buildRunning || activeBuildJobRef.current) {
+      addLog('Ya hay una compilación activa.');
       return;
     }
     const command = buildPreparation.commands.join(' && ');
@@ -735,12 +807,25 @@ directory = ${quote(osOutputDir)}
       command + '\n\nRevisa el script antes de continuar. No se sobrescribirán ISOs existentes. ¿Continuar?'
     );
     if (!confirmed) return;
-    setTerminalMounted(true);
-    setBottomOpen(true);
-    setBottomView('terminal');
-    setTerminalCommand(command);
-    addLog('Build solicitado desde OS Builder; salida en la terminal integrada.');
-  }, [addLog, buildPreparation, buildPreflight]);
+    try {
+      const job = await invoke<BuildJobRecord>('start_os_build_job', {
+        workspace, backend: buildPreparation.backend
+      });
+      activeBuildJobRef.current = job.id;
+      buildStageRef.current = 'queued';
+      setActiveBuildJobId(job.id);
+      setBuildStage('queued');
+      setBuildJobs((current) => [job, ...current].slice(0, 30));
+      setSelectedBuildLog(null);
+      setTerminalMounted(true);
+      setBottomOpen(true);
+      setBottomView('terminal');
+      setTerminalCommand(command);
+      addLog('Compilación registrada: ' + job.id + '. Salida e historial guardados en el proyecto.');
+    } catch (error) {
+      addLog('No se pudo registrar la compilación: ' + String(error));
+    }
+  }, [addLog, buildPreparation, buildPreflight, buildRunning, workspace]);
   const runOsBootTest = useCallback(() => {
     if (!buildPreparation?.bootTestScriptPath) {
       addLog('Prepara primero el backend para generar el script de prueba.');
@@ -1269,6 +1354,31 @@ directory = ${quote(osOutputDir)}
                   {artifactReport.checks.map((check) => <p key={check.id}>{check.passed ? '✓' : '✕'} {check.label}: {check.detail}</p>)}
                 </div>
               )}
+              <div className="os-validation">
+                <b>Estado de compilación</b>
+                <p>Etapa actual: {buildStage === 'idle' ? 'Sin compilación activa' : buildStage.replace(/-/g, ' ')}</p>
+                {activeBuildJobId && <p>ID: <code>{activeBuildJobId}</code></p>}
+                <p>Los trabajos y sus registros se guardan dentro de <code>.void-memingo/build-jobs/</code> en el proyecto.</p>
+              </div>
+              {buildJobs.length > 0 && (
+                <div className="os-validation">
+                  <b>Historial de compilaciones</b>
+                  {buildJobs.slice(0, 8).map((job) => (
+                    <p key={job.id}>
+                      <strong>{job.backend}</strong> · {job.status} · {job.stage.replace(/-/g, ' ')} · {new Date(job.startedAt * 1000).toLocaleString()}
+                      {' '}<button className="text-button" onClick={() => {
+                        if (!workspace) return;
+                        void invoke<string>('read_os_build_job_log', { workspace, jobId: job.id })
+                          .then(setSelectedBuildLog)
+                          .catch((error) => addLog('No se pudo leer el registro: ' + String(error)));
+                      }}>Ver registro</button>
+                    </p>
+                  ))}
+                  {selectedBuildLog !== null && (
+                    <pre className="build-job-log">{selectedBuildLog || 'El registro está vacío.'}</pre>
+                  )}
+                </div>
+              )}
               {buildPreparation && (
                 <div className="os-validation valid">
                   <b>{buildPreparation.backend} preparado</b>
@@ -1393,6 +1503,7 @@ directory = ${quote(osOutputDir)}
                     interruptSignal={terminalInterruptSignal}
                     onCommandStarted={handleTerminalCommandStarted}
                     onCommandFinished={handleTerminalCommandFinished}
+                    onCommandOutput={handleTerminalCommandOutput}
                   />
                   </div>
                 )}
