@@ -57,6 +57,18 @@ fn safe_file_name(value: &str) -> Result<String, String> {
     Ok(name.to_string())
 }
 
+fn normalize_expected_sha256(value: Option<String>) -> Result<Option<String>, String> {
+    let normalized = value.map(|value| value.trim().to_ascii_lowercase()).filter(|value| !value.is_empty());
+    if normalized.as_ref().is_some_and(|value| value.len() != 64 || !value.chars().all(|character| character.is_ascii_hexdigit())) {
+        return Err("El SHA-256 esperado debe contener exactamente 64 caracteres hexadecimales".into());
+    }
+    Ok(normalized)
+}
+
+fn checksum_matches(actual: &str, expected: Option<&str>) -> bool {
+    expected.is_none_or(|expected| actual.eq_ignore_ascii_case(expected))
+}
+
 fn update_progress(
     tasks: &Arc<Mutex<HashMap<String, DownloadTask>>>,
     id: &str,
@@ -88,14 +100,7 @@ impl DownloadManager {
             return Err("Solo se permiten enlaces HTTPS públicos sin credenciales".into());
         }
 
-        let expected_sha256 = expected_sha256
-            .map(|value| value.trim().to_ascii_lowercase())
-            .filter(|value| !value.is_empty());
-        if expected_sha256.as_ref().is_some_and(|value| {
-            value.len() != 64 || !value.chars().all(|character| character.is_ascii_hexdigit())
-        }) {
-            return Err("El SHA-256 esperado debe contener exactamente 64 caracteres hexadecimales".into());
-        }
+        let expected_sha256 = normalize_expected_sha256(expected_sha256)?;
 
         let file_name = safe_file_name(&file_name)?;
         let directory = PathBuf::from(directory);
@@ -157,8 +162,12 @@ impl DownloadManager {
                 let probe = client
                     .get(&url)
                     .header(reqwest::header::RANGE, "bytes=0-0")
+                    .header(reqwest::header::ACCEPT_ENCODING, "identity")
                     .send()
                     .map_err(|e| format!("No se pudo consultar el servidor: {e}"))?;
+                if probe.url().scheme() != "https" {
+                    return Err("El servidor redirigió fuera de HTTPS; se cancela la descarga".into());
+                }
                 if probe.status() != reqwest::StatusCode::PARTIAL_CONTENT {
                     return Err("Este servidor no admite descargas por rangos. El modo acelerado requiere HTTP Range; no se inicia una descarga engañosamente paralela.".into());
                 }
@@ -231,23 +240,27 @@ impl DownloadManager {
                                 reqwest::header::RANGE,
                                 format!("bytes={request_start}-{end}"),
                             )
+                            .header(reqwest::header::ACCEPT_ENCODING, "identity")
                             .send()
                             .map_err(|e| {
                                 format!("Error de conexión en parte {}: {e}", index + 1)
                             })?;
+                        if response.url().scheme() != "https" {
+                            return Err("El servidor redirigió fuera de HTTPS durante la transferencia".into());
+                        }
                         if response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
                             return Err(format!(
                                 "El servidor dejó de admitir rangos en la parte {}",
                                 index + 1
                             ));
                         }
-                        let expected_header = format!("bytes {request_start}-");
+                        let expected_header = format!("bytes {request_start}-{end}/{total}");
                         let actual_header = response
                             .headers()
                             .get(reqwest::header::CONTENT_RANGE)
                             .and_then(|v| v.to_str().ok())
                             .unwrap_or("");
-                        if !actual_header.starts_with(&expected_header) {
+                        if actual_header != expected_header {
                             return Err(format!(
                                 "Rango incorrecto recibido en la parte {}",
                                 index + 1
@@ -350,7 +363,7 @@ impl DownloadManager {
                 }
                 let actual_sha256 = format!("{:x}", hasher.finalize());
                 if let Some(expected) = expected_sha256.as_ref() {
-                    if &actual_sha256 != expected {
+                    if !checksum_matches(&actual_sha256, Some(expected)) {
                         let _ = fs::remove_file(&merged_path);
                         for path in &part_paths { let _ = fs::remove_file(path); }
                         return Err(format!("El SHA-256 no coincide. Esperado: {expected}; recibido: {actual_sha256}. Se descartaron las partes para evitar reanudar datos no verificados."));
@@ -429,11 +442,20 @@ mod tests {
     }
 
     #[test]
-    fn validates_expected_sha256_format() {
-        let valid = "a".repeat(64);
-        assert_eq!(valid.len(), 64);
-        assert!(valid.chars().all(|character| character.is_ascii_hexdigit()));
-        assert!(!"not-a-checksum".chars().all(|character| character.is_ascii_hexdigit()));
+    fn normalizes_and_validates_publisher_sha256() {
+        let uppercase = "A".repeat(64);
+        assert_eq!(normalize_expected_sha256(Some(uppercase)).unwrap(), Some("a".repeat(64)));
+        assert_eq!(normalize_expected_sha256(None).unwrap(), None);
+        assert!(normalize_expected_sha256(Some("not-a-checksum".into())).is_err());
+        assert!(normalize_expected_sha256(Some("a".repeat(63))).is_err());
+    }
+
+    #[test]
+    fn publisher_checksum_must_match_before_finalization() {
+        let expected = "a".repeat(64);
+        assert!(checksum_matches(&expected, Some(&expected)));
+        assert!(!checksum_matches(&"b".repeat(64), Some(&expected)));
+        assert!(checksum_matches("any-digest", None));
     }
 
     #[test]
