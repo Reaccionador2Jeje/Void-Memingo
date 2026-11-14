@@ -144,6 +144,11 @@ function App() {
   const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchResults, setSearchResults] = useState<WorkspaceSearchMatch[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsReady, setSettingsReady] = useState(false);
+  const [editorFontSize, setEditorFontSize] = useState(13);
+  const [editorWordWrap, setEditorWordWrap] = useState(true);
+  const [editorTabSize, setEditorTabSize] = useState(2);
   const [sidebarView, setSidebarView] = useState<SidebarView>('explorer');
   const [bottomView, setBottomView] = useState<BottomView>('output');
   const [bottomOpen, setBottomOpen] = useState(true);
@@ -188,6 +193,34 @@ function App() {
   const [gitBranchName, setGitBranchName] = useState('');
   const [gitRemoteName, setGitRemoteName] = useState('origin');
   const [gitRemoteUrl, setGitRemoteUrl] = useState('');
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('void-memingo.editor-settings');
+      if (stored) {
+        const parsed = JSON.parse(stored) as { fontSize?: number; wordWrap?: boolean; tabSize?: number };
+        if (typeof parsed.fontSize === 'number') setEditorFontSize(Math.min(24, Math.max(10, parsed.fontSize)));
+        if (typeof parsed.wordWrap === 'boolean') setEditorWordWrap(parsed.wordWrap);
+        if (parsed.tabSize === 2 || parsed.tabSize === 4 || parsed.tabSize === 8) setEditorTabSize(parsed.tabSize);
+      }
+    } catch {
+      // Ignore invalid local settings and keep safe defaults.
+    }
+    setSettingsReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!settingsReady) return;
+    try {
+      window.localStorage.setItem('void-memingo.editor-settings', JSON.stringify({
+        fontSize: editorFontSize,
+        wordWrap: editorWordWrap,
+        tabSize: editorTabSize
+      }));
+    } catch {
+      // Settings remain available for this session if storage is unavailable.
+    }
+  }, [editorFontSize, editorTabSize, editorWordWrap, settingsReady]);
 
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
   const isLinuxHost = typeof navigator !== 'undefined' && /Linux/i.test(navigator.userAgent);
@@ -866,7 +899,7 @@ directory = ${quote(osOutputDir)}
         </div>
         <div className="titlebar-actions">
           <button className="icon-button" title="Ayuda (próximamente)" disabled><CircleHelp size={16} /></button>
-          <button className="icon-button" title="Configuración (próximamente)" disabled><Settings size={16} /></button>
+          <button className="icon-button" title="Configuración del editor" onClick={() => setSettingsOpen(true)}><Settings size={16} /></button>
           <div className="window-indicator"><span /></div>
         </div>
       </header>
@@ -892,7 +925,7 @@ directory = ${quote(osOutputDir)}
           </div>
           <div className="rail-group rail-bottom">
             <button className="rail-button" title="Herramientas de sistema (próximamente)" disabled><Cpu size={20} /></button>
-            <button className="rail-button" title="Configuración (próximamente)" disabled><Settings size={20} /></button>
+            <button className="rail-button" title="Configuración" onClick={() => setSettingsOpen(true)}><Settings size={20} /></button>
           </div>
         </nav>
 
@@ -1249,6 +1282,8 @@ directory = ${quote(osOutputDir)}
                   spellCheck={false}
                   autoCapitalize="off"
                   autoCorrect="off"
+                  wrap={editorWordWrap ? 'soft' : 'off'}
+                  style={{ fontSize: editorFontSize + 'px', tabSize: editorTabSize, whiteSpace: editorWordWrap ? 'pre-wrap' : 'pre' }}
                   aria-label="Editor de texto"
                 />
               </div>
@@ -1315,6 +1350,36 @@ directory = ${quote(osOutputDir)}
             </section>
         </main>
       </div>
+
+      {settingsOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
+          <section className="settings-modal" role="dialog" aria-modal="true" aria-label="Configuración del editor">
+            <div className="settings-modal-heading">
+              <div><span className="eyebrow">PREFERENCIAS</span><h2>Configuración del editor</h2></div>
+              <button className="subtle-icon" onClick={() => setSettingsOpen(false)} title="Cerrar"><X size={16} /></button>
+            </div>
+            <label className="settings-control">
+              <span>Tamaño de fuente <strong>{editorFontSize}px</strong></span>
+              <input type="range" min={10} max={24} value={editorFontSize} onChange={(event) => setEditorFontSize(Number(event.target.value))} />
+            </label>
+            <label className="settings-control settings-checkbox">
+              <input type="checkbox" checked={editorWordWrap} onChange={(event) => setEditorWordWrap(event.target.checked)} />
+              Ajuste de línea
+            </label>
+            <label className="settings-control">
+              <span>Tamaño de indentación</span>
+              <select value={editorTabSize} onChange={(event) => setEditorTabSize(Number(event.target.value))}>
+                <option value={2}>2 espacios</option><option value={4}>4 espacios</option><option value={8}>8 espacios</option>
+              </select>
+            </label>
+            <div className="settings-modal-actions">
+              <button className="secondary-button" onClick={() => { setEditorFontSize(13); setEditorWordWrap(true); setEditorTabSize(2); }}>Restablecer</button>
+              <button className="primary-button" onClick={() => setSettingsOpen(false)}>Listo</button>
+            </div>
+            <p>Las preferencias se guardan localmente en este dispositivo.</p>
+          </section>
+        </div>
+      )}
 
       <footer className="statusbar">
         <div className="status-left">
