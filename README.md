@@ -37,7 +37,7 @@ Release automation is being extended to publish Linux \`.deb\` / \`.rpm\` / AppI
 
 ## OS development and publishing
 
-Void Memingo includes separate OS image backends: Debian Live uses live-build with its documented auto scripts; Ubuntu uses Ubuntu's livecd-rootfs clean/config/build pipeline with casper; Arch Linux uses the upstream archiso releng profile and mkarchiso. Each backend prepares distribution-specific package lists, filesystem overlays, service configuration and build scripts. Generated build scripts inspect ISO 9660 and El Torito boot metadata, verify SHA-256 and export a TOML snapshot manifest. An optional BIOS-mode QEMU test script is generated for each project. The backends remain experimental previews until reproducible builds and real boot tests have passed on supported Linux hosts.
+Void Memingo includes separate OS image backends: Debian Live uses live-build with its documented auto scripts; Ubuntu uses Ubuntu's livecd-rootfs clean/config/build pipeline with casper; Arch Linux uses the upstream archiso releng profile and mkarchiso. Each backend prepares distribution-specific package lists, filesystem overlays, service configuration and build scripts. Generated build scripts inspect ISO 9660 and El Torito boot metadata, verify SHA-256 and export a TOML snapshot manifest. Optional BIOS-mode and UEFI-mode QEMU test scripts are generated for each project when the host has the required QEMU/OVMF tools. The backends remain experimental previews until reproducible builds and real boot tests have passed on supported Linux hosts.
 
 [PondOS](examples/pondos/README.md) is the first showcase project: an Ubuntu-based system with LXQt, a green/blue pond-inspired identity, and a minimalist frog-and-leaf logo.
 
