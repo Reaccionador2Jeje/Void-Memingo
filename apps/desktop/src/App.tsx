@@ -276,6 +276,7 @@ function App() {
 
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
   const distroFamilies = useMemo(() => Array.from(new Set(voidBootCatalog.map((entry) => entry.family))).sort(), [voidBootCatalog]);
+  const distroArchitectures = useMemo(() => Array.from(new Set(voidBootCatalog.flatMap((entry) => entry.architectures))).sort(), [voidBootCatalog]);
   const filteredDistroCatalog = useMemo(() => {
     const query = distroSearch.trim().toLocaleLowerCase();
     return voidBootCatalog.filter((entry) => {
@@ -283,7 +284,11 @@ function App() {
       const matchesFamily = distroFamily === 'all' || entry.family === distroFamily;
       const matchesArchitecture = distroArchitecture === 'all' || entry.architectures.includes(distroArchitecture);
       const kind = entry.kind ?? 'linux_distribution';
-      const matchesCategory = distroCategory === 'all' || (distroCategory === 'windows' ? kind === 'operating_system' : kind === 'linux_distribution');
+      const matchesCategory = distroCategory === 'all'
+        || (distroCategory === 'linux' && kind === 'linux_distribution')
+        || (distroCategory === 'windows' && kind === 'operating_system' && entry.family === 'windows')
+        || (distroCategory === 'bsd' && kind === 'operating_system' && entry.family === 'bsd')
+        || (distroCategory === 'other' && kind === 'operating_system' && entry.family !== 'windows' && entry.family !== 'bsd');
       return matchesSearch && matchesFamily && matchesArchitecture && matchesCategory;
     });
   }, [voidBootCatalog, distroSearch, distroFamily, distroArchitecture, distroCategory]);
@@ -1483,14 +1488,14 @@ directory = ${quote(osOutputDir)}
               <div className="distro-center-toolbar">
                 <label className="distro-search"><Search size={16} /><input value={distroSearch} onChange={(event) => setDistroSearch(event.target.value)} placeholder="Buscar sistemas, familias o nombres…" /></label>
                 <select aria-label="Filtrar por categoría" value={distroCategory} onChange={(event) => setDistroCategory(event.target.value)}>
-                  <option value="all">Todos los sistemas</option><option value="linux">Distribuciones Linux</option><option value="windows">Windows</option>
+                  <option value="all">Todos los sistemas</option><option value="linux">Distribuciones Linux</option><option value="windows">Windows</option><option value="bsd">BSD</option><option value="other">Otros sistemas</option>
                 </select>
                 <select aria-label="Filtrar por familia" value={distroFamily} onChange={(event) => setDistroFamily(event.target.value)}>
                   <option value="all">Todas las familias</option>
                   {distroFamilies.map((family) => <option key={family} value={family}>{family}</option>)}
                 </select>
                 <select aria-label="Filtrar por arquitectura" value={distroArchitecture} onChange={(event) => setDistroArchitecture(event.target.value)}>
-                  <option value="all">Todas las arquitecturas</option><option value="x86_64">x86-64</option><option value="aarch64">ARM64</option><option value="i686">x86 (32-bit)</option>
+                  <option value="all">Todas las arquitecturas</option>{distroArchitectures.map((architecture) => <option key={architecture} value={architecture}>{architecture}</option>)}
                 </select>
               </div>
               <div className="distro-center-layout">
@@ -1506,7 +1511,7 @@ directory = ${quote(osOutputDir)}
                         <button key={distro.id} className={'distro-center-card' + (selected ? ' selected' : '')} onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); }}>
                           <span className="distro-card-icon">{isWindows ? <Monitor size={23} /> : <Disc3 size={23} />}</span>
                           <span className="distro-card-main"><strong>{distro.name}</strong><small>{distro.family} · {distro.architectures.join(', ')}</small></span>
-                          <span className={'distro-kind ' + (isWindows ? 'external' : 'linux')}>{isWindows ? 'Sistema operativo' : 'Linux'}</span>
+                          <span className={'distro-kind ' + (isWindows ? 'external' : 'linux')}>{isWindows ? (distro.family === 'windows' ? 'Windows' : distro.family === 'bsd' ? 'BSD' : 'Otro OS') : 'Linux'}</span>
                           <span className="distro-card-description">{distro.description}</span>
                           <span className="distro-card-footer">{distro.editions.slice(0, 2).join(' · ')}</span>
                         </button>
