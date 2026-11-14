@@ -45,6 +45,7 @@ fn main() {
             commands::void_boot::pause_void_boot_download,
             commands::void_boot::list_void_boot_downloads,
             commands::void_boot::start_void_boot_qemu,
+            commands::void_boot::create_void_boot_qemu_disk,
             commands::void_boot::scan_void_boot_iso_directory,
             commands::void_boot::preview_void_boot_menu
         ])
