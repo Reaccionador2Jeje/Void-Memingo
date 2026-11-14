@@ -105,7 +105,7 @@ jobs:
       - name: Validate all shipped boot profile catalogs
         run: |
           for profile in apps/void-boot/profiles/*.toml; do
-            cargo run --manifest-path apps/void-boot/Cargo.toml -- validate-profiles "$profile"
+            cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- validate-profiles "$profile"
           done
       - name: Validate bundled distribution catalogue and architecture filters
         run: |
