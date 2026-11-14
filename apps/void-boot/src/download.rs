@@ -60,7 +60,7 @@ impl DownloadManager {
             if tasks.get(&id).is_some_and(|task| task.snapshot.status == "downloading") {
                 return Err("Esta descarga ya está en curso".into());
             }
-            let existing = fs::metadata(&part_path).map(|m| m.len()).unwrap_or(0);
+            let existing = fs::metadata(&part_path).map_or(0, |m| m.len());
             tasks.insert(id.clone(), DownloadTask {
                 snapshot: DownloadSnapshot {
                     id: id.clone(), file_name: file_name.clone(),
@@ -85,7 +85,7 @@ impl DownloadManager {
                 if offset > 0 { request = request.header(reqwest::header::RANGE, format!("bytes={offset}-")); }
                 let mut response = request.send().map_err(|e| format!("Error de red: {e}"))?;
                 let status = response.status();
-                if !(status.is_success()) { return Err(format!("El servidor respondió HTTP {status}")); }
+                if !status.is_success() { return Err(format!("El servidor respondió HTTP {status}")); }
                 let append = offset > 0 && status == reqwest::StatusCode::PARTIAL_CONTENT;
                 if append {
                     let expected_prefix = format!("bytes {offset}-");
