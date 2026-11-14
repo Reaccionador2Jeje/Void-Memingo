@@ -1179,7 +1179,7 @@ mod tests {
         let root = fs::canonicalize(root).unwrap();
         let prepared = prepare_debian_live_project(
             root.to_string_lossy().into_owned(),
-            &toml::to_string(&project).unwrap(),
+            toml::to_string(&project).unwrap(),
         ).expect("Debian live-build preparation");
         let script = fs::read_to_string(&prepared.script_path).unwrap();
         assert!(script.contains("lb config"));
