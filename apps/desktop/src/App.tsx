@@ -171,6 +171,7 @@ function App() {
   const [osValidation, setOsValidation] = useState<OsValidation | null>(null);
   const [buildPreparation, setBuildPreparation] = useState<BuildPreparation | null>(null);
   const [buildPreflight, setBuildPreflight] = useState<BuildPreflight | null>(null);
+  const [artifactReport, setArtifactReport] = useState<BuildArtifactReport | null>(null);
   const [osBusy, setOsBusy] = useState(false);
   const [buildRunning, setBuildRunning] = useState(false);
   const [terminalInterruptSignal, setTerminalInterruptSignal] = useState(0);
@@ -592,6 +593,7 @@ directory = ${quote(osOutputDir)}
   const prepareOsBuild = useCallback(async () => {
     if (!workspace) return;
     setOsBusy(true);
+    setArtifactReport(null);
     try {
       const projectToml = await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
       const result = await invoke<BuildPreparation>('prepare_os_build_project', { workspace, projectToml });
@@ -603,6 +605,24 @@ directory = ${quote(osOutputDir)}
     } catch (error) {
       addLog('No se pudo preparar el backend: ' + String(error));
       setBuildPreparation(null);
+    } finally {
+      setOsBusy(false);
+    }
+  }, [addLog, workspace]);
+
+  const validateOsBuildArtifact = useCallback(async () => {
+    if (!workspace) return;
+    setOsBusy(true);
+    try {
+      const projectToml = await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
+      const report = await invoke<BuildArtifactReport>('validate_os_build_artifact', { workspace, projectToml });
+      setArtifactReport(report);
+      addLog(report.valid
+        ? 'ISO verificado: SHA-256, formato ISO 9660, catálogo de arranque y manifiesto correctos.'
+        : 'La verificación del ISO encontró comprobaciones fallidas.');
+    } catch (error) {
+      setArtifactReport(null);
+      addLog('No se pudo verificar el ISO: ' + String(error));
     } finally {
       setOsBusy(false);
     }
@@ -1101,6 +1121,9 @@ directory = ${quote(osOutputDir)}
                     Interrumpir proceso
                   </button>
                 )}
+                <button className="secondary-button" onClick={() => void validateOsBuildArtifact()} disabled={osBusy || !workspace || !buildPreparation} title="Comprobar ISO, checksum, catálogo de arranque y manifiesto">
+                  Verificar ISO
+                </button>
                 <button className="secondary-button" onClick={runOsBootTest} disabled={osBusy || !isLinuxHost || !buildPreparation?.bootTestScriptPath || !buildPreflight?.checks.some((check) => check.id === 'qemu-system-x86_64' && check.available)} title="Iniciar una prueba de arranque BIOS del ISO en QEMU">
                   <Cpu size={15} /> Probar ISO (QEMU)
                 </button>
@@ -1125,6 +1148,15 @@ directory = ${quote(osOutputDir)}
                 <div className="os-validation" role="status">
                   <b>Proceso activo</b>
                   <p>La salida se muestra en la terminal integrada. Puedes interrumpir el proceso con el botón correspondiente o con Ctrl+C desde la terminal.</p>
+                </div>
+              )}
+              {artifactReport && (
+                <div className={'os-validation ' + (artifactReport.valid ? 'valid' : 'invalid')} role="status">
+                  <b>{artifactReport.valid ? 'Artefacto ISO verificado' : 'El artefacto ISO necesita atención'}</b>
+                  <p>Archivo: {artifactReport.isoPath}</p>
+                  <p>Tamaño: {(artifactReport.sizeBytes / 1024 / 1024).toFixed(1)} MB · Backend: {artifactReport.backend || 'no identificado'}</p>
+                  {artifactReport.sha256 && <p>SHA-256: <code>{artifactReport.sha256}</code></p>}
+                  {artifactReport.checks.map((check) => <p key={check.id}>{check.passed ? '✓' : '✕'} {check.label}: {check.detail}</p>)}
                 </div>
               )}
               {buildPreparation && (
