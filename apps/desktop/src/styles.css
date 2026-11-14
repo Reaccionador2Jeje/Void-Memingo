@@ -851,3 +851,16 @@ button:disabled {
 .void-boot-distro-card small{color:#7f8ba0;font:9px "JetBrains Mono",Consolas,monospace;line-height:1.4;overflow-wrap:anywhere}
 .void-boot-distro-card a{width:fit-content;color:#b1a7ff;font-size:10px;text-decoration:none;padding:3px 0}
 .void-boot-distro-card a:hover{color:#fff;text-decoration:underline}
+
+
+/* Void Boot resumable downloads */
+.void-boot-distro-card.selected{border-color:#8879e2;background:#211f32;box-shadow:inset 0 0 0 1px rgba(154,140,255,.12)}
+.void-boot-download-form{display:grid;gap:7px;margin:8px 0 12px}
+.void-boot-download-form input{width:100%;min-width:0;height:32px;padding:0 8px;border:1px solid #343b49;border-radius:5px;outline:0;background:#171c25;color:#e2e7f0;font:10px Inter,sans-serif}
+.void-boot-download-form input:focus{border-color:#8879e2}
+.void-boot-download-form button{width:100%;font-size:9px}
+.void-boot-download-task{display:grid;gap:5px;margin:7px 0;padding:9px;border:1px solid #303746;border-radius:6px;background:#141a23;font-size:10px}
+.void-boot-download-task strong{color:#dce2ed;overflow-wrap:anywhere}
+.void-boot-download-task span,.void-boot-download-task small{color:#8793a6;line-height:1.45;overflow-wrap:anywhere}
+.void-boot-download-progress{height:5px;overflow:hidden;border-radius:5px;background:#303747}
+.void-boot-download-progress span{display:block;height:100%;background:#9a8cff;transition:width .2s}
