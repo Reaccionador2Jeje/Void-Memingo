@@ -83,7 +83,7 @@ jobs:
 
       - name: Generate platform application icons
         working-directory: apps/desktop
-        run: npx tauri icon src-tauri/icons/icon.png
+        run: npx tauri icon src-tauri/icons/icon.png --output src-tauri/icons
 
       - name: Build native desktop installers
         working-directory: apps/desktop
