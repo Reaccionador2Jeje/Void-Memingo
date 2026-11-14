@@ -50,8 +50,8 @@ Before a physical-media writer is enabled, it must enumerate devices using stabl
 5. **Void Memingo integration:** shared profile catalog, ISO compatibility display, TOML profile picker and generated menu preview.
 6. **Standalone GUI:** ISO library, profile editor, boot menu preview and safe media planner.
 7. **Installer package:** ZIP distribution with shell, PowerShell and web folder installers; menu/profile deployment only.\n8. **Media writer:** guarded USB preparation only after virtual testing and explicit user approval.
-8. **Compatibility expansion:** persistence, more distributions, Windows installer support where technically and legally appropriate.
-9. **Secure Boot:** after signing, key management and trust requirements are fully designed.
+10. **Compatibility expansion:** persistence, more distributions, Windows installer support where technically and legally appropriate.
+11. **Secure Boot:** after signing, key management and trust requirements are fully designed.
 
 ## Acceptance criteria
 
