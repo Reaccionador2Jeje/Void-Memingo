@@ -28,6 +28,7 @@ type OpenTab = {
 
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
+type BootDistribution = { id: string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string };
 type BottomView = 'problems' | 'output' | 'terminal';
 
 type OsBase = {
@@ -161,6 +162,8 @@ function App() {
   const [terminalCommand, setTerminalCommand] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [voidBootDirectory, setVoidBootDirectory] = useState<string | null>(null);
+  const [voidBootCatalog, setVoidBootCatalog] = useState<BootDistribution[]>([]);
+  const [voidBootCatalogBusy, setVoidBootCatalogBusy] = useState(false);
   const [voidBootEntries, setVoidBootEntries] = useState<BootIsoEntry[]>([]);
   const [voidBootBusy, setVoidBootBusy] = useState(false);
   const [voidBootProfileFile, setVoidBootProfileFile] = useState<string | null>(null);
@@ -500,6 +503,19 @@ function App() {
       setOsBusy(false);
     }
   }, [addLog, workspace]);
+
+  const loadVoidBootCatalog = useCallback(async () => {
+    setVoidBootCatalogBusy(true);
+    try {
+      const entries = await invoke<BootDistribution[]>('list_void_boot_distributions');
+      setVoidBootCatalog(entries);
+      addLog(`Void Boot Distribution Center: ${entries.length} distribuciones disponibles.`);
+    } catch (error) {
+      addLog('No se pudo cargar el Distribution Center: ' + String(error));
+    } finally {
+      setVoidBootCatalogBusy(false);
+    }
+  }, [addLog]);
 
   const scanVoidBootDirectory = useCallback(async (directory: string) => {
     setVoidBootBusy(true);
@@ -1141,7 +1157,7 @@ directory = ${quote(osOutputDir)}
             <button className="rail-button" onClick={() => setBottomOpen(!bottomOpen)} title="Panel inferior">
               <PanelBottom size={20} />
             </button>
-            <button className={'rail-button ' + (sidebarView === 'boot' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('boot'); setSidebarOpen(true); }} title="Void Boot — administrador de ISOs">
+            <button className={'rail-button ' + (sidebarView === 'boot' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('boot'); setSidebarOpen(true); void loadVoidBootCatalog(); }} title="Void Boot — administrador de ISOs">
               <Disc3 size={20} />
             </button>
             <button className={'rail-button ' + (osBuilderOpen ? 'active' : '')} onClick={() => { setOsBuilderOpen(true); setSidebarOpen(false); }} title="OS Builder">
@@ -1220,7 +1236,20 @@ directory = ${quote(osOutputDir)}
 
             {sidebarView === 'boot' && (
               <div className="void-boot-sidebar">
-                <div className="git-toolbar"><span>ISO MANAGER · PREVIEW</span><button className="subtle-icon" onClick={() => voidBootDirectory && void scanVoidBootDirectory(voidBootDirectory)} disabled={!voidBootDirectory || voidBootBusy} title="Volver a inspeccionar"><Activity size={14} /></button></div>
+                <div className="git-toolbar"><span>VOID BOOT · DISTRIBUTION CENTER</span><button className="subtle-icon" onClick={() => { void loadVoidBootCatalog(); if (voidBootDirectory) void scanVoidBootDirectory(voidBootDirectory); }} disabled={voidBootCatalogBusy || voidBootBusy} title="Actualizar catálogo y biblioteca"><Activity size={14} /></button></div>
+                <p className="git-provider-note">Selecciona una distribución para abrir su descarga oficial. Después guarda su ISO en tu biblioteca y escanéala aquí. La escritura en unidades físicas aún está bloqueada mientras terminan las pruebas de compatibilidad.</p>
+                <div className="git-section-label">DISTRIBUTIONS · {voidBootCatalog.length}</div>
+                {voidBootCatalogBusy && <div className="tree-empty">Cargando distribuciones…</div>}
+                {!voidBootCatalogBusy && voidBootCatalog.map((distro) => (
+                  <div className="git-remote-row" key={distro.id}>
+                    <strong>{distro.name}</strong>
+                    <span>{distro.description}</span>
+                    <small>{distro.family} · {distro.architectures.join(', ')}</small>
+                    <small>Ediciones: {distro.editions.join(', ')}</small>
+                    <a className="text-action" href={distro.download_page} target="_blank" rel="noreferrer">Abrir descarga oficial ↗</a>
+                  </div>
+                ))}
+                <div className="git-section-label">ISO LIBRARY · LOCAL</div>
                 <p className="git-provider-note">Inspección de solo lectura. Todavía no prepara ni modifica unidades USB.</p>
                 <button className="primary-button" onClick={() => void chooseVoidBootDirectory()} disabled={voidBootBusy}>{voidBootBusy ? 'Inspeccionando…' : 'Seleccionar carpeta de ISOs'}</button>
                 <div className="git-section-label">BOOT PROFILES</div>
