@@ -233,6 +233,23 @@ function App() {
     }
   }, [editorFontSize, editorTabSize, editorWordWrap, settingsReady]);
 
+  useEffect(() => {
+    const handleEditorShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.shiftKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        setOsBuilderOpen(false);
+        setSidebarView('search');
+        setSidebarOpen(true);
+      } else if (event.key === ',') {
+        event.preventDefault();
+        setSettingsOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleEditorShortcut);
+    return () => window.removeEventListener('keydown', handleEditorShortcut);
+  }, []);
+
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
   const isLinuxHost = typeof navigator !== 'undefined' && /Linux/i.test(navigator.userAgent);
 
