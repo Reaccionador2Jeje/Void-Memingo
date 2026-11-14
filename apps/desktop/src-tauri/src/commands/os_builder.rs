@@ -1085,7 +1085,9 @@ mod tests {
         assert!(script.contains("livecd.ubuntu.iso"));
         assert!(script.contains("config/includes.chroot"));
         assert!(script.contains("void-memingo.list.chroot"));
-        assert!(script.contains("locale-gen"));
+        let system_hook = fs::read_to_string(root.join(".void-memingo/ubuntu-live/atdev-os/hooks/020-void-memingo-system-config.hook.chroot")).unwrap();
+        assert!(system_hook.contains("locale-gen"));
+        assert!(system_hook.contains("America/Santiago"));
         fs::remove_dir_all(root).unwrap();
     }
 
