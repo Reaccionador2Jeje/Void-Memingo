@@ -116,12 +116,14 @@ Implemented in the desktop branch:
 - Explicit capability registry containing only Debian, Ubuntu and Arch Linux.
 - OS Builder workbench with base/release/desktop selection, package list, root overlay, services, locale, timezone, hostname, target storage filesystem, ISO output settings, GTK theme, icon theme and wallpaper.
 - Project creation and validation through `void-os.toml`.
-- **Debian Live profile preparation:** creates an isolated live-build workspace, package lists, removal and system configuration hooks, root filesystem overlay and a reviewable build script.
+- **Debian Live backend:** creates an isolated live-build workspace with the documented `auto/config`, `auto/clean` and `auto/build` entry points; package lists, package-removal and system-configuration hooks; desktop task packages; service-to-package mappings; firmware-enabled hybrid ISO configuration; and a reviewable build script. The build script resets live-build state while preserving the configuration tree, invokes the official config/build commands, checks ISO 9660 and the El Torito boot catalog, verifies SHA-256, and exports a project snapshot manifest.
 - **Ubuntu image backend:** uses the Ubuntu `livecd-rootfs` package's official `auto/clean`, `auto/config` and `auto/build` scripts with a project selected from the desktop profile (`ubuntu`, `kubuntu`, `xubuntu` or `lubuntu`), `SUBPROJECT=live` and the selected Ubuntu suite. It adds the project's package list, root filesystem overlay and executable chroot hooks after the official configuration step, then collects the flavor-specific `livecd.*.iso` artifact.
 - **Archiso image backend:** stages the upstream `releng` profile, merges the project package list, removes requested packages, overlays the custom airootfs, configures ISO identity and runs `mkarchiso`. It checks the Arch host toolchain and uses unprivileged user namespaces instead of forcing the build through sudo.
 - Ubuntu and Arch both generate distribution-specific scripts, package manifests and overlay configuration; neither is routed through the Debian Live backend.
 - GTK theme and icon defaults are written into `/etc/skel`; wallpaper files can be supplied from inside the project overlay and copied into the image.
 - The OS Builder can send a prepared build command to the integrated PTY terminal. The user explicitly confirms before the command is sent; `sudo` prompts in the terminal rather than being invoked invisibly. Terminal output streams live and Ctrl+C can interrupt the foreground build.
+- Every backend writes a versioned TOML build manifest beside the generated ISO after successful artifact validation. The manifest contains a snapshot of the OS project configuration and the backend identifier.
+- The preflight reports QEMU as an optional dependency. The builder generates a BIOS-mode QEMU test script for each backend, and the UI can launch it in the integrated terminal after the ISO has been created.
 - Existing output files are protected from overwrite by the generated scripts. The scripts write SHA-256 checksum files.
 - The desktop TypeScript initialization-order issue found by CI was corrected by moving project creation below workspace initialization.
 
@@ -130,8 +132,9 @@ Still requires verification or additional work:
 - **No bootable ISO has yet been generated and tested end-to-end for Debian, Ubuntu or Arch on a real Linux host.** The three entries are marked as profile previews, not verified build support.
 - Ubuntu's live-build + casper flow needs an actual build and boot test against its supported release repositories; it is not yet certified as equivalent to Ubuntu's official installer image.
 - Archiso profile integration needs validation against current Archiso package/profile versions.
-- Build completion currently relies on the scripts' exit status and output creation; richer post-build ISO inspection, checksum verification in the app, artifact details and optional QEMU boot testing remain to be completed.
-- Host dependency detection now checks the selected backend's toolchain, with disk/RAM advisories. Build output streams in the integrated terminal and can be interrupted with Ctrl+C; a dedicated build-job state machine, structured per-step progress and a native cancel control remain pending.
+- The scripts now inspect ISO 9660 and the El Torito boot catalog, verify the generated SHA-256 file, and export build provenance. The app still does not independently parse the resulting artifact or persist a structured build-job record.
+- Host dependency detection checks the selected backend's toolchain, with disk/RAM advisories and an optional QEMU availability check. Build output streams in the integrated terminal and can be interrupted with Ctrl+C; a dedicated build-job state machine, structured per-step progress, a native cancel control and automatic log archival remain pending.
+- The generated QEMU test currently covers BIOS boot only. UEFI firmware selection and automated screenshot/serial-log capture are not implemented yet.
 - Desktop theme values are currently applied as GTK defaults and a profile metadata file; automatic wallpaper application for every desktop environment and full KDE/GNOME/Xfce theme configuration remain pending.
 - The installation filesystem preference is stored in the manifest but is not used because no installer or partitioning workflow is implemented.
 - Package repository management, installer generation and multi-architecture image builds remain future work.
