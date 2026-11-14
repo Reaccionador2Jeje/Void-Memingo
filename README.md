@@ -47,7 +47,15 @@ The desktop source-control panel uses the system Git engine. It supports local G
 
 ### Atdev OS Hub
 
-A separate web app is being developed at `apps/os-hub/` for discovering and publishing operating systems. It includes the initial catalogue, GitHub/Google OAuth entry points, and project metadata publishing. Supabase is the planned Auth and database backend; deployment remains blocked until an active project and OAuth provider credentials are configured.
+Atdev OS Hub is a separate, deployed web application for discovering and publishing operating systems:
+
+- Production site: https://atdev-os-hub.pages.dev
+- Hosting: Cloudflare Pages, connected to `Reaccionador2Jeje/Atdev-OS-Hub`.
+- Backend: active Supabase project with the OS catalogue, releases, profiles, Git provider connections, repository links, build history and scoped API tokens.
+- Git Center: GitHub and GitLab OAuth adapters are implemented as Supabase Edge Functions. GitVoid remains experimental until its server protocol is complete.
+- Void Memingo integration: publish project metadata and submit build provenance through the scoped OS Hub API.
+
+The Git provider OAuth apps and their client secrets are separate from GitHub/Google sign-in. Provider credentials and allowed site origins must be configured as Supabase Edge Function secrets; never put them in the frontend or repository.
 
 Run the OS Hub locally:
 ```sh
@@ -58,7 +66,7 @@ npm install
 npm run dev
 ```
 
-Review `docs/GIT-INTEGRATION.md`, `docs/ATDEV-OS-HUB.md`, and `supabase/schema-draft.sql` before connecting production services.
+Review `docs/GIT-INTEGRATION.md` and `docs/ATDEV-OS-HUB.md` for the current integration contract.
 
 ## Supported platforms
 
