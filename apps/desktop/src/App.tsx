@@ -6,7 +6,7 @@ import {
   Activity, AlertCircle, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Code2, Command, Cpu, FileCode2, FilePlus2, Folder, FolderOpen,
   GitBranch, LayoutDashboard, PanelBottom, PanelLeftClose, Plus, Search,
-  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3
+  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3, Cpu
 } from 'lucide-react';
 
 type FileEntry = {
@@ -621,7 +621,7 @@ directory = ${quote(osOutputDir)}
     const command = 'sh ' + script;
     const confirmed = window.confirm(
       'Se iniciará una máquina virtual QEMU para probar el arranque del ISO.\\n\\n' +
-      command + '\\n\\nLa prueba requiere que el ISO ya exista. ¿Continuar?'
+      command + '\n\nLa prueba requiere que el ISO ya exista. ¿Continuar?'
     );
     if (!confirmed) return;
     setTerminalMounted(true);
@@ -1048,7 +1048,7 @@ directory = ${quote(osOutputDir)}
                   <Disc3 size={15} /> Build ISO
                 </button>
                 <button className="secondary-button" onClick={runOsBootTest} disabled={osBusy || !isLinuxHost || !buildPreparation?.bootTestScriptPath || !buildPreflight?.checks.some((check) => check.id === 'qemu-system-x86_64' && check.available)} title="Iniciar una prueba de arranque BIOS del ISO en QEMU">
-                  <Play size={15} /> Probar ISO (QEMU)
+                  <Cpu size={15} /> Probar ISO (QEMU)
                 </button>
                 <button className="secondary-button" onClick={() => void publishToOsHub()} disabled={osBusy || !workspace} title="Sincronizar el manifiesto del sistema con Atdev OS Hub">
                   <Layers3 size={15} /> Publicar en OS Hub
