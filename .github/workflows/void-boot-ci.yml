@@ -1,5 +1,9 @@
 name: Void Boot CI
 
+concurrency:
+  group: void-boot-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [feature/void-boot-foundation]
@@ -81,6 +85,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools qemu-system-x86 ovmf
       - uses: dtolnay/rust-toolchain@stable
+      - name: Validate all shipped boot profile catalogs
+        run: |
+          for profile in apps/void-boot/profiles/*.toml; do
+            cargo run --manifest-path apps/void-boot/Cargo.toml -- validate-profiles "$profile"
+          done
       - name: Validate Debian Live loopback profile rendering
         run: |
           cargo run --manifest-path apps/void-boot/Cargo.toml -- render-menu apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/debian-live-profile"
@@ -122,7 +131,7 @@ jobs:
       - name: Download pinned official Debian Live 13.7.0 standard ISO
         working-directory: ${{ runner.temp }}
         run: |
-          base="https://cloudfront.debian.net/cdimage/release/13.7.0-live/amd64/iso-hybrid"
+          base="https://cloudfront.debian.net/debian-cd/current-live/amd64/iso-hybrid"
           curl --fail --location --retry 3 --output SHA256SUMS "$base/SHA256SUMS"
           curl --fail --location --retry 3 --output debian-live-13.7.0-amd64-standard.iso "$base/debian-live-13.7.0-amd64-standard.iso"
           grep 'debian-live-13.7.0-amd64-standard.iso$' SHA256SUMS | sha256sum --check -
