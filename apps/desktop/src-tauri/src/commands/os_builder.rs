@@ -1204,14 +1204,33 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     } else {
         safe_create_project_directory(root, &format!("{build_relative}/overlay"))?
     };
+    if let Ok(metadata) = fs::symlink_metadata(&overlay_target) {
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err("Generated filesystem overlay is not a safe directory.".into());
+        }
+        fs::remove_dir_all(&overlay_target)
+            .map_err(|error| format!("Cannot refresh generated filesystem overlay: {error}"))?;
+    }
+    fs::create_dir_all(&overlay_target)
+        .map_err(|error| format!("Cannot create generated filesystem overlay: {error}"))?;
     copy_overlay_tree(&source_overlay, &overlay_target)?;
     apply_common_filesystem_defaults(&overlay_target, project)?;
     apply_desktop_defaults(root, &overlay_target, project)?;
 
     if distribution == "ubuntu" {
         let hook_root = safe_create_project_directory(root, &format!("{build_relative}/hooks"))?;
+        if let Ok(metadata) = fs::symlink_metadata(&hook_root) {
+            if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                return Err("Generated Ubuntu hooks path is not a safe directory.".into());
+            }
+            fs::remove_dir_all(&hook_root)
+                .map_err(|error| format!("Cannot refresh Ubuntu hooks: {error}"))?;
+        }
+        fs::create_dir_all(&hook_root)
+            .map_err(|error| format!("Cannot create Ubuntu hooks: {error}"))?;
         if !project.packages.remove.is_empty() {
             let remove_hook = hook_root.join("015-void-memingo-remove-packages.hook.chroot");
+            reject_symlink_target(&remove_hook)?;
             let names = project.packages.remove.iter().map(|name| shell_quote(name)).collect::<Vec<_>>().join(" ");
             fs::write(&remove_hook, format!("#!/bin/sh\nset -eu\napt-get purge --yes -- {names}\napt-get autoremove --yes\n"))
                 .map_err(|error| format!("Cannot write Ubuntu package removal hook: {error}"))?;
@@ -1267,8 +1286,11 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
                 let wants = safe_create_project_directory(&overlay_target, "etc/systemd/system/multi-user.target.wants")?;
                 for service in services {
                     let link = wants.join(&service);
-                    if fs::symlink_metadata(&link).is_ok() {
-                        return Err(format!("Service link already exists in overlay: {service}"));
+                    match fs::symlink_metadata(&link) {
+                        Ok(metadata) if metadata.file_type().is_symlink() => continue,
+                        Ok(_) => return Err(format!("Service path already exists and is not a symlink: {service}")),
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(error) => return Err(format!("Cannot inspect Arch service path {service}: {error}")),
                     }
                     symlink(format!("/usr/lib/systemd/system/{service}"), link)
                         .map_err(|error| format!("Cannot enable Arch service {service}: {error}"))?;
