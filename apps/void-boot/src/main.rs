@@ -3,7 +3,9 @@ use std::{
     path::{Path, PathBuf},
     process::ExitCode,
 };
-use void_boot::{devices::list_removable_devices, profiles::ProfileCatalog, scan_directory, IsoEntry};
+use void_boot::{
+    devices::list_removable_devices, profiles::ProfileCatalog, scan_directory, IsoEntry,
+};
 
 fn print_entries(entries: &[IsoEntry], json: bool) -> Result<(), Box<dyn std::error::Error>> {
     if json {
@@ -25,10 +27,7 @@ fn print_entries(entries: &[IsoEntry], json: bool) -> Result<(), Box<dyn std::er
     Ok(())
 }
 
-fn render_menu(
-    profile_file: &Path,
-    output_dir: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn render_menu(profile_file: &Path, output_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let catalog = ProfileCatalog::load(profile_file)?;
     fs::create_dir_all(output_dir)?;
     let theme_dir = output_dir.join("themes").join("void-boot");
@@ -71,10 +70,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     println!(
                         "{} — {} — {} bytes — {} — {}",
                         device.device_path,
-                        if device.model.is_empty() { "Unknown model" } else { &device.model },
+                        if device.model.is_empty() {
+                            "Unknown model"
+                        } else {
+                            &device.model
+                        },
                         device.size_bytes,
-                        if device.read_only { "read-only" } else { "writable" },
-                        if device.mounted { "mounted" } else { "not mounted" }
+                        if device.read_only {
+                            "read-only"
+                        } else {
+                            "writable"
+                        },
+                        if device.mounted {
+                            "mounted"
+                        } else {
+                            "not mounted"
+                        }
                     );
                 }
             }
@@ -84,7 +95,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("validate-profiles") => {
             let profile_file = args.next().ok_or("missing profile catalog path")?;
             let catalog = ProfileCatalog::load(Path::new(&profile_file))?;
-            println!("Profile catalog is valid: {} profile(s).", catalog.profiles.len());
+            println!(
+                "Profile catalog is valid: {} profile(s).",
+                catalog.profiles.len()
+            );
             for profile in &catalog.profiles {
                 println!("{} — {} ({})", profile.id, profile.name, profile.iso);
             }

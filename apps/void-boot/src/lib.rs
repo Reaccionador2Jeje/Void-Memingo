@@ -94,7 +94,11 @@ pub fn inspect_iso(path: &Path) -> io::Result<IsoEntry> {
     };
 
     Ok(IsoEntry {
-        name: path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+        name: path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
         path: path.to_string_lossy().into_owned(),
         size_bytes: metadata.len(),
         sha256,
@@ -119,7 +123,9 @@ pub fn scan_directory(directory: &Path) -> io::Result<Vec<IsoEntry>> {
         let metadata = fs::symlink_metadata(&path)?;
 
         if metadata.file_type().is_file()
-            && path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("iso"))
+            && path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("iso"))
         {
             paths.push(path);
         }
@@ -169,8 +175,7 @@ mod tests {
         let path = unique_temp_path("bootable.iso");
         let mut bytes = vec![0_u8; 18 * 2048];
         bytes[16 * 2048..17 * 2048].copy_from_slice(&descriptor(1, b""));
-        bytes[17 * 2048..18 * 2048]
-            .copy_from_slice(&descriptor(0, b"EL TORITO SPECIFICATION"));
+        bytes[17 * 2048..18 * 2048].copy_from_slice(&descriptor(0, b"EL TORITO SPECIFICATION"));
 
         {
             let mut file = File::create(&path).expect("create fixture ISO");

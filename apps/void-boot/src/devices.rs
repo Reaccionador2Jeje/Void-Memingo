@@ -77,12 +77,10 @@ fn is_device_mounted(device_path: &str) -> io::Result<bool> {
             .and_then(|right| right.split_whitespace().nth(1))
             .is_some_and(|source| {
                 source == device_path
-                    || source
-                        .strip_prefix(device_path)
-                        .is_some_and(|suffix| {
-                            suffix.starts_with('p')
-                                || suffix.chars().next().is_some_and(|c| c.is_ascii_digit())
-                        })
+                    || source.strip_prefix(device_path).is_some_and(|suffix| {
+                        suffix.starts_with('p')
+                            || suffix.chars().next().is_some_and(|c| c.is_ascii_digit())
+                    })
             })
     }))
 }

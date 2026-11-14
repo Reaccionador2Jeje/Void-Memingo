@@ -102,7 +102,10 @@ impl ProfileCatalog {
                 ));
             }
             if profile.linux_args.len() > 64
-                || profile.linux_args.iter().any(|arg| arg.len() > 256 || !safe_argument(arg))
+                || profile
+                    .linux_args
+                    .iter()
+                    .any(|arg| arg.len() > 256 || !safe_argument(arg))
             {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -208,7 +211,9 @@ mod tests {
         assert!(rendered.contains("search --no-floppy --file --set=root \"$isofile\""));
         assert!(rendered.contains("menuentry \"Debian Live\""));
         assert!(rendered.contains("loopback loop \"$isofile\""));
-        assert!(rendered.contains("linux (loop)/live/vmlinuz boot=live components findiso=$isofile"));
+        assert!(
+            rendered.contains("linux (loop)/live/vmlinuz boot=live components findiso=$isofile")
+        );
         assert!(rendered.contains("initrd (loop)/live/initrd.img"));
         assert!(rendered.contains("Restart computer"));
         assert!(!rendered.contains("fwsetup"));
