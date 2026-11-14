@@ -1,0 +1,37 @@
+# Void Boot graphical GRUB theme
+title-text: "VOID BOOT"
+title-color: "#f2f5ff"
+message-color: "#aab6d3"
+message-bg-color: "#10182b"
+desktop-color: "#10182b"
+terminal-font: "unicode"
+terminal-left: "10%"
+terminal-top: "18%"
+terminal-width: "80%"
+terminal-height: "64%"
+
++ boot_menu {
+  left = 15%
+  top = 28%
+  width = 70%
+  height = 52%
+  item_font = "unicode"
+  item_color = "#d7def0"
+  selected_item_color = "#ffffff"
+  item_height = 42
+  item_spacing = 10
+  icon_width = 32
+  icon_height = 32
+  scrollbar = false
+}
+
++ label {
+  top = 84%
+  left = 15%
+  width = 70%
+  height = 28
+  text = "Atdev Dev | Void Boot | BIOS + UEFI"
+  color = "#8292b8"
+  font = "unicode"
+  align = "center"
+}

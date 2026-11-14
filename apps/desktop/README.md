@@ -73,3 +73,25 @@ Installer generation, safe partition-selection UI, installation storage/filesyst
 ## IDE capabilities and remaining modules
 
 The IDE includes bounded workspace text search, persistent editor preferences, Tab indentation, Ctrl+S, and basic JSON/TOML syntax diagnostics. Full language-server diagnostics for programming languages, project-wide symbol indexing, language services and debugger integration remain planned.
+
+## Void Distro Center
+
+Void Memingo provides a dedicated, full-width Distro Center workspace backed by the shared `void-boot` Rust catalogue. The interface supports text search and filters by category (Linux, Windows, BSD and other systems), family and architecture. Selecting an entry opens a detail sheet with official project and media pages, editions, architectures, release model and verification guidance.
+
+The catalogue currently contains 31 Linux distributions, Windows 10 Home, Pro and Enterprise LTSC Evaluation, Windows 11 x64/ARM64, FreeBSD, OpenBSD, NetBSD and ReactOS. Windows 10 Home and Pro share Microsoft's official ISO page; LTSC links to Microsoft's 90-day Enterprise evaluation media and requires a valid LTSC license for permanent use. Windows 10 Home/Pro general support ended on 14 October 2025. Windows and the other non-Linux systems are catalogue-only: they link to official publisher pages but do not use the Linux ISO downloader or claim multiboot compatibility. ReactOS is clearly marked as alpha.
+
+For Linux entries with the supported direct-ISO delivery mode, the downloader accepts a direct HTTPS ISO URL copied from the selected publisher's official download page. It probes HTTP Range support, then divides the file into up to eight byte ranges and downloads them concurrently. Each range is stored separately so pause/retry can resume incomplete parts without discarding completed parts. The UI displays transferred bytes, total size and connection count.
+
+The local ISO library is read-only: it reports ISO metadata and SHA-256 but does not write to removable devices. The downloader also computes SHA-256 for completed transfers and accepts an optional 64-character publisher checksum; when supplied, a mismatch prevents finalization and discards partial chunks. Development and CI use disposable fixture images, so no new ISO download is required from the user while the project is being completed. Without a publisher checksum, the digest is only an inspection fingerprint, not proof of authenticity. Detached publisher signatures and automatic version-specific checksum discovery still need a dedicated verification workflow. QEMU testing uses disposable virtual images and snapshot mode; the user's Ventoy USB must remain untouched. Physical USB partitioning, formatting, bootloader installation and writes remain disabled.
+
+### Descarga directa y pruebas QEMU
+
+La descarga directa está habilitada únicamente para entradas Linux con el método de entrega compatible. Windows, BSD y ReactOS son fichas de catálogo con enlaces oficiales; no se descargan mediante el flujo Linux ni se marcan como compatibles con arranque multiboot sin pruebas específicas.
+
+Para probar una imagen virtual UEFI sin tocar unidades físicas:
+
+```bash
+scripts/run-void-boot-qemu.sh /tmp/void-boot-test/void-boot.img
+```
+
+El lanzador usa OVMF, desactiva la red y ejecuta el disco virtual en modo snapshot. Los cambios del invitado se descartan al cerrar QEMU; el archivo original permanece intacto.

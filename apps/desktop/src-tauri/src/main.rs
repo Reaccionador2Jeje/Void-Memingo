@@ -3,6 +3,7 @@ mod commands;
 fn main() {
     tauri::Builder::default()
         .manage(commands::terminal::TerminalState::default())
+        .manage(::void_boot::download::DownloadManager::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::git::git_clone_repository,
@@ -38,7 +39,18 @@ fn main() {
             commands::os_builder::append_os_build_job_log,
             commands::os_builder::update_os_build_job,
             commands::os_builder::list_os_build_jobs,
-            commands::os_builder::read_os_build_job_log
+            commands::os_builder::read_os_build_job_log,
+            commands::void_boot::list_void_boot_distributions,
+            commands::void_boot::start_void_boot_download,
+            commands::void_boot::pause_void_boot_download,
+            commands::void_boot::list_void_boot_downloads,
+            commands::void_boot::start_void_boot_qemu,
+            commands::void_boot::create_void_boot_qemu_disk,
+            commands::void_boot::scan_void_boot_iso_directory,
+            commands::void_boot::verify_void_boot_iso_checksum_manifest,
+            commands::void_boot::load_void_boot_profile_catalog,
+            commands::void_boot::save_void_boot_profile_catalog,
+            commands::void_boot::preview_void_boot_menu
         ])
         .run(tauri::generate_context!())
         .expect("error while running Void Memingo");

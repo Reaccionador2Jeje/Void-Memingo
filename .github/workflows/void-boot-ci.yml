@@ -1,0 +1,236 @@
+name: Void Boot CI
+
+concurrency:
+  group: void-boot-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [feature/void-boot-foundation]
+    paths:
+      - "scripts/test-void-boot-qemu.sh"
+      - "scripts/test-debian-live-qemu.sh"
+      - "apps/void-boot/**"
+      - "apps/desktop/**"
+      - "docs/VOID_BOOT_ARCHITECTURE.md"
+      - "docs/VOID_BOOT_RELEASE_GATES.md"
+      - "README.md"
+      - "scripts/build-void-boot-demo-iso.sh"
+      - "scripts/build-void-boot-media.sh"
+      - "scripts/test-void-boot-media-uefi.sh"
+      - "scripts/package-void-boot.sh"
+      - "scripts/install-void-boot.sh"
+      - "scripts/install-void-boot.ps1"
+      - ".github/workflows/void-boot-ci.yml"
+  pull_request:
+    paths:
+      - "scripts/test-void-boot-qemu.sh"
+      - "scripts/test-debian-live-qemu.sh"
+      - "apps/void-boot/**"
+      - "apps/desktop/**"
+      - "docs/VOID_BOOT_ARCHITECTURE.md"
+      - "README.md"
+      - "scripts/build-void-boot-demo-iso.sh"
+      - "scripts/build-void-boot-media.sh"
+      - "scripts/test-void-boot-media-uefi.sh"
+      - "scripts/package-void-boot.sh"
+      - "scripts/install-void-boot.sh"
+      - "scripts/install-void-boot.ps1"
+      - ".github/workflows/void-boot-ci.yml"
+  workflow_dispatch:
+    inputs:
+      run_debian_live:
+        description: "Run the full Debian Live ISO handoff test in disposable QEMU disks"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust checks (Void Boot)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/void-boot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/void-boot
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run tests
+        run: cargo test --all-targets
+
+  desktop-integration:
+    name: Void Memingo integration checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install desktop dependencies
+        working-directory: apps/desktop
+        run: npm install
+      - name: Typecheck and build desktop frontend
+        working-directory: apps/desktop
+        run: npm run build
+      - name: Test desktop Rust backend
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+  boot-menu-iso:
+    name: Build bootable Void Boot menu ISO
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GRUB BIOS/UEFI and ISO tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools gdisk qemu-system-x86 ovmf zip
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate all shipped boot profile catalogs
+        run: |
+          for profile in apps/void-boot/profiles/*.toml; do
+            cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- validate-profiles "$profile"
+          done
+      - name: Validate bundled distribution catalogue and architecture filters
+        run: |
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog > "$RUNNER_TEMP/void-boot-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog --arch x86_64 > "$RUNNER_TEMP/void-boot-x86_64-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog --family windows > "$RUNNER_TEMP/void-boot-windows-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog --family bsd > "$RUNNER_TEMP/void-boot-bsd-catalog.txt"
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- catalog --family reactos > "$RUNNER_TEMP/void-boot-reactos-catalog.txt"
+          grep -F "Void Boot Distro Center" "$RUNNER_TEMP/void-boot-catalog.txt"
+          grep -F "Debian" "$RUNNER_TEMP/void-boot-x86_64-catalog.txt"
+          grep -F "Windows 11" "$RUNNER_TEMP/void-boot-windows-catalog.txt"
+          grep -F "Windows 10 Home" "$RUNNER_TEMP/void-boot-windows-catalog.txt"
+          grep -F "Windows 10 Pro" "$RUNNER_TEMP/void-boot-windows-catalog.txt"
+          grep -F "Windows 10 Enterprise LTSC" "$RUNNER_TEMP/void-boot-windows-catalog.txt"
+          grep -F "CentOS Stream" "$RUNNER_TEMP/void-boot-x86_64-catalog.txt"
+          grep -F "Lubuntu" "$RUNNER_TEMP/void-boot-x86_64-catalog.txt"
+          grep -F "deepin" "$RUNNER_TEMP/void-boot-x86_64-catalog.txt"
+          grep -F "Operating system" "$RUNNER_TEMP/void-boot-windows-catalog.txt"
+          grep -F "FreeBSD" "$RUNNER_TEMP/void-boot-bsd-catalog.txt"
+          grep -F "OpenBSD" "$RUNNER_TEMP/void-boot-bsd-catalog.txt"
+          grep -F "NetBSD" "$RUNNER_TEMP/void-boot-bsd-catalog.txt"
+          grep -F "ReactOS" "$RUNNER_TEMP/void-boot-reactos-catalog.txt"
+      - name: Exercise read-only removable device inventory
+        run: cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- list-devices --json
+      - name: Validate Debian Live loopback profile rendering
+        run: |
+          cargo run --manifest-path apps/void-boot/Cargo.toml --features internal-cli --bin void-boot-internal -- render-menu apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/debian-live-profile"
+          grep -F "linux (loop)/live/vmlinuz boot=live components quiet findiso=\$isofile" "$RUNNER_TEMP/debian-live-profile/grub.cfg"
+      - name: Build pre-boot graphical menu ISO
+        run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-demo.iso"
+      - name: Verify ISO artifact exists
+        run: test -s "$RUNNER_TEMP/void-boot-demo.iso"
+      - name: Build and inspect a disposable UEFI media image
+        env:
+          VOID_BOOT_IMAGE_SIZE_MIB: "512"
+        run: |
+          truncate -s 8M "$RUNNER_TEMP/fixture.iso"
+          bash scripts/build-void-boot-media.sh apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/fixture.iso" "$RUNNER_TEMP/void-boot-media.img"
+          sgdisk --verify "$RUNNER_TEMP/void-boot-media.img"
+          test -s "$RUNNER_TEMP/void-boot-media.img"
+          bash scripts/test-void-boot-media-uefi.sh "$RUNNER_TEMP/void-boot-media.img" "$RUNNER_TEMP/void-boot-media-uefi.log"
+      - name: Test importing multiple ISO payloads from a library folder
+        env:
+          VOID_BOOT_IMAGE_SIZE_MIB: "512"
+        run: |
+          mkdir -p "$RUNNER_TEMP/iso-library"
+          cp "$RUNNER_TEMP/fixture.iso" "$RUNNER_TEMP/iso-library/debian-fixture.iso"
+          cp "$RUNNER_TEMP/fixture.iso" "$RUNNER_TEMP/iso-library/rescue-fixture.iso"
+          cat > "$RUNNER_TEMP/library-profiles.toml" <<'PROFILES'
+          [[profiles]]
+          id = "debian-fixture"
+          name = "Debian fixture"
+          iso = "iso/debian-fixture.iso"
+          kernel = "live/vmlinuz"
+          initrd = "live/initrd.img"
+          linux_args = ["boot=live"]
+
+          [[profiles]]
+          id = "rescue-fixture"
+          name = "Rescue fixture"
+          iso = "iso/rescue-fixture.iso"
+          kernel = "boot/vmlinuz"
+          initrd = "boot/initrd.img"
+          linux_args = ["quiet"]
+          PROFILES
+          bash scripts/build-void-boot-media.sh "$RUNNER_TEMP/library-profiles.toml" "$RUNNER_TEMP/iso-library" "$RUNNER_TEMP/void-boot-library.img"
+          sgdisk --verify "$RUNNER_TEMP/void-boot-library.img"
+          bash scripts/test-void-boot-media-uefi.sh "$RUNNER_TEMP/void-boot-library.img" "$RUNNER_TEMP/void-boot-library-uefi.log"
+      - name: Build Void Boot ZIP installer package
+        run: bash scripts/package-void-boot.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-installer.zip"
+      - name: Upload Void Boot ZIP installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-installer-zip
+          path: ${{ runner.temp }}/void-boot-installer.zip
+          if-no-files-found: error
+      - name: Build serial-console ISO for firmware smoke tests
+        env:
+          VOID_BOOT_SERIAL_TEST: "1"
+        run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-qemu-test.iso"
+      - name: Boot test with legacy BIOS and UEFI in QEMU
+        run: bash scripts/test-void-boot-qemu.sh "$RUNNER_TEMP/void-boot-qemu-test.iso" "$RUNNER_TEMP/void-boot-qemu-logs"
+      - name: Upload QEMU firmware logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-qemu-logs
+          path: ${{ runner.temp }}/void-boot-qemu-logs/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-graphical-menu-iso
+          path: ${{ runner.temp }}/void-boot-demo.iso
+          if-no-files-found: error
+
+  debian-live-integration:
+    name: Full Debian Live ISO handoff (manual)
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_debian_live) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[debian-live-qemu]'))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU and virtual FAT disk tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools dosfstools qemu-system-x86 ovmf
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Download pinned official Debian Live 13.7.0 standard ISO
+        working-directory: ${{ runner.temp }}
+        run: |
+          base="https://cloudfront.debian.net/debian-cd/current-live/amd64/iso-hybrid"
+          curl --fail --location --retry 3 --output SHA256SUMS "$base/SHA256SUMS"
+          curl --fail --location --retry 3 --output debian-live-13.7.0-amd64-standard.iso "$base/debian-live-13.7.0-amd64-standard.iso"
+          grep 'debian-live-13.7.0-amd64-standard.iso$' SHA256SUMS | sha256sum --check -
+      - name: Build Void Boot menu for the pinned Debian ISO
+        env:
+          VOID_BOOT_SERIAL_TEST: "1"
+        run: |
+          bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/debian-live-qemu.toml "$RUNNER_TEMP/void-boot-debian-live.iso"
+      - name: Boot Debian Live through Void Boot in QEMU
+        run: |
+          bash scripts/test-debian-live-qemu.sh "$RUNNER_TEMP/void-boot-debian-live.iso" "$RUNNER_TEMP/debian-live-13.7.0-amd64-standard.iso" "$RUNNER_TEMP/debian-live-qemu-logs"
+      - name: Upload Debian Live QEMU logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-debian-live-qemu-logs
+          path: ${{ runner.temp }}/debian-live-qemu-logs/
+          if-no-files-found: ignore

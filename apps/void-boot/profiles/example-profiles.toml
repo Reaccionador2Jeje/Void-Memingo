@@ -1,0 +1,10 @@
+# Example only: paths and arguments must match the exact ISO release.
+# This profile is not a claim of verified compatibility.
+
+[[profiles]]
+id = "debian-live-example"
+name = "Debian Live (example profile)"
+iso = "iso/debian-live.iso"
+kernel = "live/vmlinuz"
+initrd = "live/initrd.img"
+linux_args = ["boot=live", "components", "quiet"]
