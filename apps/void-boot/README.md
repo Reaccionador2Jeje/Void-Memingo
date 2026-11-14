@@ -42,12 +42,19 @@ The render command writes grub.cfg and copies the graphical theme into the outpu
 
 ## UEFI media image builder (virtual image only)
 
-Build a GPT/FAT32 UEFI image containing the standalone GRUB EFI loader and one ISO payload:
+Build a GPT/FAT32 UEFI image containing the standalone GRUB EFI loader and one or many ISO payloads:
 
     sudo apt-get install grub-efi-amd64-bin gdisk mtools dosfstools
-    bash scripts/build-void-boot-media.sh apps/void-boot/profiles/debian-live-loopback.toml /path/to/linux.iso target/void-boot-media.img
+    # Single ISO (legacy mode):
+    bash scripts/build-void-boot-media.sh apps/void-boot/profiles/debian-live-loopback.toml /path/to/debian.iso target/void-boot-media.img
 
-The ISO is copied to the path declared by the first profile (or an optional fourth argument). The builder verifies the GPT and compares the copied ISO byte-for-byte. Set `VOID_BOOT_IMAGE_SIZE_MIB` to change the image size (minimum 512 MiB). The output path must not already exist.
+    # ISO library mode: every distinct ISO path in the profile catalog is imported.
+    # Put source files directly in /path/to/isos, named by each profile's ISO basename.
+    bash scripts/build-void-boot-media.sh apps/void-boot/profiles/library-profiles.toml /path/to/isos target/void-boot-library.img
+
+In library mode, the profile catalog is the import manifest: each `iso = "iso/name.iso"` entry maps to `/path/to/isos/name.iso`. Every referenced file must exist, be non-empty and not be a symlink. Duplicate basenames mapped to different ISO paths are rejected. The builder creates the destination directories, copies each unique ISO, then extracts and compares every copy byte-for-byte. The generated GRUB menu contains one entry per profile. Add a profile only when its kernel/initrd paths and boot arguments match that exact ISO; unsupported or untested profiles must not be treated as verified.
+
+Set `VOID_BOOT_IMAGE_SIZE_MIB` to change the image size (minimum 512 MiB; the default is 1024 MiB). Choose enough capacity for all ISO files plus filesystem overhead. The output path must not already exist.
 
 This milestone creates a **UEFI-only virtual disk image**. It does not write to USB devices, install BIOS boot code, or claim that every Linux ISO supports loopback boot. BIOS support and QEMU firmware validation remain separate gates.
 
