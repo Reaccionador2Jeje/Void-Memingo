@@ -473,6 +473,13 @@ pub struct BuildPreflight {
 fn command_available(command: &str) -> bool {
     #[cfg(target_os = "linux")]
     {
+        if command == "livecd-rootfs" {
+            return [
+                "/usr/share/livecd-rootfs/live-build/auto/clean",
+                "/usr/share/livecd-rootfs/live-build/auto/config",
+                "/usr/share/livecd-rootfs/live-build/auto/build",
+            ].iter().all(|path| Path::new(path).is_file());
+        }
         Command::new("sh")
             .args(["-c", &format!("command -v {command} >/dev/null 2>&1")])
             .status()
@@ -499,7 +506,8 @@ fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'st
             ("sudo", "sudo"),
         ]),
         "ubuntu" => Ok(vec![
-            ("lb", "Ubuntu-compatible live-build"),
+            ("livecd-rootfs", "livecd-rootfs (Ubuntu image build scripts)"),
+            ("lb", "Ubuntu live-build"),
             ("debootstrap", "debootstrap"),
             ("mksquashfs", "squashfs-tools"),
             ("xorriso", "xorriso"),
@@ -514,7 +522,9 @@ fn required_build_commands(distribution: &str) -> Result<Vec<(&'static str, &'st
             ("pacstrap", "pacstrap (arch-install-scripts)"),
             ("arch-chroot", "arch-install-scripts"),
             ("bsdtar", "libarchive"),
-            ("mkfs.vfat", "dosfstools"),
+            ("mkfs.fat", "dosfstools"),
+            ("mtools", "mtools"),
+            ("mount", "util-linux"),
             ("mksquashfs", "squashfs-tools"),
             ("xorriso", "libisoburn / xorriso"),
             ("zstd", "zstd"),
@@ -1107,7 +1117,7 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     let profile_root = if distribution == "arch" {
         safe_create_project_directory(root, &format!("{build_relative}/profile"))?
     } else {
-        safe_create_project_directory(root, &format!("{build_relative}/config"))?
+        build_root.clone()
     };
 
     let mut packages = project.packages.install.clone();
@@ -1136,14 +1146,14 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
     let overlay_target = if distribution == "arch" {
         safe_create_project_directory(root, &format!("{build_relative}/profile/custom-airootfs"))?
     } else {
-        safe_create_project_directory(root, &format!("{build_relative}/config/includes.chroot"))?
+        safe_create_project_directory(root, &format!("{build_relative}/overlay"))?
     };
     copy_overlay_tree(&source_overlay, &overlay_target)?;
     apply_common_filesystem_defaults(&overlay_target, project)?;
     apply_desktop_defaults(root, &overlay_target, project)?;
 
     if distribution == "ubuntu" {
-        let hook_root = safe_create_project_directory(root, &format!("{build_relative}/config/hooks/normal"))?;
+        let hook_root = safe_create_project_directory(root, &format!("{build_relative}/hooks"))?;
         if !project.packages.remove.is_empty() {
             let remove_hook = hook_root.join("015-void-memingo-remove-packages.hook.chroot");
             let names = project.packages.remove.iter().map(|name| shell_quote(name)).collect::<Vec<_>>().join(" ");
@@ -1213,24 +1223,28 @@ fn prepare_non_debian_project(root: &Path, project: &OsProject) -> Result<BuildP
             "26.04 LTS" => "resolute",
             other => return Err(format!("Unsupported Ubuntu release: {other}")),
         };
-        let package_list_root = safe_create_project_directory(root, &format!("{build_relative}/config/package-lists"))?;
-        let package_file = package_list_root.join("void-memingo.list.chroot");
+        let package_file = build_root.join("packages.list");
         fs::write(&package_file, format!("{}\n", packages.join("\n")))
             .map_err(|error| format!("Cannot write Ubuntu package list: {error}"))?;
         let hostname = if project.filesystem.hostname.is_empty() { "void-memingo" } else { &project.filesystem.hostname };
         format!(r#"#!/bin/sh
 set -eu
-command -v lb >/dev/null 2>&1 || {{ echo "Install Ubuntu-compatible live-build and its host dependencies first." >&2; exit 127; }}
-command -v debootstrap >/dev/null 2>&1 || {{ echo "Install debootstrap first." >&2; exit 127; }}
+AUTO=/usr/share/livecd-rootfs/live-build/auto
+[ -x "$AUTO/clean" ] && [ -x "$AUTO/config" ] && [ -x "$AUTO/build" ] || {{ echo "Install the Ubuntu livecd-rootfs package." >&2; exit 127; }}
+command -v lb >/dev/null 2>&1 || {{ echo "Install Ubuntu live-build." >&2; exit 127; }}
+command -v debootstrap >/dev/null 2>&1 || {{ echo "Install debootstrap." >&2; exit 127; }}
 cd {build_dir}
-# Remove only stale ISO artifacts from this generated backend workspace.
-find . -maxdepth 1 -type f -name '*.iso' -delete
-lb config --distribution {codename} --architectures amd64 --binary-images iso-hybrid --archive-areas "main universe restricted multiverse" --bootappend-live "boot=casper hostname={hostname}" --iso-volume {label}
-lb build
-count=0
-image=""
-for candidate in ./*.iso; do [ -f "$candidate" ] || continue; count=$((count + 1)); image="$candidate"; done
-[ "$count" -eq 1 ] && [ -s "$image" ] || {{ echo "Expected exactly one non-empty Ubuntu ISO." >&2; exit 1; }}
+find . -maxdepth 1 -type f -name 'livecd.ubuntu.iso' -delete
+ARCH=amd64 PROJECT=ubuntu SUBPROJECT=live SUITE={codename} "$AUTO/clean"
+ARCH=amd64 PROJECT=ubuntu SUBPROJECT=live SUITE={codename} "$AUTO/config"
+mkdir -p config/package-lists config/includes.chroot config/hooks/normal
+cp {packages_file} config/package-lists/void-memingo.list.chroot
+cp -a {overlay}/. config/includes.chroot/
+if [ -d {hooks} ]; then cp -a {hooks}/. config/hooks/normal/; fi
+lb config --iso-volume {label}
+ARCH=amd64 PROJECT=ubuntu SUBPROJECT=live SUITE={codename} "$AUTO/build"
+image=livecd.ubuntu.iso
+[ -s "$image" ] || {{ echo "livecd-rootfs did not produce livecd.ubuntu.iso." >&2; exit 1; }}
 mkdir -p {output_dir}
 [ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
 install -m 0644 "$image" {output}
@@ -1241,7 +1255,9 @@ echo "Ubuntu live ISO validated and SHA-256 checksum created."
 "#,
             build_dir = shell_quote(&build_root.to_string_lossy()),
             codename = codename,
-            hostname = hostname,
+            packages_file = shell_quote(&package_file.to_string_lossy()),
+            overlay = shell_quote(&overlay_target.to_string_lossy()),
+            hooks = shell_quote(&hook_root.to_string_lossy()),
             label = shell_quote(iso_label),
             output_dir = output_dir_q,
             output = output_q,
