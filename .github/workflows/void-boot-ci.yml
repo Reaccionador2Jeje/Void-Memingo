@@ -8,6 +8,7 @@ on:
       - "apps/desktop/**"
       - "docs/VOID_BOOT_ARCHITECTURE.md"
       - "README.md"
+      - "scripts/build-void-boot-demo-iso.sh"
       - ".github/workflows/void-boot-ci.yml"
   pull_request:
     paths:
