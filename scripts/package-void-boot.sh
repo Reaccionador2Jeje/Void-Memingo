@@ -23,7 +23,7 @@ test -f "$PROFILE_FILE" || {
 
 mkdir -p "$PACKAGE_DIR/payload/boot/void-boot/profiles" "$(dirname "$OUTPUT_ZIP")"
 
-cargo run --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" -- \
+cargo run --quiet --manifest-path "$ROOT_DIR/apps/void-boot/Cargo.toml" --features internal-cli --bin void-boot-internal -- \
   render-menu "$PROFILE_FILE" "$PACKAGE_DIR/payload/boot/grub"
 
 cp "$ROOT_DIR"/apps/void-boot/profiles/*.toml "$PACKAGE_DIR/payload/boot/void-boot/profiles/"
