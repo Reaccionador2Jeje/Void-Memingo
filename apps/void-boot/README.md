@@ -23,6 +23,10 @@ Requires Rust stable.
     cargo run -- scan /path/to/iso-folder --json
     cargo run -- render-menu profiles/example-profiles.toml /tmp/void-boot-menu
 
+From the repository root, build a bootable graphical menu ISO for a virtual machine:
+
+    bash scripts/build-void-boot-demo-iso.sh
+
 The render command writes grub.cfg and copies the graphical theme into the output folder. It does not install GRUB or write to a USB drive.
 
 ## Intended removable-media layout
