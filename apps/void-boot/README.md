@@ -1,131 +1,50 @@
 # Void Boot
 
-Void Boot is Atdev Dev's independent, open-source multiboot project and a first-class Void Memingo client.
+Void Boot es el centro gráfico de administración de arranque múltiple de Atdev Dev, integrado como una experiencia de escritorio de primera clase en Void Memingo.
 
-## Current capabilities
+**Void Boot está diseñado para usarse mediante interfaz gráfica.** No ofrece una interfaz de terminal (CLI) ni una interfaz de texto interactiva (TUI) como experiencia de usuario. Las operaciones se realizan desde ventanas, paneles, botones, selectores de archivos, indicadores de progreso y vistas previas.
 
-- Read-only ISO inventory with SHA-256, ISO 9660 and El Torito descriptor inspection.
-- Declarative boot profiles with validation of IDs, labels, ISO/kernel/initrd paths, argument limits and duplicate IDs.
-- `validate-profiles` command for checking profile catalogs before generating a menu.
-- Read-only Linux removable-device inventory showing model, capacity, read-only state and whether the device is mounted. This command never opens a device for writing.
-- GRUB 2 configuration generator for a pre-operating-system boot menu.
-- Graphical GRUB theme with Void Boot branding, boot menu, restart and shutdown entries.
-- CLI and reusable Rust library shared with Void Memingo.
-- No physical drive is mounted, formatted, partitioned or written by these features.
+## Experiencia gráfica
 
-The generated menu uses GRUB's graphical gfxterm menu and profile-specific loopback entries. **A profile is only a boot recipe, not proof that an ISO is compatible.** Kernel/initrd paths and arguments must match the exact image. Some ISOs need extraction or a custom boot method.
+Desde el espacio de trabajo Void Boot de Void Memingo puedes:
 
-## Void Distro Center desktop interface
+- Explorar el catálogo de sistemas operativos y filtrar por categoría, familia y arquitectura.
+- Consultar páginas oficiales, ediciones, formatos, arquitecturas y notas de compatibilidad.
+- Elegir una carpeta para crear y administrar una biblioteca local de imágenes ISO.
+- Inspeccionar ISO de forma no destructiva y consultar su tamaño, estructura ISO 9660, descriptor El Torito y SHA-256.
+- Verificar una ISO con un manifiesto SHA-256 del editor mediante un selector gráfico de archivos. Se admiten los formatos GNU `SHA256SUMS` y BSD `SHA256 (filename) = digest`.
+- Descargar y reanudar imágenes Linux desde enlaces HTTPS directos, con progreso, pausa y verificación SHA-256 opcional.
+- Seleccionar catálogos de perfiles, validar su contenido y previsualizar el menú gráfico GRUB generado.
+- Crear discos virtuales QCOW2 desechables y probarlos mediante QEMU cuando las dependencias estén instaladas.
 
-Void Memingo exposes the catalogue through a dedicated Distro Center workspace. It supports text search and filters by operating-system category, family and architecture, with a details view for official project/download pages, release metadata and publisher verification guidance.
+El motor Rust es interno y compartido con Void Memingo; no constituye una interfaz de usuario independiente. La experiencia de usuario de Void Boot permanece en la aplicación gráfica.
 
-The local ISO library remains read-only during inspection: it reports image metadata and SHA-256 without writing to removable devices. QEMU testing is isolated from physical media and uses virtual disk images. The existing Ventoy USB must remain untouched.
+## Catálogo y compatibilidad
 
-Windows 10 Home and Pro share Microsoft's official Windows 10 ISO page; their installed edition depends on the license or product key. Windows 10 Home/Pro general support ended on 14 October 2025. The LTSC entry links to Microsoft's 90-day Enterprise evaluation media; permanent use requires a valid LTSC license. Windows 11 x64/ARM64, Windows 10 editions, BSD and ReactOS remain catalogue-only. The application does not offer the Linux ISO downloader for these systems, claim Windows loopback/multiboot support, or redistribute their media. A Windows installation-media workflow must be designed and validated independently before it is enabled.
+El catálogo incluye 31 distribuciones Linux: Debian, Ubuntu, Fedora, Arch Linux, Linux Mint, Zorin OS, openSUSE, Pop!_OS, elementary OS, Kali Linux, EndeavourOS, Manjaro, MX Linux, NixOS, Void Linux, Rocky Linux, AlmaLinux, Alpine Linux, Mageia, CentOS Stream, Gentoo, Slackware, Lubuntu, Kubuntu, Xubuntu, Linux Lite, deepin, Solus, KDE neon, Oracle Linux y antiX.
 
-## Distribution Center
+También lista Windows 10 Home, Windows 10 Pro, Windows 10 Enterprise LTSC Evaluation, Windows 11 x64/ARM64, FreeBSD, OpenBSD, NetBSD y ReactOS. Los sistemas que no son Linux aparecen identificados como sistemas operativos externos, no como distribuciones Linux.
 
-The bundled catalogue includes 31 Linux distributions: Debian, Ubuntu, Fedora, Arch Linux, Linux Mint, Zorin OS, openSUSE, Pop!_OS, elementary OS, Kali Linux, EndeavourOS, Manjaro, MX Linux, NixOS, Void Linux, Rocky Linux, AlmaLinux, Alpine Linux, Mageia, CentOS Stream, Gentoo, Slackware, Lubuntu, Kubuntu, Xubuntu, Linux Lite, deepin, Solus, KDE neon, Oracle Linux and antiX. It also lists Windows 10 Home, Windows 10 Pro, Windows 10 Enterprise LTSC Evaluation, Windows 11 x64/ARM64, FreeBSD, OpenBSD, NetBSD and ReactOS. Non-Linux systems are typed as operating systems and are not mislabeled as Linux distributions.
+Las páginas oficiales se muestran separadas de la compatibilidad real de arranque. Un perfil es una receta de arranque, no una prueba de compatibilidad. Cada imagen requiere validación por versión, arquitectura y firmware. No se debe asumir que todos los ISO Linux admiten arranque loopback.
 
-Each entry includes its official project/download page, distribution family, known architectures, editions, release model, available image formats and verification guidance. View everything with:
+Windows, BSD y ReactOS son actualmente entradas de catálogo únicamente. No se ofrece compatibilidad multiboot o instalación no validada para esos sistemas. Windows 10 Home/Pro terminó su soporte general el 14 de octubre de 2025. La entrada LTSC apunta a medios de evaluación Enterprise de 90 días; el uso permanente requiere una licencia válida.
 
-    cargo run -- catalog
+## Integridad y confianza
 
-Filter by distribution family or architecture (Windows uses the `windows` family):
+Void Boot calcula SHA-256 para cada ISO inspeccionada. La verificación gráfica contra un manifiesto compara el hash local con el valor publicado por el editor y rechaza entradas ausentes o contradictorias.
 
-    cargo run -- catalog --family debian
-    cargo run -- catalog --arch x86_64
-    cargo run -- catalog --family arch --arch x86_64
-    cargo run -- catalog --family windows
-    cargo run -- catalog --family windows --arch aarch64
-    cargo run -- catalog --family bsd
-    cargo run -- catalog --family reactos
+Una coincidencia de hash no autentica el manifiesto. Para comprobar autenticidad, el usuario debe obtener el manifiesto y su firma desde el editor oficial y verificar la firma con el procedimiento y las claves publicadas por ese proyecto. La verificación automática de firmas y la búsqueda automática de claves del editor aún no están implementadas.
 
-The catalogue links to official landing pages rather than storing version-specific mirror URLs, avoiding stale links. Open the listed page, select the edition and architecture, and save the ISO into your local library folder. Then inspect it with `cargo run -- scan /path/to/isos`.
+## Laboratorio virtual y seguridad
 
-The CLI does not download images. Void Memingo provides a resumable HTTPS downloader for Linux entries that support direct ISO delivery, but it requires a direct URL copied from the publisher and HTTP Range support. The desktop downloader computes SHA-256 for each completed transfer and accepts an optional 64-character publisher checksum; when supplied, a mismatch prevents finalization and discards the partial chunks. Without a publisher checksum, the displayed digest is only a local fingerprint, not proof of authenticity. The app does not yet discover version-specific ISO URLs or verify detached publisher signatures. Windows, BSD and ReactOS entries are catalog-only and link to official publisher pages. Void Boot does not redistribute Windows media or claim that Windows, BSD or ReactOS loopback/multiboot works. These systems need dedicated, separately tested boot/install workflows before support can be enabled. No entry is marked boot-compatible without profile-specific BIOS and UEFI tests.
+Las pruebas de arranque se realizan con QEMU y discos virtuales desechables. Las imágenes seleccionadas se conectan en modo snapshot y la red de la máquina virtual permanece desactivada en el lanzador actual.
 
-## Commands
+La inspección de ISO es de solo lectura. El inventario de dispositivos extraíbles no escribe en ellos. La escritura de medios físicos, el particionado, el formateo y la instalación de GRUB en unidades USB no están habilitados en esta etapa. El USB Ventoy existente debe permanecer intacto.
 
-Requires Rust stable.
+El menú gráfico previo al sistema operativo utiliza GRUB gfxterm y un tema de Void Boot. La creación del menú no significa que se haya instalado un cargador de arranque ni que un dispositivo físico sea arrancable.
 
-    cd apps/void-boot
-    cargo test
-    cargo run -- catalog
-    cargo run -- scan /path/to/iso-folder
-    cargo run -- scan /path/to/iso-folder --json
-    cargo run -- list-devices
-    cargo run -- list-devices --json
-    cargo run -- validate-profiles profiles/example-profiles.toml
-    cargo run -- render-menu profiles/example-profiles.toml /tmp/void-boot-menu
+## Estado de desarrollo
 
-From the repository root, build a bootable graphical menu ISO for a virtual machine:
+La aplicación gráfica ya integra catálogo, biblioteca ISO, descargas, verificación de integridad, vista previa de perfiles y laboratorio QEMU. Siguen pendientes la verificación automática de firmas de editor, perfiles validados para más versiones y arquitecturas, adaptadores de inventario para Windows/macOS, y flujos dedicados para medios de instalación de sistemas no Linux.
 
-    bash scripts/build-void-boot-demo-iso.sh
-
-CI also builds a serial-console test image and smoke-tests the menu using QEMU with legacy BIOS and OVMF UEFI:
-
-    VOID_BOOT_SERIAL_TEST=1 bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml /tmp/void-boot-qemu.iso
-    bash scripts/test-void-boot-qemu.sh /tmp/void-boot-qemu.iso
-
-The render command writes grub.cfg and copies the graphical theme into the output folder. It does not install GRUB or write to a USB drive. Void Memingo can also open a profile TOML file and show the generated GRUB menu without writing it.
-
-## UEFI media image builder (virtual image only)
-
-Build a GPT/FAT32 UEFI image containing the standalone GRUB EFI loader and one or many ISO payloads:
-
-    sudo apt-get install grub-efi-amd64-bin gdisk mtools dosfstools
-    # Single ISO (legacy mode):
-    bash scripts/build-void-boot-media.sh apps/void-boot/profiles/debian-live-loopback.toml /path/to/debian.iso target/void-boot-media.img
-
-    # ISO library mode: every distinct ISO path in the profile catalog is imported.
-    # Put source files directly in /path/to/isos, named by each profile's ISO basename.
-    bash scripts/build-void-boot-media.sh apps/void-boot/profiles/library-profiles.toml /path/to/isos target/void-boot-library.img
-
-In library mode, the profile catalog is the import manifest: each `iso = "iso/name.iso"` entry maps to `/path/to/isos/name.iso`. Every referenced file must exist, be non-empty and not be a symlink. Duplicate basenames mapped to different ISO paths are rejected. The builder creates the destination directories, copies each unique ISO, then extracts and compares every copy byte-for-byte. The generated GRUB menu contains one entry per profile. Add a profile only when its kernel/initrd paths and boot arguments match that exact ISO; unsupported or untested profiles must not be treated as verified.
-
-Set `VOID_BOOT_IMAGE_SIZE_MIB` to change the image size (minimum 512 MiB; the default is 1024 MiB). Choose enough capacity for all ISO files plus filesystem overhead. The output path must not already exist.
-
-This milestone creates a **UEFI-only virtual disk image**. It does not write to USB devices, install BIOS boot code, or claim that every Linux ISO supports loopback boot. BIOS support and QEMU firmware validation remain separate gates.
-
-## ZIP installer package
-
-The Void Boot CI workflow builds a `void-boot-installer-zip` artifact. It contains the generated GRUB menu, theme, profile catalogues, and three installation entry points:
-
-- `install.sh` — Linux/macOS terminal installer.
-- `install.ps1` — Windows PowerShell installer.
-- `web-installer.html` — browser-based folder copier for supported browsers.
-
-To build the package locally from the repository root (requires Rust stable and `zip`):
-
-    bash scripts/package-void-boot.sh
-
-To install from an extracted ZIP, run `./install.sh` or `./install.ps1`, or open `web-installer.html` and select the extracted `Void-Boot` folder followed by a destination directory.
-
-**Important:** this first package deploys menu, theme and profile files only. It does not install GRUB, create EFI boot files, partition or format storage, or make a USB bootable. A real BIOS/UEFI USB installer remains a separate milestone and must pass disposable virtual-disk tests before physical-media support.
-
-## Intended removable-media layout
-
-    /boot/grub/grub.cfg
-    /boot/grub/themes/void-boot/theme.txt
-    /iso/<your-images>.iso
-
-The generated configuration assumes GRUB's $prefix points to /boot/grub. A future media builder will install and configure GRUB for BIOS and UEFI separately. This stage does not yet create a bootable USB by itself.
-
-## Publisher checksum verification
-
-Void Boot can verify a downloaded ISO against a checksum manifest that you obtained separately from the operating-system publisher. The CLI accepts GNU `SHA256SUMS` entries (including the optional binary marker) and BSD `SHA256 (filename) = digest` entries, matches the exact ISO filename, and refuses missing or conflicting entries.
-
-    void-boot verify-checksum /path/to/debian-live.iso /path/to/SHA256SUMS
-
-This checks the file's SHA-256 against the manifest; it does **not** authenticate the manifest itself. For authenticity, obtain the manifest and its detached signature from the official publisher and verify that signature using the publisher's documented key/trust process before relying on the checksum. Void Boot does not yet automate publisher-key discovery or signature verification.
-
-## Safety and compatibility
-
-Physical-device writing and a standalone graphical device manager are not implemented. Removable-device discovery currently supports Linux; Windows and macOS discovery adapters remain future work. Development and compatibility testing starts with disposable virtual disks and QEMU. The user's existing Ventoy USB must remain untouched. Do not treat the current menu ISO as a finished USB installer.
-
-Secure Boot is deferred until the signing and trust chain are designed and tested. No image should be marked supported until its profile is tested independently in BIOS and UEFI virtual machines.
-
-## Release readiness
-
-See [Void Boot release gates](../../docs/VOID_BOOT_RELEASE_GATES.md) for the requirements that must pass before a stable release.
+Consulta [Void Boot release gates](../../docs/VOID_BOOT_RELEASE_GATES.md) para los criterios de validación previos a una versión estable.
