@@ -58,8 +58,18 @@ Current backends:
 - Ubuntu Live: generates a live-build/casper profile, package list, overlay, hooks and a build script.
 - Arch Linux: stages the upstream archiso releng profile, package list, airootfs overlay and an `mkarchiso` build script.
 
-All three remain previews until a reproducible ISO has been built and boot-tested. The integrated PTY can run a reviewed build script with explicit confirmation; the user can interrupt the foreground command with Ctrl+C. Installer generation, partitioning, automated dependency preflight, integrated build progress/cancel controls, QEMU boot tests and full per-desktop wallpaper/theme configuration are not yet complete.
+All three backends remain previews until a reproducible ISO has been built and boot-tested on their supported Linux hosts.
 
-## Remaining IDE modules
+The OS Builder now includes:
+- Backend-specific dependency and host preflight, including resource advisories and QEMU/OVMF checks.
+- Persistent per-project build jobs with status, detected stage, bounded output logs and recent history.
+- Explicit confirmation before running reviewed scripts, plus Ctrl+C cancellation.
+- Automatic post-build verification of ISO 9660 format, El Torito boot catalog, SHA-256 and the exported project manifest.
+- Optional BIOS and UEFI QEMU smoke-test scripts. These test startup only; they do not yet certify a fully initialized desktop.
+- GTK defaults and first-login theme/icon/wallpaper application for Xfce, GNOME, Cinnamon, MATE and KDE Plasma when the relevant session tools are installed. LXQt-specific settings are not yet implemented.
 
-Language diagnostics, project-wide symbol search, language services, debugger integration, and richer build lifecycle management remain planned.
+Installer generation, safe partition-selection UI, installation storage/filesystem application and end-to-end boot validation remain unfinished.
+
+## IDE capabilities and remaining modules
+
+The IDE includes bounded workspace text search, persistent editor preferences, Tab indentation, Ctrl+S, and basic JSON/TOML syntax diagnostics. Full language-server diagnostics for programming languages, project-wide symbol indexing, language services and debugger integration remain planned.
