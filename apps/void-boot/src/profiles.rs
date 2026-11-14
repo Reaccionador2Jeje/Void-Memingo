@@ -120,6 +120,7 @@ insmod part_msdos
 insmod fat
 insmod ext2
 insmod iso9660
+insmod ata
 insmod loopback
 insmod search
 insmod search_fs_file
