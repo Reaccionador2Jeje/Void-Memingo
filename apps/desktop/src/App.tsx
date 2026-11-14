@@ -1372,7 +1372,7 @@ directory = ${quote(osOutputDir)}
                     <small>{distro.family} · {distro.architectures.join(', ')}</small>
                     <small>Ediciones: {distro.editions.join(', ')}</small>
                     <small>Entrega: ISO directa a VOIDDATA · perfil de arranque requerido</small>
-                    <button className="text-action" onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); }}>Elegir para descargar</button>
+                    <button className="text-action" onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); setVoidBootExpectedSha256(''); }}>Elegir para descargar</button>
                     <a className="text-action" href={distro.download_page} target="_blank" rel="noreferrer">Abrir página oficial ↗</a>
                   </div>
                 ))}
