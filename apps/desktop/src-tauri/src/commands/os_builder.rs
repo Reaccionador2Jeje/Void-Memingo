@@ -409,6 +409,22 @@ pub fn check_os_build_preflight(workspace: String, project_toml: String) -> Resu
                     "Archiso requiere un host Arch Linux o una distribución que declare ID_LIKE=arch.".into()
                 },
             });
+            let user_namespaces = Command::new("unshare")
+                .args(["-Ur", "true"])
+                .status()
+                .map(|status| status.success())
+                .unwrap_or(false);
+            checks.push(PreflightCheck {
+                id: "arch-user-namespaces".into(),
+                label: "Espacios de nombres de usuario".into(),
+                available: user_namespaces,
+                required: true,
+                detail: if user_namespaces {
+                    "El kernel permite ejecutar mkarchiso sin privilegios elevados.".into()
+                } else {
+                    "mkarchiso necesita espacios de nombres de usuario habilitados para esta ejecución sin sudo.".into()
+                },
+            });
         }
 
         let mut warnings = Vec::new();
