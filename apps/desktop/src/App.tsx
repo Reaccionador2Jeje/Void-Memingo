@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import TerminalPanel from './components/TerminalPanel';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import {
   Activity, AlertCircle, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Code2, Command, Cpu, FileCode2, FilePlus2, Folder, FolderOpen,
   GitBranch, LayoutDashboard, PanelBottom, PanelLeftClose, Plus, Search,
-  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3, Play, Cpu, FolderOpen
+  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3, Play, FolderOpen
 } from 'lucide-react';
 
 type FileEntry = {
@@ -540,6 +540,20 @@ function App() {
     } finally {
       setVoidBootBusy(false);
     }
+  }, [addLog]);
+
+  const createQemuDisk = useCallback(async () => {
+    const destination = await save({ title: 'Crear disco virtual QEMU', defaultPath: 'void-boot-lab.qcow2', filters: [{ name: 'Disco QEMU', extensions: ['qcow2'] }] });
+    if (!destination) return;
+    setQemuBusy(true);
+    try {
+      const created = await invoke<string>('create_void_boot_qemu_disk', { imagePath: destination, size: '16G' });
+      setQemuImagePath(created);
+      setQemuStatus('Disco virtual creado · 16 GiB · formato QCOW2');
+      addLog('Disco virtual QEMU creado: ' + created);
+    } catch (error) {
+      setQemuStatus('No se pudo crear el disco: ' + String(error));
+    } finally { setQemuBusy(false); }
   }, [addLog]);
 
   const chooseQemuImage = useCallback(async () => {
@@ -1352,6 +1366,7 @@ directory = ${quote(osOutputDir)}
                   <div className="void-boot-qemu-heading"><span className="void-boot-qemu-icon"><Cpu size={17} /></span><div><strong>QEMU VIRTUAL LAB</strong><small>Pruebas UEFI sin pendrive físico</small></div><span className="void-boot-status-dot" /></div>
                   <p>Selecciona una imagen de disco creada por Void Boot. QEMU arrancará con OVMF/UEFI, red desactivada y snapshot para descartar los cambios al cerrar la máquina virtual.</p>
                   <button className="secondary-button" onClick={() => void chooseQemuImage()}><FolderOpen size={14} /> {qemuImagePath ? qemuImagePath.split(/[\\\\/]/).filter(Boolean).pop() : 'Seleccionar imagen virtual (.img / .qcow2)'}</button>
+                  <button className="secondary-button" onClick={() => void createQemuDisk()} disabled={qemuBusy}>＋ Crear disco virtual QCOW2 (16 GiB)</button>
                   <button className="primary-button" onClick={() => void launchVoidBootQemu()} disabled={!qemuImagePath || qemuBusy}><Play size={14} /> {qemuBusy ? 'Iniciando QEMU…' : 'Iniciar máquina virtual'}</button>
                   {qemuStatus && <small className="void-boot-qemu-status">{qemuStatus}</small>}
                 </section>
