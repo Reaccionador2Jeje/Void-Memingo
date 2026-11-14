@@ -6,7 +6,7 @@ pub struct ProfileCatalog {
     pub profiles: Vec<BootProfile>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct BootProfile {
     pub id: String,
     pub name: String,
@@ -201,6 +201,15 @@ mod tests {
                 findiso: true,
             }],
         }
+    }
+
+    #[test]
+    fn profile_catalog_round_trips_through_toml_for_gui_editor() {
+        let original = sample();
+        let encoded = toml::to_string_pretty(&original).expect("serialize profile catalog");
+        let decoded: ProfileCatalog = toml::from_str(&encoded).expect("deserialize profile catalog");
+        decoded.validate().expect("validate round-tripped profile catalog");
+        assert_eq!(decoded.profiles, original.profiles);
     }
 
     #[test]
