@@ -1241,7 +1241,7 @@ directory = ${quote(osOutputDir)}
                 <div className="git-section-label">DISTRIBUTIONS · {voidBootCatalog.length}</div>
                 {voidBootCatalogBusy && <div className="tree-empty">Cargando distribuciones…</div>}
                 {!voidBootCatalogBusy && voidBootCatalog.map((distro) => (
-                  <div className="git-remote-row" key={distro.id}>
+                  <div className="void-boot-distro-card" key={distro.id}>
                     <strong>{distro.name}</strong>
                     <span>{distro.description}</span>
                     <small>{distro.family} · {distro.architectures.join(', ')}</small>
