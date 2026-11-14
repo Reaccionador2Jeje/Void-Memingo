@@ -593,11 +593,12 @@ directory = ${quote(osOutputDir)}
       addLog('No se puede iniciar: ejecuta el preflight y resuelve las dependencias obligatorias.');
       return;
     }
-    const quoteShell = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
-    const command = 'cd ' + quoteShell(buildPreparation.buildDirectory) + ' && sudo ' + quoteShell(buildPreparation.scriptPath);
+    const command = buildPreparation.commands.join(' && ');
+    const elevated = buildPreparation.commands.some((entry) => /\\bsudo\\b/.test(entry));
+    const executionMode = elevated ? 'con permisos de administrador' : 'con tu usuario normal';
     const confirmed = window.confirm(
-      'Se ejecutará el script revisado en la terminal integrada con permisos de administrador.\n\n' +
-      command + '\n\nNo se sobrescribirán ISOs existentes. ¿Continuar?'
+      'Se ejecutará el backend revisado en la terminal integrada ' + executionMode + '.\\n\\n' +
+      command + '\\n\\nRevisa el script antes de continuar. No se sobrescribirán ISOs existentes. ¿Continuar?'
     );
     if (!confirmed) return;
     setTerminalMounted(true);
@@ -1052,7 +1053,7 @@ directory = ${quote(osOutputDir)}
                   {osValidation.warnings.map((warning, index) => <p key={'w'+index}>Aviso: {warning}</p>)}
                 </div>
               )}
-              <div className="os-builder-footnote">Los tres backends preparan perfiles específicos y scripts revisables. La creación de ISO requiere Linux y las herramientas de la distribución. La terminal muestra el progreso y permite cancelar con Ctrl+C; sudo solicita autorización explícita.</div>
+              <div className="os-builder-footnote">Cada distribución usa su propio backend. La creación de ISO requiere Linux y las herramientas correspondientes. La terminal muestra la salida en vivo y permite cancelar con Ctrl+C; Ubuntu y Debian pueden solicitar permisos elevados, mientras que Archiso se ejecuta con el usuario normal y espacios de nombres.</div>
             </section>
           ) : activeTab ? (
             <section className="editor-area">
