@@ -115,6 +115,7 @@ jobs:
           bash scripts/build-void-boot-media.sh apps/void-boot/profiles/debian-live-loopback.toml "$RUNNER_TEMP/fixture.iso" "$RUNNER_TEMP/void-boot-media.img"
           sgdisk --verify "$RUNNER_TEMP/void-boot-media.img"
           test -s "$RUNNER_TEMP/void-boot-media.img"
+          bash scripts/test-void-boot-media-uefi.sh "$RUNNER_TEMP/void-boot-media.img" "$RUNNER_TEMP/void-boot-media-uefi.log"
       - name: Build Void Boot ZIP installer package
         run: bash scripts/package-void-boot.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-installer.zip"
       - name: Upload Void Boot ZIP installer

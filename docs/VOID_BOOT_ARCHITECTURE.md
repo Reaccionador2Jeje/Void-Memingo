@@ -40,7 +40,7 @@ Use a mature bootloader rather than inventing firmware startup code. GRUB 2 is t
 
 The current CLI and menu generator are read-only. They do not install GRUB, format, partition or write physical devices.
 
-Before a physical-media writer is enabled, it must enumerate devices using stable identifiers, show model/capacity/mount state, refuse the active system disk, display the exact destructive plan, require a separate immediate confirmation, and verify the written result. The user's existing Ventoy USB must remain untouched throughout development.
+Before a physical-media writer is enabled, it must enumerate devices using stable identifiers, show model/capacity/mount state, refuse the active system disk, display the exact destructive plan, require a separate immediate confirmation, and verify the written result. Physical USB devices remain untouched during development and virtual-image testing.
 
 ## Current milestones
 
