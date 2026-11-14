@@ -109,7 +109,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some("verify-checksum") => {
             let iso = args.next().ok_or("missing ISO file path")?;
-            let manifest = args.next().ok_or("missing publisher checksum manifest path")?;
+            let manifest = args
+                .next()
+                .ok_or("missing publisher checksum manifest path")?;
             verify_iso_sha256_manifest(Path::new(&iso), Path::new(&manifest))?;
             println!("Publisher SHA-256 manifest matches: {iso}");
             Ok(())
