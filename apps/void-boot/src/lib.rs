@@ -1,6 +1,7 @@
 pub mod catalog;
 pub mod devices;
 pub mod profiles;
+pub mod download;
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
