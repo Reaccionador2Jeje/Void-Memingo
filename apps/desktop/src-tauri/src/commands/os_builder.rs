@@ -750,6 +750,11 @@ fn save_build_job(directory: &Path, job: &BuildJobRecord) -> Result<(), String> 
     reject_symlink_target(&temporary)?;
     fs::write(&temporary, contents)
         .map_err(|error| format!("Cannot write build job record: {error}"))?;
+    #[cfg(windows)]
+    if path.exists() {
+        fs::remove_file(&path)
+            .map_err(|error| format!("Cannot replace build job record: {error}"))?;
+    }
     fs::rename(&temporary, &path)
         .map_err(|error| format!("Cannot update build job record: {error}"))?;
     Ok(())
@@ -1403,6 +1408,40 @@ mod tests {
     #[test]
     fn accepts_valid_debian_project() {
         assert!(validate_project(&sample()).valid);
+    }
+
+    #[test]
+    fn persists_build_job_status_history_and_output() {
+        let (root, _) = temporary_os_project("debian", "stable", "amd64");
+        let root = fs::canonicalize(&root).unwrap();
+        let workspace = root.to_string_lossy().into_owned();
+
+        let job = start_os_build_job(workspace.clone(), "debian-live-build".into()).unwrap();
+        assert_eq!(job.status, "queued");
+        append_os_build_job_log(workspace.clone(), job.id.clone(), "Preparing Debian Live\\n".into()).unwrap();
+
+        let running = update_os_build_job(
+            workspace.clone(), job.id.clone(), "running".into(), "cleaning".into(), None
+        ).unwrap();
+        assert_eq!(running.stage, "cleaning");
+
+        let log = read_os_build_job_log(workspace.clone(), job.id.clone()).unwrap();
+        assert!(log.contains("Preparing Debian Live"));
+
+        let completed = update_os_build_job(
+            workspace.clone(), job.id.clone(), "succeeded".into(), "completed".into(), Some(0)
+        ).unwrap();
+        assert_eq!(completed.status, "succeeded");
+        assert!(completed.finished_at.is_some());
+
+        let history = list_os_build_jobs(workspace).unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].id, job.id);
+        assert!(update_os_build_job(
+            root.to_string_lossy().into_owned(), job.id, "running".into(), "building".into(), None
+        ).is_err());
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]
