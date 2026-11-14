@@ -573,10 +573,10 @@ button:disabled {
   gap: 10px;
   flex-wrap: wrap;
 }
-.pondos-project-fields {
+.os-project-fields {
   margin-top: 16px;
 }
-.pondos-project-fields label input {
+.os-project-fields label input {
   min-width: 0;
 }
 .os-builder-header {
