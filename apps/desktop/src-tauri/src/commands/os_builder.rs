@@ -267,8 +267,8 @@ pub fn validate_project(project: &OsProject) -> ValidationReport {
         errors.push("A package cannot be both installed and removed.".into());
     }
     let protected_packages: &[&str] = match base.as_str() {
-        "debian" => &["live-boot", "live-config"],
-        "ubuntu" => &["casper", "systemd", "systemd-sysv"],
+        "debian" => &["initramfs-tools", "live-boot", "live-config", "linux-image-amd64", "systemd", "systemd-sysv"],
+        "ubuntu" => &["casper", "initramfs-tools", "live-boot", "linux-generic", "linux-image-generic", "systemd", "systemd-sysv"],
         "arch" => &["filesystem", "glibc", "linux", "mkinitcpio", "mkinitcpio-archiso", "pacman", "systemd"],
         _ => &[],
     };
@@ -335,6 +335,12 @@ pub fn validate_project(project: &OsProject) -> ValidationReport {
     }
     if project.filesystem.overlay.is_empty() {
         warnings.push("No root filesystem overlay is configured.".into());
+    }
+    if !project.base.repositories.is_empty() {
+        warnings.push("Custom repositories are recorded in void-os.toml but are not applied by the current image backends yet.".into());
+    }
+    if !project.filesystem.storage_filesystem.is_empty() {
+        warnings.push("The selected installation filesystem is project metadata only; an OS installer and partitioning workflow are not implemented yet.".into());
     }
     if project.desktop.environment != "none" && project.desktop.display_manager.is_empty() {
         warnings.push("A desktop environment is selected but no display manager is specified.".into());
@@ -1167,6 +1173,9 @@ mod tests {
     fn rejects_removing_backend_critical_packages() {
         let mut project = sample();
         project.packages.remove.push("live-boot".into());
+        assert!(!validate_project(&project).valid);
+        project.packages.remove.clear();
+        project.packages.remove.push("linux-image-amd64".into());
         assert!(!validate_project(&project).valid);
 
         project.base.distribution = "arch".into();
