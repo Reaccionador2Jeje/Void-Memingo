@@ -10,7 +10,7 @@ if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then
   exit 1
 fi
 
-OVMF_CODE="${OVMF_CODE:-$(find /usr/share/OVMF /usr/share/edk2 -type f \\( -name 'OVMF_CODE.fd' -o -name 'OVMF_CODE_4M.fd' \\) -print -quit 2>/dev/null || true)}"
+OVMF_CODE="${OVMF_CODE:-$(find /usr/share/OVMF /usr/share/edk2 -type f \( -name 'OVMF_CODE.fd' -o -name 'OVMF_CODE_4M.fd' \) -print -quit 2>/dev/null || true)}"
 if [[ -z "$OVMF_CODE" ]]; then
   echo "OVMF UEFI firmware was not found. Install the ovmf package." >&2
   exit 1
