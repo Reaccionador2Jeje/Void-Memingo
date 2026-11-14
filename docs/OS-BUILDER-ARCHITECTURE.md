@@ -108,6 +108,19 @@ The first practical development and test host is a supported Linux desktop such 
 7. ISO inspection, checksums, cancellation and optional QEMU boot tests.
 8. CI validation and release documentation.
 
+## Persistent build jobs
+
+Every OS Builder invocation receives a unique job ID and is stored inside the project at `.void-memingo/build-jobs/<job-id>/`:
+
+- `job.toml` records backend, queued/running/terminal status, current stage, start/finish timestamps and exit code.
+- `output.log` stores the integrated terminal output, with a 5 MiB per-job cap.
+- The UI reloads recent jobs when a workspace opens and can display each saved log.
+- Debian Live, Ubuntu livecd-rootfs and Archiso scripts emit explicit stage markers; the UI maps them to the job's current stage.
+- Build output is associated with the terminal session that received the build command, so unrelated terminal sessions do not pollute the job log.
+- Ctrl+C is sent through the existing PTY. Exit codes 130 and 143 are recorded as cancelled; other non-zero exits are failed.
+
+This is durable project-local job history, not a background build daemon: closing the app or terminal can still interrupt a build. Recovery of orphaned jobs after an application crash and independent process supervision remain future work.
+
 ## Implementation status
 
 Implemented in the desktop branch:
