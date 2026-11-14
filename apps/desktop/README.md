@@ -49,4 +49,17 @@ The bottom panel now uses a native cross-platform PTY through `portable-pty` and
 
 The terminal starts in the selected workspace, but it is **not a security sandbox**: commands run with the current user's operating-system permissions and can access files and tools available to that user outside the workspace. Only run commands you understand and trust. Closing a terminal ends its shell session; child-process cleanup behavior depends on the operating system and shell.
 
-Git operations, language services, build orchestration, and the debugger remain planned modules.
+## OS Builder
+
+The OS Builder stores portable distribution settings in `void-os.toml` and keeps OS-specific configuration inside the Void Memingo project. PondOS is an optional example profile, not a special mode or a product dependency.
+
+Current backends:
+- Debian Live: generates a live-build workspace, package lists, filesystem overlay, hooks and a reviewable build script.
+- Ubuntu Live: generates a live-build/casper profile, package list, overlay, hooks and a build script.
+- Arch Linux: stages the upstream archiso releng profile, package list, airootfs overlay and an `mkarchiso` build script.
+
+All three remain previews until a reproducible ISO has been built and boot-tested. The integrated PTY can run a reviewed build script with explicit confirmation; the user can interrupt the foreground command with Ctrl+C. Installer generation, partitioning, automated dependency preflight, integrated build progress/cancel controls, QEMU boot tests and full per-desktop wallpaper/theme configuration are not yet complete.
+
+## Remaining IDE modules
+
+Language diagnostics, project-wide symbol search, language services, debugger integration, and richer build lifecycle management remain planned.
