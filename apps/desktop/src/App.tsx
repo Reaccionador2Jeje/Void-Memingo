@@ -1421,6 +1421,11 @@ directory = ${quote(osOutputDir)}
                   value={activeTab.content}
                   onChange={(event) => updateActiveContent(event.target.value)}
                   onKeyDown={(event) => {
+                    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+                      event.preventDefault();
+                      void saveActiveFile();
+                      return;
+                    }
                     if (event.key !== 'Tab') return;
                     event.preventDefault();
                     const target = event.currentTarget;
@@ -1562,7 +1567,7 @@ directory = ${quote(osOutputDir)}
       <footer className="statusbar">
         <div className="status-left">
           <span className="status-branch"><GitBranch size={12} /> {gitSnapshot?.initialized ? (gitSnapshot.branch || 'HEAD separado') : 'Git no conectado'}</span>
-          <span><AlertCircle size={12} /> 0</span>
+          <span><AlertCircle size={12} /> {diagnosticReport?.diagnostics.length ?? 0}</span>
           <span><Check size={12} /> Workspace local</span>
         </div>
         <div className="status-right">
