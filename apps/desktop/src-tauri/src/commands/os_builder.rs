@@ -1432,7 +1432,7 @@ if [ -d {hooks} ]; then cp -a {hooks}/. config/hooks/normal/; fi
 lb config --iso-volume {label}
 ARCH=amd64 PROJECT={ubuntu_project} SUBPROJECT=live SUITE={codename} "$AUTO/build"
 image=livecd.{ubuntu_project}.iso
-[ -s "$image" ] || {{ echo "livecd-rootfs did not produce livecd.ubuntu.iso." >&2; exit 1; }}
+[ -s "$image" ] || {{ echo "livecd-rootfs did not produce livecd.{ubuntu_project}.iso." >&2; exit 1; }}
 mkdir -p {output_dir}
 [ ! -e {output} ] && [ ! -e {checksum} ] || {{ echo "Refusing to overwrite an existing output." >&2; exit 1; }}
 install -m 0644 "$image" {output}
