@@ -59,6 +59,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let entries = scan_directory(Path::new(&directory))?;
             print_entries(&entries, json)
         }
+        Some("validate-profiles") => {
+            let profile_file = args.next().ok_or("missing profile catalog path")?;
+            let catalog = ProfileCatalog::load(Path::new(&profile_file))?;
+            println!("Profile catalog is valid: {} profile(s).", catalog.profiles.len());
+            for profile in &catalog.profiles {
+                println!("{} — {} ({})", profile.id, profile.name, profile.iso);
+            }
+            Ok(())
+        }
         Some("render-menu") => {
             let profile_file = args.next().ok_or("missing profile catalog path")?;
             let output_dir = args.next().ok_or("missing output directory")?;
