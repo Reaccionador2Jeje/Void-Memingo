@@ -2,11 +2,11 @@
 
 ## Product shape
 
-Void Boot is a standalone Atdev Dev project and a first-class Void Memingo client. Both use shared Rust core capabilities.
+Void Boot is Atdev Dev's GUI-only multiboot manager, delivered as a first-class graphical workspace inside Void Memingo. The shared Rust core is an internal engine, not a user-facing CLI or TUI.
 
     apps/
       void-boot/
-        src/                 # CLI and shared Rust core
+        src/                 # Shared Rust engine and domain logic
         profiles/            # reviewed per-ISO boot recipes
         assets/grub/         # graphical pre-boot theme
       desktop/
@@ -21,10 +21,10 @@ Void Boot is a standalone Atdev Dev project and a first-class Void Memingo clien
 - **GRUB menu generator:** creates a graphical pre-OS menu and profile-driven entries.
 - **Media planner:** future dry-run partition/filesystem layout.
 - **Boot runtime:** GRUB 2 for initial BIOS/UEFI prototype; replaceable behind a runtime boundary.
-- **Desktop manager:** future standalone GUI for catalog, profiles, validation and media preparation.
-- **Void Memingo client:** project-aware ISO inspection, TOML profile loading and generated GRUB menu preview using the shared Rust core.
+- **Desktop manager:** graphical Void Boot workspace for catalog, ISO library, downloads, checksum verification, profile selection/preview and virtual testing.
+- **Void Memingo GUI:** all Void Boot user workflows are exposed through graphical panels, dialogs, file pickers and progress indicators; no CLI/TUI is offered as a user interface.
 - **Test harness:** QEMU virtual machines, disposable virtual disks and a compatibility matrix.
-- **Installer package:** CI-generated ZIP with shell, PowerShell and browser-based folder deployment entry points. The current package copies menu/theme/profile files only; it is not a bootable USB writer.
+- **Build pipeline:** CI-only scripts assemble and validate disposable boot-menu images; these scripts are developer automation, not a Void Boot user interface.
 
 ## Graphical boot experience
 
@@ -38,7 +38,7 @@ Use a mature bootloader rather than inventing firmware startup code. GRUB 2 is t
 
 ## Media safety
 
-The current CLI and menu generator are read-only. They do not install GRUB, format, partition or write physical devices.
+The graphical ISO inspection and menu preview are read-only. They do not install GRUB, format, partition or write physical devices.
 
 Before a physical-media writer is enabled, it must enumerate devices using stable identifiers, show model/capacity/mount state, refuse the active system disk, display the exact destructive plan, require a separate immediate confirmation, and verify the written result. Physical USB devices remain untouched during development and virtual-image testing.
 
