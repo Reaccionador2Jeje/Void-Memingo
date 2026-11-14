@@ -50,6 +50,7 @@ type GitSnapshot = {
 };
 
 type OsValidation = { valid: boolean; errors: string[]; warnings: string[] };
+type BuildPreflight = { supportedHost: boolean; ready: boolean; distribution: string; checks: { id: string; label: string; available: boolean; required: boolean; detail: string }[]; warnings: string[] };
 type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; commands: string[]; notes: string[] };
 
 function FileNode({
@@ -169,6 +170,7 @@ function App() {
   const [osIsoName, setOsIsoName] = useState('atdev-os-0.1.0.iso');
   const [osValidation, setOsValidation] = useState<OsValidation | null>(null);
   const [buildPreparation, setBuildPreparation] = useState<BuildPreparation | null>(null);
+  const [buildPreflight, setBuildPreflight] = useState<BuildPreflight | null>(null);
   const [osBusy, setOsBusy] = useState(false);
   const [gitSnapshot, setGitSnapshot] = useState<GitSnapshot | null>(null);
   const [gitBusy, setGitBusy] = useState(false);
@@ -542,6 +544,27 @@ directory = ${quote(osOutputDir)}
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [openWorkspace, saveActiveFile]);
 
+  const checkOsBuildPreflight = useCallback(async (projectToml?: string) => {
+    if (!workspace) {
+      addLog('Abre primero la carpeta del proyecto OS.');
+      return null;
+    }
+    setOsBusy(true);
+    try {
+      const manifest = projectToml ?? await invoke<string>('read_text_file', { root: workspace, relativePath: 'void-os.toml' });
+      const report = await invoke<BuildPreflight>('check_os_build_preflight', { workspace, projectToml: manifest });
+      setBuildPreflight(report);
+      addLog(report.ready ? 'Preflight completado: dependencias obligatorias disponibles.' : 'Preflight incompleto: revisa las dependencias requeridas.');
+      return report;
+    } catch (error) {
+      setBuildPreflight(null);
+      addLog('No se pudo comprobar el entorno de build: ' + String(error));
+      return null;
+    } finally {
+      setOsBusy(false);
+    }
+  }, [addLog, workspace]);
+
   const prepareOsBuild = useCallback(async () => {
     if (!workspace) return;
     setOsBusy(true);
@@ -550,6 +573,9 @@ directory = ${quote(osOutputDir)}
       const result = await invoke<BuildPreparation>('prepare_os_build_project', { workspace, projectToml });
       setBuildPreparation(result);
       addLog(result.backend + ' preparado en ' + result.buildDirectory);
+      const preflight = await invoke<BuildPreflight>('check_os_build_preflight', { workspace, projectToml });
+      setBuildPreflight(preflight);
+      addLog(preflight.ready ? 'Dependencias obligatorias verificadas.' : 'Faltan dependencias obligatorias para ejecutar el build.');
     } catch (error) {
       addLog('No se pudo preparar el backend: ' + String(error));
       setBuildPreparation(null);
@@ -561,6 +587,10 @@ directory = ${quote(osOutputDir)}
   const runOsBuild = useCallback(() => {
     if (!buildPreparation) {
       addLog('Prepara primero el backend y revisa el script generado.');
+      return;
+    }
+    if (!buildPreflight?.ready) {
+      addLog('No se puede iniciar: ejecuta el preflight y resuelve las dependencias obligatorias.');
       return;
     }
     const quoteShell = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
@@ -575,7 +605,7 @@ directory = ${quote(osOutputDir)}
     setBottomView('terminal');
     setTerminalCommand(command);
     addLog('Build solicitado desde OS Builder; salida en la terminal integrada.');
-  }, [addLog, buildPreparation]);
+  }, [addLog, buildPreparation, buildPreflight]);
   const publishToOsHub = useCallback(async () => {
     if (!workspace) {
       addLog('Abre primero la carpeta del proyecto OS.');
@@ -986,7 +1016,10 @@ directory = ${quote(osOutputDir)}
                 <button className="secondary-button" onClick={() => void prepareOsBuild()} disabled={osBusy || !workspace}>
                   <HardDrive size={15} /> Preparar backend
                 </button>
-                <button className="secondary-button" onClick={runOsBuild} disabled={osBusy || !isLinuxHost || !workspace || !buildPreparation || !osValidation?.valid} title="Ejecutar el script revisado en la terminal integrada">
+                <button className="secondary-button" onClick={() => void checkOsBuildPreflight()} disabled={osBusy || !workspace} title="Comprobar dependencias y recursos del host Linux">
+                  <ShieldCheck size={15} /> Comprobar requisitos
+                </button>
+                <button className="secondary-button" onClick={runOsBuild} disabled={osBusy || !isLinuxHost || !workspace || !buildPreparation || !osValidation?.valid || !buildPreflight?.ready} title="Ejecutar el script revisado en la terminal integrada">
                   <Disc3 size={15} /> Build ISO
                 </button>
                 <button className="secondary-button" onClick={() => void publishToOsHub()} disabled={osBusy || !workspace} title="Sincronizar el manifiesto del sistema con Atdev OS Hub">
@@ -996,6 +1029,13 @@ directory = ${quote(osOutputDir)}
                   <Disc3 size={15} /> Registrar build
                 </button>
               </div>
+              {buildPreflight && (
+                <div className={'os-validation ' + (buildPreflight.ready ? 'valid' : 'invalid')}>
+                  <b>{buildPreflight.ready ? 'Requisitos obligatorios disponibles' : 'Faltan requisitos para compilar'}</b>
+                  {buildPreflight.checks.map((check) => <p key={check.id}>{check.available ? '✓' : check.required ? '✕' : '⚠'} {check.label}: {check.detail}</p>)}
+                  {buildPreflight.warnings.map((warning, index) => <p key={'preflight-' + index}>Aviso: {warning}</p>)}
+                </div>
+              )}
               {buildPreparation && (
                 <div className="os-validation valid">
                   <b>{buildPreparation.backend} preparado</b>
