@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use std::{fs, io, path::Path};
+use std::{collections::HashSet, fs, io, path::Path};
 
 #[derive(Debug, Deserialize)]
 pub struct ProfileCatalog {
@@ -33,9 +33,9 @@ fn safe_relative_path(value: &str) -> bool {
 
 fn safe_id(value: &str) -> bool {
     !value.is_empty()
-        && value
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_')
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '-' || character == '_'
+        })
 }
 
 fn safe_label(value: &str) -> bool {
@@ -69,8 +69,9 @@ impl ProfileCatalog {
             ));
         }
 
+        let mut profile_ids = HashSet::new();
         for profile in &self.profiles {
-            if !safe_id(&profile.id) {
+            if !safe_id(&profile.id) || !profile_ids.insert(&profile.id) {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "unsafe profile id",
@@ -198,6 +199,15 @@ mod tests {
         assert!(catalog
             .render_grub_config()
             .contains("    linux (loop)/live/vmlinuz\n"));
+    }
+
+    #[test]
+    fn rejects_duplicate_profile_ids() {
+        let mut catalog = sample();
+        let mut duplicate = catalog.profiles[0].clone();
+        duplicate.name = "Second Linux".into();
+        catalog.profiles.push(duplicate);
+        assert!(catalog.validate().is_err());
     }
 
     #[test]
