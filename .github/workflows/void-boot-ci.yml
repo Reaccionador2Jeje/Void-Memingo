@@ -75,12 +75,18 @@ jobs:
       - name: Install GRUB BIOS/UEFI and ISO tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools
+          sudo apt-get install -y grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools qemu-system-x86 ovmf
       - uses: dtolnay/rust-toolchain@stable
       - name: Build pre-boot graphical menu ISO
         run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-demo.iso"
       - name: Verify ISO artifact exists
         run: test -s "$RUNNER_TEMP/void-boot-demo.iso"
+      - name: Build serial-console ISO for firmware smoke tests
+        env:
+          VOID_BOOT_SERIAL_TEST: "1"
+        run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-qemu-test.iso"
+      - name: Boot test with legacy BIOS and UEFI in QEMU
+        run: bash scripts/test-void-boot-qemu.sh "$RUNNER_TEMP/void-boot-qemu-test.iso" "$RUNNER_TEMP/void-boot-qemu-logs"
       - uses: actions/upload-artifact@v4
         with:
           name: void-boot-graphical-menu-iso
