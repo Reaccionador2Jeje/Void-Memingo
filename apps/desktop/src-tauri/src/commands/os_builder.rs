@@ -266,6 +266,17 @@ pub fn validate_project(project: &OsProject) -> ValidationReport {
     if project.packages.install.iter().any(|item| project.packages.remove.contains(item)) {
         errors.push("A package cannot be both installed and removed.".into());
     }
+    let protected_packages: &[&str] = match base.as_str() {
+        "debian" => &["live-boot", "live-config"],
+        "ubuntu" => &["casper", "systemd", "systemd-sysv"],
+        "arch" => &["filesystem", "glibc", "linux", "mkinitcpio", "mkinitcpio-archiso", "pacman", "systemd"],
+        _ => &[],
+    };
+    for package in &project.packages.remove {
+        if protected_packages.contains(&package.as_str()) {
+            errors.push(format!("Package '{package}' is required by the selected live image backend and cannot be removed."));
+        }
+    }
     if !project.filesystem.services_enabled.iter().all(|service| {
         !service.is_empty() && service.len() <= 128
             && service.bytes().all(|b| b.is_ascii_alphanumeric() || b"_.@-".contains(&b))
@@ -1003,6 +1014,20 @@ mod tests {
         let report = validate_project(&project);
         assert!(report.warnings.iter().any(|warning| warning.contains("in preview")));
         assert!(!report.warnings.iter().any(|warning| warning.contains("not available yet")));
+    }
+
+    #[test]
+    fn rejects_removing_backend_critical_packages() {
+        let mut project = sample();
+        project.packages.remove.push("live-boot".into());
+        assert!(!validate_project(&project).valid);
+
+        project.base.distribution = "arch".into();
+        project.base.release = "rolling".into();
+        project.base.architecture = "x86_64".into();
+        project.packages.remove.clear();
+        project.packages.remove.push("mkinitcpio-archiso".into());
+        assert!(!validate_project(&project).valid);
     }
 
     #[test]
