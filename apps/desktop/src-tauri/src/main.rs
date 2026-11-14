@@ -38,7 +38,8 @@ fn main() {
             commands::os_builder::append_os_build_job_log,
             commands::os_builder::update_os_build_job,
             commands::os_builder::list_os_build_jobs,
-            commands::os_builder::read_os_build_job_log
+            commands::os_builder::read_os_build_job_log,
+            commands::void_boot::scan_void_boot_iso_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running Void Memingo");
