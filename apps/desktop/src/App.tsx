@@ -28,7 +28,7 @@ type OpenTab = {
 
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
-type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; status: string; error: string | null };
+type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null };
 type BootDistribution = { id: string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string };
 type BottomView = 'problems' | 'output' | 'terminal';
 
@@ -1306,19 +1306,19 @@ directory = ${quote(osOutputDir)}
                     <a className="text-action" href={distro.download_page} target="_blank" rel="noreferrer">Abrir página oficial ↗</a>
                   </div>
                 ))}
-                <div className="git-section-label">RESUMABLE DOWNLOAD</div>
-                <p className="git-provider-note">{voidBootSelectedDistro ? 'Seleccionada: ' + voidBootSelectedDistro.name : 'Elige una distribución primero.'} El catálogo contiene páginas oficiales, no enlaces ISO versionados. Copia el enlace directo HTTPS del archivo ISO desde la página oficial y pégalo aquí.</p>
+                <div className="git-section-label">FLASH DOWNLOAD · 8 CONNECTIONS</div>
+                <p className="git-provider-note">{voidBootSelectedDistro ? 'Seleccionada: ' + voidBootSelectedDistro.name : 'Elige una distribución primero.'} Motor acelerado: divide la ISO en hasta 8 partes y las descarga en paralelo cuando el servidor admite HTTP Range. Conserva cada parte para reanudarla. El catálogo contiene páginas oficiales, no enlaces ISO versionados: copia el enlace directo HTTPS desde la página oficial.</p>
                 <div className="void-boot-download-form">
                   <input aria-label="Enlace directo HTTPS de la ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => setVoidBootDownloadUrl(event.target.value)} />
                   <input aria-label="Nombre del archivo ISO" placeholder="distribution.iso" value={voidBootDownloadName} onChange={(event) => setVoidBootDownloadName(event.target.value)} />
                   <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}>{voidBootDownloadDirectory ? 'Carpeta: ' + voidBootDownloadDirectory.split(/[\\\\/]/).filter(Boolean).pop() : 'Elegir carpeta destino'}</button>
-                  <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootSelectedDistro || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando…' : 'Descargar / reanudar ISO'}</button>
+                  <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootSelectedDistro || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando…' : 'Descarga Flash / reanudar'}</button>
                 </div>
                 {voidBootDownloads.map((task) => {
                   const percent = task.total_bytes && task.total_bytes > 0 ? Math.min(100, task.downloaded_bytes / task.total_bytes * 100) : null;
                   return <div className="void-boot-download-task" key={task.id}>
                     <strong>{task.file_name}</strong>
-                    <span>{(task.downloaded_bytes / 1073741824).toFixed(2)} GiB{task.total_bytes ? ' / ' + (task.total_bytes / 1073741824).toFixed(2) + ' GiB' : ''} · {task.status}</span>
+                    <span>{(task.downloaded_bytes / 1073741824).toFixed(2)} GiB{task.total_bytes ? ' / ' + (task.total_bytes / 1073741824).toFixed(2) + ' GiB' : ''} · {task.status} · {task.connections} conexiones</span>
                     {percent !== null && <div className="void-boot-download-progress"><span style={{ width: percent + '%' }} /></div>}
                     {task.error && <small>{task.error}</small>}
                     {task.status === 'downloading' && <button className="text-action" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar (reanuda después)</button>}
