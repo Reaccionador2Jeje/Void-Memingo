@@ -125,7 +125,7 @@ mod tests {
         assert!(windows.iter().any(|entry| entry.id == "windows-10-home"));
         assert!(windows.iter().any(|entry| entry.id == "windows-10-pro"));
         assert!(windows.iter().any(|entry| entry.id == "windows-10-ltsc"));
-        for entry in windows {
+        for entry in &windows {
             assert_eq!(entry.kind, "operating_system");
             assert_eq!(entry.installation.delivery, "official_media_page_only");
             assert!(!entry.installation.boot_profile_required);
