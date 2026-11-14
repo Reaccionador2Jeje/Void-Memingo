@@ -71,6 +71,7 @@ fn print_catalog(
             "{} ({})\n  Type: {}\n  {}\n  Family: {}\n  Project: {}\n  Official media: {}\n  Architectures: {}\n  Editions: {}\n  Release: {}\n  Formats: {}\n  Verify: {}\n",
             entry.name,
             entry.id,
+            if entry.kind == "operating_system" { "Operating system" } else { "Linux distribution" },
             entry.description,
             entry.family,
             entry.project_url,
