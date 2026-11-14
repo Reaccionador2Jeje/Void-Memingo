@@ -1110,7 +1110,10 @@ mod tests {
         assert!(auto_config.contains("--binary-images iso-hybrid"));
         assert!(auto_config.contains("--firmware-chroot true"));
         assert!(auto_config.contains("--debian-installer false"));
-        assert!(Command::new("sh").args(["-n", root.join(".void-memingo/debian-live/atdev-os/auto/config").to_str().unwrap()]).status().unwrap().success());
+        for auto_script in ["config", "clean", "build"] {
+            let path = root.join(".void-memingo/debian-live/atdev-os/auto").join(auto_script);
+            assert!(Command::new("sh").args(["-n", path.to_str().unwrap()]).status().unwrap().success());
+        }
         assert!(script.contains("xorriso -indev"));
         assert!(script.contains("El Torito"));
         assert!(script.contains("manifest.toml"));
@@ -1128,7 +1131,7 @@ mod tests {
         let system_hook = fs::read_to_string(root.join(".void-memingo/debian-live/atdev-os/config/hooks/normal/020-void-memingo-system-config.hook.chroot")).unwrap();
         assert!(system_hook.contains("locale-gen"));
         assert!(system_hook.contains("systemctl enable"));
-        assert!(Command::new("sh").args(["-n", &prepared.script_path]).status().unwrap().success());
+        assert!(Command::new("sh").args(["-n", prepared.script_path.as_str()]).status().unwrap().success());
         fs::remove_dir_all(root).unwrap();
     }
 
