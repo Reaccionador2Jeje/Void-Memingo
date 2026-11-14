@@ -9,9 +9,9 @@ import { Plus, TerminalSquare, X } from 'lucide-react';
 type TerminalOutput = { sessionId: string; data: string };
 type TerminalExit = { sessionId: string; code: number | null };
 type Session = { id: string; name: string };
-type Props = { workspace: string | null; onLog: (message: string) => void; command?: string | null; onCommandConsumed?: () => void; interruptSignal?: number; onCommandStarted?: () => void; onCommandFinished?: (exitCode: number) => void };
+type Props = { workspace: string | null; onLog: (message: string) => void; command?: string | null; onCommandConsumed?: () => void; interruptSignal?: number; onCommandStarted?: () => void; onCommandFinished?: (exitCode: number) => void; onCommandOutput?: (data: string) => void };
 
-function TerminalView({ sessionId, active, onCommandFinished }: { sessionId: string; active: boolean; onCommandFinished: (exitCode: number) => void }) {
+function TerminalView({ sessionId, active, onCommandFinished, onCommandOutput }: { sessionId: string; active: boolean; onCommandFinished: (exitCode: number) => void; onCommandOutput: (data: string) => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +47,7 @@ function TerminalView({ sessionId, active, onCommandFinished }: { sessionId: str
         if (event.payload.sessionId === sessionId) {
           const data = event.payload.data;
           terminal.write(data);
+          onCommandOutput(data);
           markerBuffer = (markerBuffer + data).slice(-160);
           const match = markerBuffer.match(/\x1b\]777;VOID_MEMINGO_EXIT;(\d+)\x07/);
           if (match) {
@@ -103,12 +104,12 @@ function TerminalView({ sessionId, active, onCommandFinished }: { sessionId: str
       exitUnlisten?.();
       terminal.dispose();
     };
-  }, [sessionId, onCommandFinished]);
+  }, [sessionId, onCommandFinished, onCommandOutput]);
 
   return <div className="terminal-xterm-host" ref={hostRef} style={{ display: active ? 'block' : 'none' }} />;
 }
 
-export default function TerminalPanel({ workspace, onLog, command, onCommandConsumed, interruptSignal = 0, onCommandStarted, onCommandFinished = () => undefined }: Props) {
+export default function TerminalPanel({ workspace, onLog, command, onCommandConsumed, interruptSignal = 0, onCommandStarted, onCommandFinished = () => undefined, onCommandOutput = () => undefined }: Props) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -250,7 +251,7 @@ export default function TerminalPanel({ workspace, onLog, command, onCommandCons
             <button onClick={() => void createSession()} disabled={creating}>Crear terminal</button>
           </div>
         ) : sessions.map((session) => (
-          <TerminalView key={session.id} sessionId={session.id} active={activeId === session.id} onCommandFinished={onCommandFinished} />
+          <TerminalView key={session.id} sessionId={session.id} active={activeId === session.id} onCommandFinished={onCommandFinished} onCommandOutput={onCommandOutput} />
         ))}
       </div>
     </div>
