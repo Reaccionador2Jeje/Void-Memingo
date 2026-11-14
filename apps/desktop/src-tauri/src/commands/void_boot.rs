@@ -24,8 +24,9 @@ pub fn start_void_boot_download(
     url: String,
     file_name: String,
     directory: String,
+    expected_sha256: Option<String>,
 ) -> Result<String, String> {
-    manager.start(url, file_name, directory)
+    manager.start(url, file_name, directory, expected_sha256)
 }
 
 #[tauri::command]
