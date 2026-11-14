@@ -18,8 +18,7 @@ if [[ -z "$TARGET_DIR" ]]; then
   exit 1
 fi
 
-mkdir -p -- "$TARGET_DIR"
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd -P)"
+case "$TARGET_DIR" in\n  /*) ;;\n  *) TARGET_DIR="$PWD/$TARGET_DIR" ;;\nesac\nmkdir -p "$TARGET_DIR"\nTARGET_DIR="$(cd "$TARGET_DIR" && pwd -P)"
 case "$TARGET_DIR" in
   /|/boot|/etc|/usr|/bin|/sbin|/lib|/lib64)
     echo "Refusing to deploy Void Boot into a protected system directory: $TARGET_DIR" >&2
@@ -35,6 +34,6 @@ case "$CONFIRM" in
   *) echo "Cancelled."; exit 0 ;;
 esac
 
-cp -R -- "$PAYLOAD_DIR/." "$TARGET_DIR/"
+cp -R "$PAYLOAD_DIR/." "$TARGET_DIR/"
 printf '%s\n' "Void Boot menu/profile files deployed." > "$TARGET_DIR/VOID-BOOT-INSTALL.txt"
 echo "Void Boot files copied successfully."
