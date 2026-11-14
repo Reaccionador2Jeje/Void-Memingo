@@ -38,10 +38,12 @@ Filter by distribution family or architecture (Windows uses the `windows` family
     cargo run -- catalog --family arch --arch x86_64
     cargo run -- catalog --family windows
     cargo run -- catalog --family windows --arch aarch64
+    cargo run -- catalog --family bsd
+    cargo run -- catalog --family reactos
 
 The catalogue links to official landing pages rather than storing version-specific mirror URLs, avoiding stale links. Open the listed page, select the edition and architecture, and save the ISO into your local library folder. Then inspect it with `cargo run -- scan /path/to/isos`.
 
-**Download automation is not implemented in this milestone.** Void Boot does not yet fetch ISO files, verify publisher signatures automatically, or mark a distribution as boot-compatible. Windows entries link only to Microsoft's official download pages; BSD and ReactOS entries link to their respective official project or mirror pages. Void Boot does not redistribute Windows images, automate external-OS downloads, or claim that Windows, BSD or ReactOS loopback boot works. These entries are catalog-only until dedicated, separately tested boot/install workflows exist. Follow each publisher's verification instructions and compare its published checksum/signature before using an image. A future downloader must use HTTPS-only transfers, publisher-authenticated verification, resumable downloads, safe filenames, disk-space checks and explicit consent before large downloads.
+The CLI does not download images. Void Memingo provides a resumable HTTPS downloader for Linux entries that support direct ISO delivery, but it requires a direct URL copied from the publisher and HTTP Range support. It does not yet discover version-specific ISO URLs or authenticate downloads against publisher checksums/signatures; the local SHA-256 is an inspection digest, not proof of authenticity. Windows, BSD and ReactOS entries are catalog-only and link to official publisher pages. Void Boot does not redistribute Windows media or claim that Windows, BSD or ReactOS loopback/multiboot works. These systems need dedicated, separately tested boot/install workflows before support can be enabled. No entry is marked boot-compatible without profile-specific BIOS and UEFI tests.
 
 ## Commands
 
