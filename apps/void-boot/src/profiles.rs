@@ -6,7 +6,7 @@ pub struct ProfileCatalog {
     pub profiles: Vec<BootProfile>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct BootProfile {
     pub id: String,
     pub name: String,
@@ -70,6 +70,12 @@ impl ProfileCatalog {
                 "profile catalog is empty",
             ));
         }
+        if self.profiles.len() > 128 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "profile catalog exceeds the 128-profile limit",
+            ));
+        }
 
         let mut profile_ids = HashSet::new();
         for profile in &self.profiles {
@@ -85,15 +91,19 @@ impl ProfileCatalog {
                     "unsafe profile name",
                 ));
             }
-            for path in [&profile.iso, &profile.kernel, &profile.initrd] {
-                if !safe_relative_path(path) {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "profile paths must be safe relative paths",
-                    ));
-                }
+            if !safe_relative_path(&profile.iso)
+                || !profile.iso.to_ascii_lowercase().ends_with(".iso")
+                || !safe_relative_path(&profile.kernel)
+                || !safe_relative_path(&profile.initrd)
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "ISO, kernel and initrd paths must be safe relative paths; ISO paths must end in .iso",
+                ));
             }
-            if profile.linux_args.iter().any(|arg| !safe_argument(arg)) {
+            if profile.linux_args.len() > 64
+                || profile.linux_args.iter().any(|arg| arg.len() > 256 || !safe_argument(arg))
+            {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "unsafe kernel argument",
