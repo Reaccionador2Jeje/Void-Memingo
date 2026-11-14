@@ -161,7 +161,7 @@ export default function TerminalPanel({ workspace, onLog, command, onCommandCons
     if (!command || !activeId) return;
     void invoke('write_terminal_input', {
       sessionId: activeId,
-      data: command + '\\r'
+      data: command + '\r'
     }).then(() => {
       onLog('Comando de build enviado a la terminal.');
       onCommandConsumed?.();
