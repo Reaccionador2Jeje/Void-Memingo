@@ -52,6 +52,7 @@ type GitSnapshot = {
 type OsValidation = { valid: boolean; errors: string[]; warnings: string[] };
 type BuildPreflight = { supportedHost: boolean; ready: boolean; distribution: string; checks: { id: string; label: string; available: boolean; required: boolean; detail: string }[]; warnings: string[] };
 type BuildPreparation = { backend: string; buildDirectory: string; scriptPath: string; bootTestScriptPath?: string | null; uefiBootTestScriptPath?: string | null; commands: string[]; notes: string[] };
+type BuildArtifactReport = { valid: boolean; isoPath: string; sizeBytes: number; sha256: string | null; backend: string | null; checks: { id: string; label: string; passed: boolean; detail: string }[] };
 
 function FileNode({
   root,
