@@ -18,7 +18,6 @@ terminal-height: "64%"
   item_font = "unicode"
   item_color = "#d7def0"
   selected_item_color = "#ffffff"
-  selected_item_pixmap_style = "highlight"
   item_height = 42
   item_spacing = 10
   icon_width = 32
