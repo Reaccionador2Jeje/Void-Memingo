@@ -683,7 +683,7 @@ function App() {
   }, [addLog]);
 
   const chooseVoidBootProfile = useCallback(async () => {
-    const selected = await open({ directory: false, multiple: false, title: 'Seleccionar catálogo de perfiles Void Boot' });
+    const selected = await open({ directory: false, multiple: false, title: 'Seleccionar catálogo de perfiles Void Boot', filters: [{ name: 'Perfiles Void Boot', extensions: ['toml'] }] });
     if (typeof selected !== 'string') return;
     setVoidBootProfileFile(selected);
     setVoidBootPreviewBusy(true);
@@ -1302,7 +1302,7 @@ directory = ${quote(osOutputDir)}
             <button className="rail-button" onClick={() => setBottomOpen(!bottomOpen)} title="Panel inferior">
               <PanelBottom size={20} />
             </button>
-            <button className={'rail-button ' + (sidebarView === 'boot' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('boot'); setSidebarOpen(true); void loadVoidBootCatalog(); void invoke<BootDownload[]>('list_void_boot_downloads').then(setVoidBootDownloads).catch((error) => addLog('Descargas Void Boot: ' + String(error))); }} title="Void Distro Center — catálogo universal de sistemas">
+            <button className={'rail-button ' + (sidebarView === 'boot' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('boot'); setSidebarOpen(true); void loadVoidBootCatalog(); void invoke<BootDownload[]>('list_void_boot_downloads').then(setVoidBootDownloads).catch((error) => addLog('Descargas Void Boot: ' + String(error))); }} title="Void Boot — centro de control gráfico">
               <Disc3 size={20} />
             </button>
             <button className={'rail-button ' + (osBuilderOpen ? 'active' : '')} onClick={() => { setOsBuilderOpen(true); setSidebarOpen(false); }} title="OS Builder">
@@ -1436,8 +1436,8 @@ directory = ${quote(osOutputDir)}
               <header className="distro-center-header">
                 <div>
                   <div className="eyebrow">ATDEV DEV <span>•</span> VOID BOOT</div>
-                  <h1>Void Distro Center</h1>
-                  <p>Explora sistemas operativos, consulta sus fuentes oficiales y administra tu biblioteca de imágenes.</p>
+                  <h1>Void Boot</h1>
+                  <p>Centro de control gráfico para explorar sistemas, administrar imágenes, verificar integridad y probar perfiles de arranque.</p>
                 </div>
                 <div className="distro-center-header-actions">
                   <span className="distro-center-count"><Disc3 size={14} /> {voidBootCatalog.length} sistemas catalogados</span>
