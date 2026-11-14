@@ -6,7 +6,7 @@ import {
   Activity, AlertCircle, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Code2, Command, Cpu, FileCode2, FilePlus2, Folder, FolderOpen,
   GitBranch, LayoutDashboard, PanelBottom, PanelLeftClose, Plus, Search,
-  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3
+  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3, Play, Cpu, FolderOpen
 } from 'lucide-react';
 
 type FileEntry = {
@@ -176,6 +176,9 @@ function App() {
   const [voidBootProfileFile, setVoidBootProfileFile] = useState<string | null>(null);
   const [voidBootMenuPreview, setVoidBootMenuPreview] = useState<string | null>(null);
   const [voidBootPreviewBusy, setVoidBootPreviewBusy] = useState(false);
+  const [qemuImagePath, setQemuImagePath] = useState<string | null>(null);
+  const [qemuBusy, setQemuBusy] = useState(false);
+  const [qemuStatus, setQemuStatus] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>(['Void Memingo Desktop iniciado.']);
   const [busy, setBusy] = useState(false);
   const [osBuilderOpen, setOsBuilderOpen] = useState(false);
@@ -538,6 +541,24 @@ function App() {
       setVoidBootBusy(false);
     }
   }, [addLog]);
+
+  const chooseQemuImage = useCallback(async () => {
+    const selected = await open({ multiple: false, title: 'Seleccionar imagen virtual Void Boot', filters: [{ name: 'Imágenes de disco', extensions: ['img', 'raw', 'qcow2'] }] });
+    if (typeof selected === 'string') { setQemuImagePath(selected); setQemuStatus(null); }
+  }, []);
+
+  const launchVoidBootQemu = useCallback(async () => {
+    if (!qemuImagePath) return;
+    setQemuBusy(true);
+    try {
+      const pid = await invoke<number>('start_void_boot_qemu', { imagePath: qemuImagePath });
+      setQemuStatus('QEMU iniciado · PID ' + pid + ' · modo snapshot');
+      addLog('Void Boot QEMU iniciado (PID ' + pid + '). El archivo original está protegido por snapshot.');
+    } catch (error) {
+      setQemuStatus('No se pudo iniciar QEMU: ' + String(error));
+      addLog('Void Boot QEMU: ' + String(error));
+    } finally { setQemuBusy(false); }
+  }, [addLog, qemuImagePath]);
 
   const chooseVoidBootDirectory = useCallback(async () => {
     const selected = await open({ directory: true, multiple: false, title: 'Seleccionar carpeta que contiene ISOs' });
@@ -1327,6 +1348,13 @@ directory = ${quote(osOutputDir)}
                     {task.status === 'completed' && <small>Descarga terminada. Escanea la carpeta para inspeccionar la ISO.</small>}
                   </div>;
                 })}
+                <section className="void-boot-qemu-card">
+                  <div className="void-boot-qemu-heading"><span className="void-boot-qemu-icon"><Cpu size={17} /></span><div><strong>QEMU VIRTUAL LAB</strong><small>Pruebas UEFI sin pendrive físico</small></div><span className="void-boot-status-dot" /></div>
+                  <p>Selecciona una imagen de disco creada por Void Boot. QEMU arrancará con OVMF/UEFI, red desactivada y snapshot para descartar los cambios al cerrar la máquina virtual.</p>
+                  <button className="secondary-button" onClick={() => void chooseQemuImage()}><FolderOpen size={14} /> {qemuImagePath ? qemuImagePath.split(/[\\\\/]/).filter(Boolean).pop() : 'Seleccionar imagen virtual (.img / .qcow2)'}</button>
+                  <button className="primary-button" onClick={() => void launchVoidBootQemu()} disabled={!qemuImagePath || qemuBusy}><Play size={14} /> {qemuBusy ? 'Iniciando QEMU…' : 'Iniciar máquina virtual'}</button>
+                  {qemuStatus && <small className="void-boot-qemu-status">{qemuStatus}</small>}
+                </section>
                 <div className="git-section-label">ISO LIBRARY · LOCAL</div>
                 <p className="git-provider-note">Inspección de solo lectura. La descarga puede guardar archivos en una carpeta VOIDDATA montada; la preparación del arranque y la modificación de particiones USB siguen deshabilitadas.</p>
                 <button className="primary-button" onClick={() => void chooseVoidBootDirectory()} disabled={voidBootBusy}>{voidBootBusy ? 'Inspeccionando…' : 'Seleccionar carpeta de ISOs'}</button>
