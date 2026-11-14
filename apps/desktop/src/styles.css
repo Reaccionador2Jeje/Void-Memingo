@@ -987,3 +987,6 @@ button:disabled {
 .distro-transfer-item b{color:#dce2ed;font-size:9px;overflow-wrap:anywhere}
 .distro-transfer-item small{color:#8995a8;font-size:8px;line-height:1.5;overflow-wrap:anywhere}
 .distro-transfer-item button{flex:none;min-height:27px;font-size:8px}
+
+.distro-checksum-success{color:#8ed6b0!important}
+.distro-library-item>button{flex:none;min-height:25px;padding:4px 8px;font-size:8px}
