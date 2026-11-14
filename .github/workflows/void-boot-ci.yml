@@ -186,33 +186,6 @@ jobs:
           path: ${{ runner.temp }}/void-boot-demo.iso
           if-no-files-found: error
 
-  rustfmt-apply:
-    name: Apply Rust formatting (one-shot repair)
-    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[apply-rustfmt]')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - name: Format Void Boot Rust sources
-        working-directory: apps/void-boot
-        run: cargo fmt --all
-      - name: Commit formatting changes
-        shell: bash
-        run: |
-          if git diff --quiet -- apps/void-boot/src; then
-            echo "Rust sources are already formatted."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/void-boot/src
-          git commit -m "style(void-boot): apply rustfmt"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-
   debian-live-integration:
     name: Full Debian Live ISO handoff (manual)
     if: (github.event_name == 'workflow_dispatch' && inputs.run_debian_live) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[debian-live-qemu]'))
