@@ -166,6 +166,131 @@ pub fn write_text_file(
 }
 
 
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchMatch {
+    path: String,
+    line_number: usize,
+    column: usize,
+    preview: String,
+}
+
+fn ignored_search_directory(name: &str) -> bool {
+    matches!(
+        name,
+        ".git" | "node_modules" | "target" | "dist" | "build" | "out"
+            | ".void-memingo" | ".venv" | "venv" | "vendor" | ".cache"
+    )
+}
+
+fn search_workspace_files(
+    root: &Path,
+    query: &str,
+    case_sensitive: bool,
+) -> Result<Vec<SearchMatch>, String> {
+    const MAX_FILES: usize = 20_000;
+    const MAX_FILE_BYTES: u64 = 1_048_576;
+    const MAX_MATCHES: usize = 1_000;
+
+    let needle = if case_sensitive { query.to_string() } else { query.to_lowercase() };
+    let mut pending = vec![root.to_path_buf()];
+    let mut matches = Vec::new();
+    let mut scanned = 0usize;
+
+    while let Some(directory) = pending.pop() {
+        let entries = match fs::read_dir(&directory) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            if matches.len() >= MAX_MATCHES || scanned >= MAX_FILES {
+                return Ok(matches);
+            }
+            let file_type = match entry.file_type() {
+                Ok(file_type) => file_type,
+                Err(_) => continue,
+            };
+            if file_type.is_symlink() {
+                continue;
+            }
+            let path = entry.path();
+            if file_type.is_dir() {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                if !ignored_search_directory(&name) {
+                    pending.push(path);
+                }
+                continue;
+            }
+            if !file_type.is_file() {
+                continue;
+            }
+            let metadata = match entry.metadata() {
+                Ok(metadata) => metadata,
+                Err(_) => continue,
+            };
+            if metadata.len() > MAX_FILE_BYTES {
+                continue;
+            }
+            scanned += 1;
+            let bytes = match fs::read(&path) {
+                Ok(bytes) => bytes,
+                Err(_) => continue,
+            };
+            if bytes.contains(&0) {
+                continue;
+            }
+            let contents = match String::from_utf8(bytes) {
+                Ok(contents) => contents,
+                Err(_) => continue,
+            };
+            let relative = match path.strip_prefix(root) {
+                Ok(relative) => relative.to_string_lossy().replace('\\', "/"),
+                Err(_) => continue,
+            };
+            for (line_index, line) in contents.lines().enumerate() {
+                let haystack = if case_sensitive { line.to_string() } else { line.to_lowercase() };
+                if let Some(byte_index) = haystack.find(&needle) {
+                    let column = haystack[..byte_index].chars().count() + 1;
+                    let mut preview: String = line.trim().chars().take(240).collect();
+                    if line.trim().chars().count() > 240 {
+                        preview.push('…');
+                    }
+                    matches.push(SearchMatch {
+                        path: relative.clone(),
+                        line_number: line_index + 1,
+                        column,
+                        preview,
+                    });
+                    if matches.len() >= MAX_MATCHES {
+                        return Ok(matches);
+                    }
+                }
+            }
+        }
+    }
+    Ok(matches)
+}
+
+#[tauri::command]
+pub async fn search_workspace(
+    root: String,
+    query: String,
+    case_sensitive: bool,
+) -> Result<Vec<SearchMatch>, String> {
+    let root = canonical_root(&root)?;
+    let query = query.trim().to_string();
+    if query.is_empty() {
+        return Err("Escribe un texto para buscar.".into());
+    }
+    if query.len() > 256 {
+        return Err("La búsqueda no puede superar 256 bytes.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || search_workspace_files(&root, &query, case_sensitive))
+        .await
+        .map_err(|error| format!("Workspace search worker failed: {error}"))?
+}
+
 #[cfg(test)]
 mod tests {
     use super::safe_relative_path;
