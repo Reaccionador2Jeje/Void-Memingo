@@ -126,7 +126,9 @@ mod tests {
             assert_eq!(entry.kind, "operating_system");
             assert_eq!(entry.installation.delivery, "official_media_page_only");
             assert!(!entry.installation.boot_profile_required);
-            assert!(entry.download_page.starts_with("https://www.microsoft.com/"));
+            assert!(entry
+                .download_page
+                .starts_with("https://www.microsoft.com/"));
         }
     }
 
@@ -151,12 +153,20 @@ mod tests {
     #[test]
     fn catalog_distinguishes_linux_and_external_operating_systems() {
         let entries = load_distributions().expect("catalog should load");
-        assert!(entries.iter().any(|entry| entry.kind == "linux_distribution"));
+        assert!(entries
+            .iter()
+            .any(|entry| entry.kind == "linux_distribution"));
         assert!(entries.iter().any(|entry| entry.kind == "operating_system"));
-        assert!(entries.iter().filter(|entry| entry.kind == "linux_distribution")
+        assert!(entries
+            .iter()
+            .filter(|entry| entry.kind == "linux_distribution")
             .all(|entry| entry.installation.delivery == "direct_iso_to_void_data_partition"));
-        assert!(entries.iter().filter(|entry| entry.kind == "operating_system")
-            .all(|entry| entry.installation.delivery == "official_media_page_only"
-                && !entry.installation.boot_profile_required));
+        assert!(entries
+            .iter()
+            .filter(|entry| entry.kind == "operating_system")
+            .all(
+                |entry| entry.installation.delivery == "official_media_page_only"
+                    && !entry.installation.boot_profile_required
+            ));
     }
 }
