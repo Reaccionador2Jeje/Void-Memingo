@@ -14,6 +14,12 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
 }
 
 $Target = [System.IO.Path]::GetFullPath($Target)
+$ProtectedPaths = @($env:SystemRoot, $env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
+foreach ($ProtectedPath in $ProtectedPaths) {
+    if ($Target.TrimEnd("\") -ieq $ProtectedPath.TrimEnd("\")) {
+        throw "Refusing to deploy into a protected Windows system directory: $Target"
+    }
+}
 if (-not (Test-Path -LiteralPath $Target -PathType Container)) {
     New-Item -ItemType Directory -Path $Target -Force | Out-Null
 }
