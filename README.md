@@ -102,3 +102,9 @@ The Worker source is in `cloudflare/`. Its public endpoint is https://void-memin
 ## License
 
 MIT
+
+## Walletie compatibility
+
+Void-Memingo remains an independent operating-system tooling project. Walletie may be used only for optional ecosystem/community features, never for core OS functionality.
+
+Walletie V1 currently accepts AtDev Cloud HS256 tokens only; other identity systems need the documented SSO bridge first. See the [Walletie integration matrix](https://github.com/Reaccionador2Jeje/Walletie/blob/main/docs/INTEGRATION_MATRIX.md).
