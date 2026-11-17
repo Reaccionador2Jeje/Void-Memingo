@@ -65,7 +65,9 @@ Until the media builder has passed the safeguards and test gates, Void Boot only
 - [x] Reanudación de partes descargadas en mirrors compatibles con rangos.
 - [x] Fallback automático a una conexión simple cuando el mirror ignora HTTP Range.
 - [x] SHA-256 calculado antes de finalizar el archivo; si se proporciona un hash esperado, debe coincidir.
-- [ ] Selección automática de mirrors oficiales alternativos y biblioteca con detección de ISO reutilizables.
+- [ ] Selección automática de mirrors oficiales alternativos.
+- [x] Reutilización de ISO ya presentes en la carpeta de biblioteca cuando se proporciona un SHA-256 esperado válido y el archivo existente coincide exactamente; se calcula el hash local y se registra como reutilización sin tráfico de descarga.
+- [x] Rechazo seguro de reutilización cuando falta el SHA-256 esperado, el destino no es un archivo regular o el hash no coincide; el archivo existente nunca se sobrescribe.
 - [ ] Descarga directa a medio USB; requiere primero el flujo seguro de detección, confirmación y escritura del dispositivo.
 
-Nota: el modo de conexión simple no puede reanudar una transferencia interrumpida en servidores que no admiten rangos; al volver a iniciarse, comienza de nuevo. La velocidad depende de la conexión, el servidor y sus límites, por lo que el paralelismo no garantiza aceleración.
+Nota: la caché no confía en el nombre ni en el tamaño como prueba de identidad. Para reutilizar, exige un SHA-256 esperado de una fuente que el usuario haya revisado; el resultado prueba coincidencia con ese valor, no autentica por sí solo al editor. El modo de conexión simple no puede reanudar una transferencia interrumpida en servidores que no admiten rangos; al volver a iniciarse, comienza de nuevo. La velocidad depende de la conexión, el servidor y sus límites, por lo que el paralelismo no garantiza aceleración.
