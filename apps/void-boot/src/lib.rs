@@ -2,6 +2,7 @@ pub mod catalog;
 pub mod devices;
 pub mod download;
 pub mod profiles;
+pub mod releases;
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -110,7 +111,7 @@ pub fn inspect_iso(path: &Path) -> io::Result<IsoEntry> {
     })
 }
 
-fn parse_manifest_sha256(contents: &str, file_name: &str) -> io::Result<String> {
+pub(crate) fn parse_manifest_sha256(contents: &str, file_name: &str) -> io::Result<String> {
     let mut matches = Vec::new();
     for line in contents.lines() {
         let line = line.trim();
