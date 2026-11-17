@@ -152,6 +152,32 @@ fn parse_content_range(value: &str) -> Option<(u64, u64, u64)> {
     Some((start, end, total))
 }
 
+fn validate_partial_response(
+    status: reqwest::StatusCode,
+    content_range: Option<(u64, u64, u64)>,
+    content_length: Option<u64>,
+    expected_start: u64,
+    expected_end: u64,
+    expected_total: u64,
+) -> Result<(), String> {
+    if status != reqwest::StatusCode::PARTIAL_CONTENT {
+        return Err(format!("Se esperaba HTTP 206 Partial Content, se recibió HTTP {status}"));
+    }
+    if content_range != Some((expected_start, expected_end, expected_total)) {
+        return Err("El servidor devolvió un Content-Range distinto al solicitado".into());
+    }
+    let expected_length = expected_end
+        .checked_sub(expected_start)
+        .and_then(|length| length.checked_add(1))
+        .ok_or_else(|| "El rango solicitado tiene límites inválidos".to_string())?;
+    if content_length.is_some_and(|length| length != expected_length) {
+        return Err(format!(
+            "Content-Length no coincide con el rango: se esperaban {expected_length} bytes"
+        ));
+    }
+    Ok(())
+}
+
 fn sha256_reader(reader: &mut impl Read) -> Result<String, String> {
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; BUFFER_SIZE];
@@ -379,10 +405,15 @@ impl DownloadManager {
                     .ok_or_else(|| {
                         "El servidor devolvió un encabezado Content-Range inválido".to_string()
                     })?;
-                let (probe_start, probe_end, total) = range;
-                if probe_start != 0 || probe_end != 0 {
-                    return Err("El servidor no respetó la consulta inicial de un byte".into());
-                }
+                let (_, _, total) = range;
+                validate_partial_response(
+                    probe.status(),
+                    Some(range),
+                    probe.content_length(),
+                    0,
+                    0,
+                    total,
+                )?;
                 drop(probe);
 
                 let part_paths: Vec<PathBuf> = (0..DOWNLOAD_CONNECTIONS)
@@ -447,23 +478,20 @@ impl DownloadManager {
                                     .into(),
                             );
                         }
-                        if response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
-                            return Err(format!(
-                                "El servidor dejó de admitir rangos en la parte {}",
-                                index + 1
-                            ));
-                        }
                         let actual_range = response
                             .headers()
                             .get(reqwest::header::CONTENT_RANGE)
                             .and_then(|value| value.to_str().ok())
                             .and_then(parse_content_range);
-                        if actual_range != Some((request_start, end, total)) {
-                            return Err(format!(
-                                "Rango incorrecto recibido en la parte {}",
-                                index + 1
-                            ));
-                        }
+                        validate_partial_response(
+                            response.status(),
+                            actual_range,
+                            response.content_length(),
+                            request_start,
+                            end,
+                            total,
+                        )
+                        .map_err(|error| format!("Respuesta inválida en la parte {}: {error}", index + 1))?;
 
                         let mut file = OpenOptions::new()
                             .create(true)
@@ -496,6 +524,17 @@ impl DownloadManager {
                         file.flush().map_err(|e| e.to_string())?;
                         if !worker_pause.load(Ordering::Relaxed) && received != expected_len {
                             return Err(format!("La parte {} quedó incompleta", index + 1));
+                        }
+                        if !worker_pause.load(Ordering::Relaxed) && received == expected_len {
+                            let mut extra = [0u8; 1];
+                            if response.read(&mut extra).map_err(|error| {
+                                format!("No se pudo validar el final de la parte {}: {error}", index + 1)
+                            })? != 0 {
+                                return Err(format!(
+                                    "El servidor envió más bytes de los solicitados en la parte {}",
+                                    index + 1
+                                ));
+                            }
                         }
                         Ok(())
                     }));
@@ -622,7 +661,7 @@ impl DownloadManager {
 mod tests {
     use super::{
         checksum_matches, normalize_expected_sha256, parse_content_range, safe_file_name,
-        sha256_reader,
+        sha256_reader, validate_partial_response,
     };
 
     #[test]
@@ -702,6 +741,26 @@ mod tests {
         assert_eq!(parse_content_range("bytes 0-0/*"), None);
         assert_eq!(parse_content_range("bytes 0-0/4096 extra"), None);
         assert_eq!(parse_content_range("bytes 0-0"), None);
+    }
+
+    #[test]
+    fn validates_http_partial_content_status_range_and_length() {
+        let status = reqwest::StatusCode::PARTIAL_CONTENT;
+        assert!(validate_partial_response(
+            status, Some((0, 0, 4096)), Some(1), 0, 0, 4096
+        ).is_ok());
+        assert!(validate_partial_response(
+            status, Some((0, 0, 4096)), Some(2), 0, 0, 4096
+        ).is_err());
+        assert!(validate_partial_response(
+            status, Some((1, 1, 4096)), Some(1), 0, 0, 4096
+        ).is_err());
+        assert!(validate_partial_response(
+            reqwest::StatusCode::OK, Some((0, 0, 4096)), Some(1), 0, 0, 4096
+        ).is_err());
+        assert!(validate_partial_response(
+            status, Some((0, 0, 8192)), Some(1), 0, 0, 4096
+        ).is_err());
     }
 
     #[test]
