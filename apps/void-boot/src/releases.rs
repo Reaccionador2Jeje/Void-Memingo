@@ -49,6 +49,12 @@ const SOURCES: &[ChecksumSource] = &[
         manifest_url: "https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Workstation/x86_64/iso/Fedora-Workstation-45-1.4-x86_64-CHECKSUM",
         allowed_host: "dl.fedoraproject.org",
     },
+    ChecksumSource {
+        distribution_id: "opensuse",
+        release_label: "openSUSE Tumbleweed · DVD x86_64 current",
+        manifest_url: "https://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso.sha256",
+        allowed_host: "download.opensuse.org",
+    },
 ];
 
 fn safe_iso_name(value: &str) -> bool {
@@ -150,8 +156,8 @@ mod tests {
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 4);
-        for expected in ["debian", "arch", "ubuntu", "fedora"] {
+        assert_eq!(sources.len(), 5);
+        for expected in ["debian", "arch", "ubuntu", "fedora", "opensuse"] {
             assert!(sources.iter().any(|(id, _)| id == expected), "missing {expected}");
         }
         assert!(!sources.iter().any(|(id, _)| id == "linuxmint"));
