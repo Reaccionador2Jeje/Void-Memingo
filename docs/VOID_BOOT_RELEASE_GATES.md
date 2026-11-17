@@ -57,3 +57,15 @@ Void Boot is not considered production-ready until every required gate below has
 ## Safety boundary during development
 
 Until the media builder has passed the safeguards and test gates, Void Boot only inventories removable devices and generates boot menus. It does not partition, format, install a bootloader to, or write to physical drives. Use disposable virtual disks for development and QEMU testing.
+
+
+## Smart Download
+
+- [x] Descarga paralela de hasta 8 rangos cuando el servidor admite HTTP Range.
+- [x] Reanudación de partes descargadas en mirrors compatibles con rangos.
+- [x] Fallback automático a una conexión simple cuando el mirror ignora HTTP Range.
+- [x] SHA-256 calculado antes de finalizar el archivo; si se proporciona un hash esperado, debe coincidir.
+- [ ] Selección automática de mirrors oficiales alternativos y biblioteca con detección de ISO reutilizables.
+- [ ] Descarga directa a medio USB; requiere primero el flujo seguro de detección, confirmación y escritura del dispositivo.
+
+Nota: el modo de conexión simple no puede reanudar una transferencia interrumpida en servidores que no admiten rangos; al volver a iniciarse, comienza de nuevo. La velocidad depende de la conexión, el servidor y sus límites, por lo que el paralelismo no garantiza aceleración.
