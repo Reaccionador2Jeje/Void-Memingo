@@ -15,6 +15,7 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Select a local GNU/BSD publisher checksum manifest before download and load the digest for the exact ISO filename; reject missing or conflicting entries.
 - [x] Restrict ISO downloads to HTTPS hosts that resolve only to public IP addresses; pin the validated DNS results for the transfer and reject unsafe IP ranges.
 - [x] Validate every redirect and allow only the original verified HTTPS host and port, preventing redirects to local or private services. Direct download URLs are required when an upstream page redirects to a separate CDN host.
+- [x] Add pinned online checksum-manifest adapters for Debian stable amd64 ISO CD and Arch Linux current x86_64; require exact ISO filename matches and reject unknown distributions, redirects, oversized manifests and non-public DNS results.
 
 ## Required before a stable release
 
@@ -37,7 +38,7 @@ Void Boot is not considered production-ready until every required gate below has
 - [ ] Validate BIOS and UEFI media layout on real supported hardware.
 - [ ] Design Secure Boot support and signing/trust chain separately.
 - [ ] Audit GRUB configuration generation and profile input validation.
-- [ ] Verify downloaded images using authenticated upstream checksum/signature metadata.
+- [ ] Verify downloaded images using authenticated upstream checksum/signature metadata. The current online adapters retrieve SHA-256 manifests over pinned HTTPS sources; they do not yet authenticate detached signatures, so they establish integrity against the fetched manifest but not publisher authenticity.
 
 ### 4. Product experience
 - [ ] Ship a standalone desktop UI with device inventory, ISO library, profile manager and build logs.
