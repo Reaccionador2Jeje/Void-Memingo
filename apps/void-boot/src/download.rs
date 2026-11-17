@@ -28,6 +28,7 @@ pub struct DownloadSnapshot {
     pub error: Option<String>,
     pub sha256: Option<String>,
     pub checksum_verified: bool,
+    pub reused_from_library: bool,
 }
 
 struct DownloadTask {
@@ -178,6 +179,35 @@ fn validate_partial_response(
     Ok(())
 }
 
+fn inspect_reusable_iso(
+    path: &Path,
+    expected_sha256: Option<&str>,
+) -> Result<Option<(u64, String)>, String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("No se pudo inspeccionar la ISO existente: {error}")),
+    };
+    if !metadata.file_type().is_file() {
+        return Err("El destino existente no es un archivo ISO regular; no se reutilizará.".into());
+    }
+    let expected = expected_sha256.ok_or_else(|| {
+        "Ya existe una ISO con ese nombre. Para reutilizarla, consulta y proporciona primero el SHA-256 oficial.".to_string()
+    })?;
+    let mut file = File::open(path).map_err(|error| format!("No se pudo abrir la ISO existente: {error}"))?;
+    let opened_metadata = file.metadata().map_err(|error| error.to_string())?;
+    if !opened_metadata.is_file() || opened_metadata.len() != metadata.len() {
+        return Err("La ISO existente cambió durante la inspección; vuelve a intentarlo.".into());
+    }
+    let actual = sha256_reader(&mut file)?;
+    if !checksum_matches(&actual, Some(expected)) {
+        return Err(format!(
+            "Ya existe una ISO con ese nombre, pero su SHA-256 no coincide. Esperado: {expected}; encontrado: {actual}. No se reutilizó ni sobrescribió."
+        ));
+    }
+    Ok(Some((opened_metadata.len(), actual)))
+}
+
 fn sha256_reader(reader: &mut impl Read) -> Result<String, String> {
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; BUFFER_SIZE];
@@ -219,6 +249,44 @@ impl DownloadManager {
         if !is_safe_download_target(&parsed) {
             return Err("Solo se permiten destinos HTTPS públicos; se bloquean direcciones locales, privadas y nombres internos".into());
         }
+        let expected_sha256 = normalize_expected_sha256(expected_sha256)?;
+        let file_name = safe_file_name(&file_name)?;
+        let directory = PathBuf::from(directory);
+        if !directory.is_dir() {
+            return Err("Selecciona una carpeta de destino existente".into());
+        }
+        let final_path = directory.join(&file_name);
+        let id = format!("{}-{}", file_name, directory.to_string_lossy());
+
+        // Reuse a library ISO only when its bytes match a caller-supplied expected digest.
+        if let Some((size_bytes, sha256)) =
+            inspect_reusable_iso(&final_path, expected_sha256.as_deref())?
+        {
+            let mut map = self.tasks.lock().map_err(|_| "Gestor bloqueado".to_string())?;
+            if map.get(&id).is_some_and(|task| {
+                task.snapshot.status == "downloading" || task.snapshot.status == "queued"
+            }) {
+                return Err("Esta descarga ya está en curso".into());
+            }
+            map.insert(id.clone(), DownloadTask {
+                snapshot: DownloadSnapshot {
+                    id: id.clone(),
+                    file_name,
+                    path: final_path.to_string_lossy().into_owned(),
+                    downloaded_bytes: size_bytes,
+                    total_bytes: Some(size_bytes),
+                    connections: 0,
+                    status: "completed".into(),
+                    error: None,
+                    sha256: Some(sha256),
+                    checksum_verified: true,
+                    reused_from_library: true,
+                },
+                pause: Arc::new(AtomicBool::new(false)),
+            });
+            return Ok(id);
+        }
+
         let host = parsed.host_str().ok_or_else(|| "La URL no contiene un host".to_string())?.to_owned();
         let port = parsed.port_or_known_default().ok_or_else(|| "No se pudo determinar el puerto HTTPS".to_string())?;
         let resolved_addresses = (host.as_str(), port)
@@ -228,20 +296,6 @@ impl DownloadManager {
         if resolved_addresses.is_empty() || resolved_addresses.iter().any(|address| !is_safe_ip(address.ip())) {
             return Err("El servidor resuelve a una dirección no pública; se cancela la descarga".into());
         }
-
-        let expected_sha256 = normalize_expected_sha256(expected_sha256)?;
-
-        let file_name = safe_file_name(&file_name)?;
-        let directory = PathBuf::from(directory);
-        if !directory.is_dir() {
-            return Err("Selecciona una carpeta de destino existente".into());
-        }
-        let final_path = directory.join(&file_name);
-        if final_path.exists() {
-            return Err("Ese archivo ya existe; elige otro nombre".into());
-        }
-
-        let id = format!("{}-{}", file_name, directory.to_string_lossy());
         let pause = Arc::new(AtomicBool::new(false));
         {
             let mut map = self
@@ -270,6 +324,7 @@ impl DownloadManager {
                         error: None,
                         sha256: None,
                         checksum_verified: false,
+                        reused_from_library: false,
                     },
                     pause: pause.clone(),
                 },
@@ -661,7 +716,7 @@ impl DownloadManager {
 mod tests {
     use super::{
         checksum_matches, normalize_expected_sha256, parse_content_range, safe_file_name,
-        sha256_reader, validate_partial_response,
+        inspect_reusable_iso, sha256_reader, validate_partial_response,
     };
 
     #[test]
@@ -761,6 +816,21 @@ mod tests {
         assert!(validate_partial_response(
             status, Some((0, 0, 8192)), Some(1), 0, 0, 4096
         ).is_err());
+    }
+
+    #[test]
+    fn reuses_existing_iso_only_when_expected_sha256_matches() {
+        use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let path = std::env::temp_dir().join(format!("void-boot-cache-{stamp}.iso"));
+        fs::write(&path, b"abc").unwrap();
+        let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        let cached = inspect_reusable_iso(&path, Some(digest)).unwrap().unwrap();
+        assert_eq!(cached.0, 3);
+        assert_eq!(cached.1, digest);
+        assert!(inspect_reusable_iso(&path, None).is_err());
+        assert!(inspect_reusable_iso(&path, Some(&"0".repeat(64))).is_err());
+        fs::remove_file(path).unwrap();
     }
 
     #[test]
