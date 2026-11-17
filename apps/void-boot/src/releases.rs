@@ -166,6 +166,109 @@ pub fn lookup_official_release_checksum(
     })
 }
 
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct OfficialMirror {
+    pub base_url: String,
+    pub country: String,
+    pub delay_seconds: u64,
+    pub score: f64,
+}
+
+const ARCH_MIRROR_STATUS_URL: &str = "https://archlinux.org/mirrors/status/json/";
+const MAX_MIRROR_STATUS_BYTES: u64 = 2 * 1024 * 1024;
+
+/// Fetch active, recently synchronized HTTPS mirrors from Arch Linux's own status API.
+pub fn list_arch_official_mirrors() -> Result<Vec<OfficialMirror>, String> {
+    let url = reqwest::Url::parse(ARCH_MIRROR_STATUS_URL)
+        .map_err(|error| format!("URL del estado de mirrors inválida: {error}"))?;
+    let host = url.host_str().ok_or_else(|| "La API oficial no tiene host.".to_string())?;
+    let port = url.port_or_known_default().ok_or_else(|| "Puerto HTTPS inválido.".to_string())?;
+    let addresses = (host, port)
+        .to_socket_addrs()
+        .map_err(|error| format!("No se pudo resolver la API oficial de Arch: {error}"))?
+        .collect::<Vec<_>>();
+    if addresses.is_empty()
+        || addresses.iter().any(|address| !crate::download::is_safe_ip(address.ip()))
+    {
+        return Err("La API oficial de Arch resolvió a una dirección no pública.".into());
+    }
+
+    let client = reqwest::blocking::Client::builder()
+        .resolve_to_addrs(host, &addresses)
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(20))
+        .user_agent("VoidBoot-MirrorSelector/0.1")
+        .build()
+        .map_err(|error| format!("No se pudo preparar la consulta de mirrors: {error}"))?;
+    let response = client.get(ARCH_MIRROR_STATUS_URL).send()
+        .map_err(|error| format!("No se pudo consultar el estado oficial de mirrors: {error}"))?;
+    if !response.status().is_success() || response.url().as_str() != ARCH_MIRROR_STATUS_URL {
+        return Err(format!("La API de mirrors respondió con {}; no se siguieron redirecciones.", response.status()));
+    }
+    if response.content_length().is_some_and(|length| length > MAX_MIRROR_STATUS_BYTES) {
+        return Err("La lista oficial de mirrors supera el límite permitido.".into());
+    }
+    let mut body = Vec::new();
+    response.take(MAX_MIRROR_STATUS_BYTES + 1).read_to_end(&mut body)
+        .map_err(|error| format!("No se pudo leer la lista oficial de mirrors: {error}"))?;
+    if body.len() as u64 > MAX_MIRROR_STATUS_BYTES {
+        return Err("La lista oficial de mirrors supera el límite permitido.".into());
+    }
+    let document: serde_json::Value = serde_json::from_slice(&body)
+        .map_err(|error| format!("La API oficial devolvió JSON inválido: {error}"))?;
+    let entries = document.get("urls").and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "La API oficial no contiene la lista de mirrors esperada.".to_string())?;
+
+    let mut mirrors = Vec::new();
+    for entry in entries {
+        if entry.get("active").and_then(serde_json::Value::as_bool) != Some(true)
+            || entry.get("protocol").and_then(serde_json::Value::as_str) != Some("https")
+        {
+            continue;
+        }
+        let completion = entry.get("completion_pct").and_then(serde_json::Value::as_f64).unwrap_or(0.0);
+        let delay = entry.get("delay").and_then(serde_json::Value::as_u64);
+        let score = entry.get("score").and_then(serde_json::Value::as_f64).unwrap_or(f64::MAX);
+        let Some(delay_seconds) = delay else { continue };
+        if completion < 99.0 || delay_seconds > 6 * 60 * 60 || !score.is_finite() {
+            continue;
+        }
+        let Some(raw_url) = entry.get("url").and_then(serde_json::Value::as_str) else { continue };
+        let Ok(mirror_url) = reqwest::Url::parse(raw_url) else { continue };
+        if mirror_url.scheme() != "https"
+            || mirror_url.host_str().is_none()
+            || !mirror_url.username().is_empty()
+            || mirror_url.password().is_some()
+            || mirror_url.query().is_some()
+            || mirror_url.fragment().is_some()
+            || !mirror_url.path().ends_with('/')
+        {
+            continue;
+        }
+        let country = entry.get("country").and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty()).unwrap_or("Ubicación no informada").to_owned();
+        let base_url = mirror_url.to_string();
+        if mirrors.iter().any(|mirror: &OfficialMirror| mirror.base_url == base_url) {
+            continue;
+        }
+        mirrors.push(OfficialMirror { base_url, country, delay_seconds, score });
+    }
+
+    // Prefer mirrors in Chile, then lower official mirror scores.
+    mirrors.sort_by(|left, right| {
+        let left_local = left.country.eq_ignore_ascii_case("Chile");
+        let right_local = right.country.eq_ignore_ascii_case("Chile");
+        right_local.cmp(&left_local).then_with(|| left.score.total_cmp(&right.score))
+    });
+    mirrors.truncate(20);
+    if mirrors.is_empty() {
+        return Err("La API oficial no informó mirrors HTTPS activos y suficientemente sincronizados.".into());
+    }
+    Ok(mirrors)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
