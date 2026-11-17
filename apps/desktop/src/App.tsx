@@ -29,6 +29,7 @@ type OpenTab = {
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean };
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
+type BootMirror = { base_url: string; country: string; delay_seconds: number; score: number };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean; reused_from_library: boolean };
 type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
@@ -180,6 +181,9 @@ function App() {
   const [distroArchitecture, setDistroArchitecture] = useState('all');
   const [distroCategory, setDistroCategory] = useState('all');
   const [voidBootDownloadUrl, setVoidBootDownloadUrl] = useState('');
+  const [voidBootArchMirrors, setVoidBootArchMirrors] = useState<BootMirror[]>([]);
+  const [voidBootArchMirrorBase, setVoidBootArchMirrorBase] = useState('');
+  const [voidBootMirrorBusy, setVoidBootMirrorBusy] = useState(false);
   const [voidBootDownloadName, setVoidBootDownloadName] = useState('distribution.iso');
   const [voidBootExpectedSha256, setVoidBootExpectedSha256] = useState('');
   const [voidBootDownloadDirectory, setVoidBootDownloadDirectory] = useState<string | null>(null);
@@ -645,6 +649,26 @@ function App() {
     const selected = await open({ directory: true, multiple: false, title: 'Carpeta destino (VOIDDATA montada o biblioteca local)' });
     if (typeof selected === 'string') setVoidBootDownloadDirectory(selected);
   }, []);
+
+  const loadVoidBootArchMirrors = useCallback(async () => {
+    setVoidBootMirrorBusy(true);
+    try {
+      const mirrors = await invoke<BootMirror[]>('list_void_boot_arch_official_mirrors');
+      setVoidBootArchMirrors(mirrors);
+      addLog('Void Boot: ' + mirrors.length + ' mirrors HTTPS activos obtenidos de la API oficial de estado de Arch Linux. Se priorizan los de Chile y los sincronizados.');
+    } catch (error) {
+      setVoidBootArchMirrors([]);
+      addLog('No se pudieron consultar los mirrors oficiales de Arch: ' + String(error));
+    } finally {
+      setVoidBootMirrorBusy(false);
+    }
+  }, [addLog]);
+
+  const selectVoidBootArchMirror = useCallback((baseUrl: string) => {
+    setVoidBootArchMirrorBase(baseUrl);
+    const cleanName = voidBootDownloadName.trim();
+    setVoidBootDownloadUrl(cleanName ? baseUrl + 'iso/latest/' + cleanName : '');
+  }, [voidBootDownloadName]);
 
   const loadVoidBootPublisherChecksum = useCallback(async () => {
     const fileName = voidBootDownloadName.trim();
@@ -1561,7 +1585,7 @@ directory = ${quote(osOutputDir)}
                       const isWindows = (distro.kind ?? 'linux_distribution') === 'operating_system';
                       const selected = voidBootSelectedDistro?.id === distro.id;
                       return (
-                        <button key={distro.id} className={'distro-center-card' + (selected ? ' selected' : '')} onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); setVoidBootExpectedSha256(''); }}>
+                        <button key={distro.id} className={'distro-center-card' + (selected ? ' selected' : '')} onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); setVoidBootExpectedSha256(''); setVoidBootArchMirrors([]); setVoidBootArchMirrorBase(''); }}>
                           <span className="distro-card-icon">{isWindows ? <Monitor size={23} /> : <Disc3 size={23} />}</span>
                           <span className="distro-card-main"><strong>{distro.name}</strong><small>{distro.family} · {distro.architectures.join(', ')}</small></span>
                           <span className={'distro-kind ' + (isWindows ? 'external' : 'linux')}>{isWindows ? (distro.family === 'windows' ? 'Windows' : distro.family === 'bsd' ? 'BSD' : 'Otro OS') : 'Linux'}</span>
@@ -1592,8 +1616,9 @@ directory = ${quote(osOutputDir)}
                       {(voidBootSelectedDistro.kind ?? 'linux_distribution') === 'linux_distribution' && voidBootSelectedDistro.installation.delivery === 'direct_iso_to_void_data_partition' ? (
                         <div className="distro-download-panel">
                           <div className="distro-detail-section"><strong>DESCARGA A BIBLIOTECA</strong><span>Smart Download detecta si el mirror admite HTTP Range: usa hasta 8 conexiones paralelas con reanudación por partes o cambia a una conexión simple. El destino se elige explícitamente.</span></div>
-                          <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => setVoidBootDownloadUrl(event.target.value)} />
-                          <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => { setVoidBootDownloadName(event.target.value); setVoidBootExpectedSha256(''); }} placeholder="distribution.iso" />
+                          {voidBootSelectedDistro.id === 'arch' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>MIRRORS OFICIALES DE ARCH LINUX</strong><span>Lista en vivo de la API oficial. Solo HTTPS activos, con sincronización reciente y estado de completitud alto; Chile aparece primero cuando hay mirrors aptos.</span></div><button className="secondary-button" onClick={() => void loadVoidBootArchMirrors()} disabled={voidBootMirrorBusy}>{voidBootMirrorBusy ? 'Consultando mirrors…' : 'Buscar mirrors oficiales'}</button>{voidBootArchMirrors.length > 0 && <select aria-label="Seleccionar mirror oficial de Arch Linux" value={voidBootArchMirrorBase} onChange={(event) => selectVoidBootArchMirror(event.target.value)}><option value="">Seleccionar mirror…</option>{voidBootArchMirrors.map((mirror) => <option key={mirror.base_url} value={mirror.base_url}>{mirror.country} · {Math.round(mirror.delay_seconds / 60)} min de retraso · {mirror.base_url}</option>)}</select>}</div>}
+                          <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => { setVoidBootArchMirrorBase(''); setVoidBootDownloadUrl(event.target.value); }} />
+                          <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => { const name = event.target.value; setVoidBootDownloadName(name); setVoidBootExpectedSha256(''); if (voidBootArchMirrorBase) setVoidBootDownloadUrl(voidBootArchMirrorBase + 'iso/latest/' + name.trim()); }} placeholder="distribution.iso" />
                           <input aria-label="SHA-256 oficial esperado (opcional)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres, opcional)" spellCheck={false} />
                           <button className="secondary-button" onClick={() => void loadVoidBootPublisherChecksum()} disabled={!voidBootDownloadName.trim()}>Cargar SHA-256 desde manifiesto local</button>
                           {['debian', 'arch', 'ubuntu', 'fedora', 'opensuse'].includes(voidBootSelectedDistro.id) && (
