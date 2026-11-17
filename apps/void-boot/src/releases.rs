@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn rejects_unconfigured_distribution_without_network_access() {
-        let error = lookup_official_release_checksum("fedora", "fedora.iso").unwrap_err();
+        let error = lookup_official_release_checksum("linuxmint", "linuxmint.iso").unwrap_err();
         assert!(error.contains("todavía no tiene"));
     }
 }
