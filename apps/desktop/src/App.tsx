@@ -671,6 +671,25 @@ function App() {
     }
   }, [addLog, voidBootDownloadName]);
 
+  const loadVoidBootOfficialReleaseChecksum = useCallback(async () => {
+    const distributionId = voidBootSelectedDistro?.id;
+    const fileName = voidBootDownloadName.trim();
+    if (!distributionId || !fileName) {
+      addLog('Void Boot: selecciona una distribución compatible e indica el nombre exacto de la ISO.');
+      return;
+    }
+    try {
+      const result = await invoke<{ release_label: string; manifest_url: string; file_name: string; sha256: string }>(
+        'lookup_void_boot_official_release_checksum',
+        { distributionId, fileName }
+      );
+      setVoidBootExpectedSha256(result.sha256);
+      addLog('Void Boot: SHA-256 consultado en ' + result.release_label + ' para ' + result.file_name + '. Fuente: ' + result.manifest_url);
+    } catch (error) {
+      addLog('No se pudo consultar el checksum oficial: ' + String(error));
+    }
+  }, [addLog, voidBootDownloadName, voidBootSelectedDistro]);
+
   const startVoidBootDownload = useCallback(async () => {
     if (!voidBootDownloadUrl.trim() || !voidBootDownloadDirectory || !voidBootDownloadName.trim()) return;
     setVoidBootDownloadBusy(true);
@@ -1572,8 +1591,11 @@ directory = ${quote(osOutputDir)}
                           <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => setVoidBootDownloadUrl(event.target.value)} />
                           <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => { setVoidBootDownloadName(event.target.value); setVoidBootExpectedSha256(''); }} placeholder="distribution.iso" />
                           <input aria-label="SHA-256 oficial esperado (opcional)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres, opcional)" spellCheck={false} />
-                          <button className="secondary-button" onClick={() => void loadVoidBootPublisherChecksum()} disabled={!voidBootDownloadName.trim()}>Cargar SHA-256 desde manifiesto oficial</button>
-                          <small className="distro-checksum-hint">Puedes pegar el SHA-256 o cargar un manifiesto GNU/BSD local. Se busca el nombre exacto de la ISO; si no hay una única coincidencia válida, se rechaza. La descarga solo se finaliza si el hash coincide. Esto comprueba integridad, no sustituye la verificación de firma del editor.</small>
+                          <button className="secondary-button" onClick={() => void loadVoidBootPublisherChecksum()} disabled={!voidBootDownloadName.trim()}>Cargar SHA-256 desde manifiesto local</button>
+                          {['debian', 'arch'].includes(voidBootSelectedDistro.id) && (
+                            <button className="secondary-button" onClick={() => void loadVoidBootOfficialReleaseChecksum()} disabled={!voidBootDownloadName.trim()}>Consultar checksum oficial en línea</button>
+                          )}
+                          <small className="distro-checksum-hint">Puedes pegar el SHA-256, cargar un manifiesto GNU/BSD local o consultar fuentes oficiales compatibles (Debian amd64 y Arch x86_64). Se busca el nombre exacto de la ISO; si no hay una única coincidencia válida, se rechaza. La descarga solo se finaliza si el hash coincide. Esto comprueba integridad, no sustituye la verificación de firma del editor.</small>
                           <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}><FolderOpen size={14} /> {voidBootDownloadDirectory ? voidBootDownloadDirectory.split(/[\\/]/).filter(Boolean).pop() : 'Elegir carpeta de biblioteca'}</button>
                           <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando descarga…' : 'Descargar / reanudar ISO'}</button>
                         </div>
