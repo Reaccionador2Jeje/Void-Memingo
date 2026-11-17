@@ -155,13 +155,13 @@ fn parse_manifest_sha256(contents: &str, file_name: &str) -> io::Result<String> 
     }
 }
 
-/// Verify an ISO against a publisher-provided GNU sha256sum or BSD shasum manifest.
 /// Read the publisher-provided SHA-256 for an exact ISO filename from a GNU/BSD manifest.
 pub fn expected_sha256_from_manifest(manifest_path: &Path, file_name: &str) -> io::Result<String> {
     let manifest = fs::read_to_string(manifest_path)?;
     parse_manifest_sha256(&manifest, file_name)
 }
 
+/// Verify an ISO against a publisher-provided GNU sha256sum or BSD shasum manifest.
 pub fn verify_iso_sha256_manifest(iso_path: &Path, manifest_path: &Path) -> io::Result<()> {
     let file_name = iso_path
         .file_name()
