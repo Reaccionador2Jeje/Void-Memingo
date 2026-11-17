@@ -1538,7 +1538,7 @@ directory = ${quote(osOutputDir)}
                       const isWindows = (distro.kind ?? 'linux_distribution') === 'operating_system';
                       const selected = voidBootSelectedDistro?.id === distro.id;
                       return (
-                        <button key={distro.id} className={'distro-center-card' + (selected ? ' selected' : '')} onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); }}>
+                        <button key={distro.id} className={'distro-center-card' + (selected ? ' selected' : '')} onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); setVoidBootExpectedSha256(''); }}>
                           <span className="distro-card-icon">{isWindows ? <Monitor size={23} /> : <Disc3 size={23} />}</span>
                           <span className="distro-card-main"><strong>{distro.name}</strong><small>{distro.family} · {distro.architectures.join(', ')}</small></span>
                           <span className={'distro-kind ' + (isWindows ? 'external' : 'linux')}>{isWindows ? (distro.family === 'windows' ? 'Windows' : distro.family === 'bsd' ? 'BSD' : 'Otro OS') : 'Linux'}</span>
@@ -1570,7 +1570,7 @@ directory = ${quote(osOutputDir)}
                         <div className="distro-download-panel">
                           <div className="distro-detail-section"><strong>DESCARGA A BIBLIOTECA</strong><span>Usa un enlace HTTPS directo a una ISO publicada por el proyecto. El destino se elige explícitamente.</span></div>
                           <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => setVoidBootDownloadUrl(event.target.value)} />
-                          <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => setVoidBootDownloadName(event.target.value)} placeholder="distribution.iso" />
+                          <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => { setVoidBootDownloadName(event.target.value); setVoidBootExpectedSha256(''); }} placeholder="distribution.iso" />
                           <input aria-label="SHA-256 oficial esperado (opcional)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres, opcional)" spellCheck={false} />
                           <button className="secondary-button" onClick={() => void loadVoidBootPublisherChecksum()} disabled={!voidBootDownloadName.trim()}>Cargar SHA-256 desde manifiesto oficial</button>
                           <small className="distro-checksum-hint">Puedes pegar el SHA-256 o cargar un manifiesto GNU/BSD local. Se busca el nombre exacto de la ISO; si no hay una única coincidencia válida, se rechaza. La descarga solo se finaliza si el hash coincide. Esto comprueba integridad, no sustituye la verificación de firma del editor.</small>
