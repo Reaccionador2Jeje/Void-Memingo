@@ -4,6 +4,7 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
+    net::ToSocketAddrs,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -39,6 +40,36 @@ pub struct DownloadManager {
     tasks: Arc<Mutex<HashMap<String, DownloadTask>>>,
 }
 
+fn is_safe_ip(address: std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+
+    match address {
+        IpAddr::V4(ip) => {
+            let octets = ip.octets();
+            !(ip.is_private()
+                || ip.is_loopback()
+                || ip.is_link_local()
+                || ip.is_unspecified()
+                || ip.is_broadcast()
+                || ip.is_multicast()
+                || (octets[0] == 100 && (64..=127).contains(&octets[1]))
+                || (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
+                || (octets[0] == 198 && (octets[1] == 18 || octets[1] == 19))
+                || octets[0] >= 240)
+        }
+        IpAddr::V6(ip) => {
+            !(ip.is_loopback()
+                || ip.is_unspecified()
+                || ip.is_multicast()
+                || ip.is_unique_local()
+                || ip.is_unicast_link_local()
+                || ip.to_ipv4_mapped().is_some_and(|mapped| {
+                    is_safe_ip(IpAddr::V4(mapped)) == false
+                }))
+        }
+    }
+}
+
 fn is_safe_download_target(url: &reqwest::Url) -> bool {
     use std::net::IpAddr;
 
@@ -52,34 +83,7 @@ fn is_safe_download_target(url: &reqwest::Url) -> bool {
 
     let host = url.host_str().unwrap_or_default();
     if let Ok(address) = host.parse::<IpAddr>() {
-        return match address {
-            IpAddr::V4(ip) => {
-                let octets = ip.octets();
-                !(ip.is_private()
-                    || ip.is_loopback()
-                    || ip.is_link_local()
-                    || ip.is_unspecified()
-                    || ip.is_broadcast()
-                    || ip.is_multicast()
-                    || (octets[0] == 100 && (64..=127).contains(&octets[1]))
-                    || (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
-                    || (octets[0] == 198 && (octets[1] == 18 || octets[1] == 19))
-                    || octets[0] >= 240)
-            }
-            IpAddr::V6(ip) => {
-                !(ip.is_loopback()
-                    || ip.is_unspecified()
-                    || ip.is_multicast()
-                    || ip.is_unique_local()
-                    || ip.is_unicast_link_local()
-                    || ip.to_ipv4_mapped().is_some_and(|mapped| {
-                        mapped.is_private()
-                            || mapped.is_loopback()
-                            || mapped.is_link_local()
-                            || mapped.is_unspecified()
-                    }))
-            }
-        };
+        return is_safe_ip(address);
     }
 
     let domain = host.trim_end_matches('.').to_ascii_lowercase();
@@ -184,6 +188,15 @@ impl DownloadManager {
         if !is_safe_download_target(&parsed) {
             return Err("Solo se permiten destinos HTTPS públicos; se bloquean direcciones locales, privadas y nombres internos".into());
         }
+        let host = parsed.host_str().ok_or_else(|| "La URL no contiene un host".to_string())?.to_owned();
+        let port = parsed.port_or_known_default().ok_or_else(|| "No se pudo determinar el puerto HTTPS".to_string())?;
+        let resolved_addresses = (host.as_str(), port)
+            .to_socket_addrs()
+            .map_err(|error| format!("No se pudo resolver el servidor: {error}"))?
+            .collect::<Vec<_>>();
+        if resolved_addresses.is_empty() || resolved_addresses.iter().any(|address| !is_safe_ip(address.ip())) {
+            return Err("El servidor resuelve a una dirección no pública; se cancela la descarga".into());
+        }
 
         let expected_sha256 = normalize_expected_sha256(expected_sha256)?;
 
@@ -238,11 +251,18 @@ impl DownloadManager {
             let result = (|| -> Result<(), String> {
                 let expected_sha256 = expected_sha256.clone();
                 let client = reqwest::blocking::Client::builder()
-                    .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                        if is_safe_download_target(attempt.url()) {
-                            attempt.follow()
-                        } else {
-                            attempt.error("redirección a un destino no público o no HTTPS")
+                    .resolve_to_addrs(&host, &resolved_addresses)
+                    .redirect(reqwest::redirect::Policy::custom({
+                        let host = host.clone();
+                        move |attempt| {
+                            let same_origin_host = attempt.url().host_str()
+                                .is_some_and(|target| target.eq_ignore_ascii_case(&host));
+                            let same_port = attempt.url().port_or_known_default() == Some(port);
+                            if same_origin_host && same_port && is_safe_download_target(attempt.url()) {
+                                attempt.follow()
+                            } else {
+                                attempt.error("solo se permiten redirecciones HTTPS al mismo host y puerto verificados")
+                            }
                         }
                     }))
                     .user_agent("VoidBoot-Downloader/0.2")
@@ -529,6 +549,10 @@ mod tests {
         ] {
             assert!(is_safe_download_target(&reqwest::Url::parse(url).unwrap()));
         }
+        assert!(super::is_safe_ip("8.8.8.8".parse().unwrap()));
+        assert!(!super::is_safe_ip("192.168.1.1".parse().unwrap()));
+        assert!(!super::is_safe_ip("100.64.0.1".parse().unwrap()));
+        assert!(!super::is_safe_ip("2001:db8::1".parse().unwrap()));
         for url in [
             "http://example.org/image.iso",
             "https://localhost/image.iso",
