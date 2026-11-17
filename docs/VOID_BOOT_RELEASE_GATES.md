@@ -16,6 +16,7 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Restrict ISO downloads to HTTPS hosts that resolve only to public IP addresses; pin the validated DNS results for the transfer and reject unsafe IP ranges.
 - [x] Validate every redirect and allow only the original verified HTTPS host and port, preventing redirects to local or private services. Direct download URLs are required when an upstream page redirects to a separate CDN host.
 - [x] Add pinned online checksum-manifest adapters for Debian stable amd64 ISO CD, Arch Linux current x86_64, Ubuntu 24.04 LTS amd64, Fedora Workstation 45 x86_64 and openSUSE Tumbleweed current DVD x86_64; require exact ISO filename matches and reject unknown distributions, redirects, oversized manifests and non-public DNS results.
+- [x] Discover Arch Linux HTTPS mirrors from the official mirror-status JSON API; reject inactive, low-completion, stale, non-HTTPS or malformed entries, prefer Chile, and retain download-time HTTPS/DNS/public-IP validation.
 
 ## Required before a stable release
 
@@ -65,7 +66,8 @@ Until the media builder has passed the safeguards and test gates, Void Boot only
 - [x] Reanudación de partes descargadas en mirrors compatibles con rangos.
 - [x] Fallback automático a una conexión simple cuando el mirror ignora HTTP Range.
 - [x] SHA-256 calculado antes de finalizar el archivo; si se proporciona un hash esperado, debe coincidir.
-- [ ] Selección automática de mirrors oficiales alternativos.
+- [x] Selector de mirrors HTTPS de Arch Linux alimentado por su API oficial de estado; filtra mirrors activos con completitud ≥99% y retraso ≤6 horas, y prioriza Chile antes de ordenar por puntuación oficial.
+- [ ] Descubrimiento/selector equivalente para Debian CD, Ubuntu, Fedora y openSUSE; hasta entonces se conserva la selección manual de URL directa.
 - [x] Reutilización de ISO ya presentes en la carpeta de biblioteca cuando se proporciona un SHA-256 esperado válido y el archivo existente coincide exactamente; se calcula el hash local y se registra como reutilización sin tráfico de descarga.
 - [x] Rechazo seguro de reutilización cuando falta el SHA-256 esperado, el destino no es un archivo regular o el hash no coincide; el archivo existente nunca se sobrescribe.
 - [ ] Descarga directa a medio USB; requiere primero el flujo seguro de detección, confirmación y escritura del dispositivo.
