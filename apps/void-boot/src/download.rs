@@ -162,7 +162,9 @@ fn validate_partial_response(
     expected_total: u64,
 ) -> Result<(), String> {
     if status != reqwest::StatusCode::PARTIAL_CONTENT {
-        return Err(format!("Se esperaba HTTP 206 Partial Content, se recibió HTTP {status}"));
+        return Err(format!(
+            "Se esperaba HTTP 206 Partial Content, se recibió HTTP {status}"
+        ));
     }
     if content_range != Some((expected_start, expected_end, expected_total)) {
         return Err("El servidor devolvió un Content-Range distinto al solicitado".into());
@@ -194,7 +196,8 @@ fn inspect_reusable_iso(
     let expected = expected_sha256.ok_or_else(|| {
         "Ya existe una ISO con ese nombre. Para reutilizarla, consulta y proporciona primero el SHA-256 oficial.".to_string()
     })?;
-    let mut file = File::open(path).map_err(|error| format!("No se pudo abrir la ISO existente: {error}"))?;
+    let mut file =
+        File::open(path).map_err(|error| format!("No se pudo abrir la ISO existente: {error}"))?;
     let opened_metadata = file.metadata().map_err(|error| error.to_string())?;
     if !opened_metadata.is_file() || opened_metadata.len() != metadata.len() {
         return Err("La ISO existente cambió durante la inspección; vuelve a intentarlo.".into());
@@ -262,39 +265,56 @@ impl DownloadManager {
         if let Some((size_bytes, sha256)) =
             inspect_reusable_iso(&final_path, expected_sha256.as_deref())?
         {
-            let mut map = self.tasks.lock().map_err(|_| "Gestor bloqueado".to_string())?;
+            let mut map = self
+                .tasks
+                .lock()
+                .map_err(|_| "Gestor bloqueado".to_string())?;
             if map.get(&id).is_some_and(|task| {
                 task.snapshot.status == "downloading" || task.snapshot.status == "queued"
             }) {
                 return Err("Esta descarga ya está en curso".into());
             }
-            map.insert(id.clone(), DownloadTask {
-                snapshot: DownloadSnapshot {
-                    id: id.clone(),
-                    file_name,
-                    path: final_path.to_string_lossy().into_owned(),
-                    downloaded_bytes: size_bytes,
-                    total_bytes: Some(size_bytes),
-                    connections: 0,
-                    status: "completed".into(),
-                    error: None,
-                    sha256: Some(sha256),
-                    checksum_verified: true,
-                    reused_from_library: true,
+            map.insert(
+                id.clone(),
+                DownloadTask {
+                    snapshot: DownloadSnapshot {
+                        id: id.clone(),
+                        file_name,
+                        path: final_path.to_string_lossy().into_owned(),
+                        downloaded_bytes: size_bytes,
+                        total_bytes: Some(size_bytes),
+                        connections: 0,
+                        status: "completed".into(),
+                        error: None,
+                        sha256: Some(sha256),
+                        checksum_verified: true,
+                        reused_from_library: true,
+                    },
+                    pause: Arc::new(AtomicBool::new(false)),
                 },
-                pause: Arc::new(AtomicBool::new(false)),
-            });
+            );
             return Ok(id);
         }
 
-        let host = parsed.host_str().ok_or_else(|| "La URL no contiene un host".to_string())?.to_owned();
-        let port = parsed.port_or_known_default().ok_or_else(|| "No se pudo determinar el puerto HTTPS".to_string())?;
+        let host = parsed
+            .host_str()
+            .ok_or_else(|| "La URL no contiene un host".to_string())?
+            .to_owned();
+        let port = parsed
+            .port_or_known_default()
+            .ok_or_else(|| "No se pudo determinar el puerto HTTPS".to_string())?;
         let resolved_addresses = (host.as_str(), port)
             .to_socket_addrs()
             .map_err(|error| format!("No se pudo resolver el servidor: {error}"))?
             .collect::<Vec<_>>();
-        if resolved_addresses.is_empty() || resolved_addresses.iter().any(|address| !is_safe_ip(address.ip())) {
-            return Err("El servidor resuelve a una dirección no pública; se cancela la descarga".into());
+        if resolved_addresses.is_empty()
+            || resolved_addresses
+                .iter()
+                .any(|address| !is_safe_ip(address.ip()))
+        {
+            return Err(
+                "El servidor resuelve a una dirección no pública; se cancela la descarga".into(),
+            );
         }
         let pause = Arc::new(AtomicBool::new(false));
         {
@@ -382,15 +402,20 @@ impl DownloadManager {
                         .get(&url)
                         .header(reqwest::header::ACCEPT_ENCODING, "identity")
                         .send()
-                        .map_err(|error| format!("No se pudo iniciar la descarga simple: {error}"))?;
+                        .map_err(|error| {
+                            format!("No se pudo iniciar la descarga simple: {error}")
+                        })?;
                     if !is_safe_download_target(response.url()) || !response.status().is_success() {
-                        return Err("El servidor de descarga simple no superó la validación HTTPS.".into());
+                        return Err(
+                            "El servidor de descarga simple no superó la validación HTTPS.".into(),
+                        );
                     }
                     let total = response.content_length();
                     let partial_path = directory.join(format!("{file_name}.part"));
                     if partial_path.exists() {
-                        fs::remove_file(&partial_path)
-                            .map_err(|error| format!("No se pudo reiniciar el archivo parcial: {error}"))?;
+                        fs::remove_file(&partial_path).map_err(|error| {
+                            format!("No se pudo reiniciar el archivo parcial: {error}")
+                        })?;
                     }
                     if let Ok(mut map) = tasks.lock() {
                         if let Some(task) = map.get_mut(&thread_id) {
@@ -400,7 +425,8 @@ impl DownloadManager {
                             task.snapshot.connections = 1;
                         }
                     }
-                    let mut file = File::create(&partial_path).map_err(|error| error.to_string())?;
+                    let mut file =
+                        File::create(&partial_path).map_err(|error| error.to_string())?;
                     let mut downloaded = 0u64;
                     let mut buffer = vec![0u8; BUFFER_SIZE];
                     loop {
@@ -413,7 +439,8 @@ impl DownloadManager {
                         if count == 0 {
                             break;
                         }
-                        file.write_all(&buffer[..count]).map_err(|error| error.to_string())?;
+                        file.write_all(&buffer[..count])
+                            .map_err(|error| error.to_string())?;
                         downloaded += count as u64;
                         if let Ok(mut map) = tasks.lock() {
                             if let Some(task) = map.get_mut(&thread_id) {
@@ -432,7 +459,8 @@ impl DownloadManager {
                             total.unwrap_or_default()
                         ));
                     }
-                    let mut downloaded_file = File::open(&partial_path).map_err(|error| error.to_string())?;
+                    let mut downloaded_file =
+                        File::open(&partial_path).map_err(|error| error.to_string())?;
                     let actual_sha256 = sha256_reader(&mut downloaded_file)?;
                     if let Some(expected) = expected_sha256.as_ref() {
                         if !checksum_matches(&actual_sha256, Some(expected)) {
@@ -546,7 +574,9 @@ impl DownloadManager {
                             end,
                             total,
                         )
-                        .map_err(|error| format!("Respuesta inválida en la parte {}: {error}", index + 1))?;
+                        .map_err(|error| {
+                            format!("Respuesta inválida en la parte {}: {error}", index + 1)
+                        })?;
 
                         let mut file = OpenOptions::new()
                             .create(true)
@@ -583,8 +613,12 @@ impl DownloadManager {
                         if !worker_pause.load(Ordering::Relaxed) && received == expected_len {
                             let mut extra = [0u8; 1];
                             if response.read(&mut extra).map_err(|error| {
-                                format!("No se pudo validar el final de la parte {}: {error}", index + 1)
-                            })? != 0 {
+                                format!(
+                                    "No se pudo validar el final de la parte {}: {error}",
+                                    index + 1
+                                )
+                            })? != 0
+                            {
                                 return Err(format!(
                                     "El servidor envió más bytes de los solicitados en la parte {}",
                                     index + 1
@@ -715,8 +749,8 @@ impl DownloadManager {
 #[cfg(test)]
 mod tests {
     use super::{
-        checksum_matches, normalize_expected_sha256, parse_content_range, safe_file_name,
-        inspect_reusable_iso, sha256_reader, validate_partial_response,
+        checksum_matches, inspect_reusable_iso, normalize_expected_sha256, parse_content_range,
+        safe_file_name, sha256_reader, validate_partial_response,
     };
 
     #[test]
@@ -745,7 +779,10 @@ mod tests {
             "https://[fd00::1]/image.iso",
             "https://user:pass@example.org/image.iso",
         ] {
-            assert!(!is_safe_download_target(&reqwest::Url::parse(url).unwrap()), "accepted {url}");
+            assert!(
+                !is_safe_download_target(&reqwest::Url::parse(url).unwrap()),
+                "accepted {url}"
+            );
         }
     }
 
@@ -801,27 +838,37 @@ mod tests {
     #[test]
     fn validates_http_partial_content_status_range_and_length() {
         let status = reqwest::StatusCode::PARTIAL_CONTENT;
+        assert!(validate_partial_response(status, Some((0, 0, 4096)), Some(1), 0, 0, 4096).is_ok());
+        assert!(
+            validate_partial_response(status, Some((0, 0, 4096)), Some(2), 0, 0, 4096).is_err()
+        );
+        assert!(
+            validate_partial_response(status, Some((1, 1, 4096)), Some(1), 0, 0, 4096).is_err()
+        );
         assert!(validate_partial_response(
-            status, Some((0, 0, 4096)), Some(1), 0, 0, 4096
-        ).is_ok());
-        assert!(validate_partial_response(
-            status, Some((0, 0, 4096)), Some(2), 0, 0, 4096
-        ).is_err());
-        assert!(validate_partial_response(
-            status, Some((1, 1, 4096)), Some(1), 0, 0, 4096
-        ).is_err());
-        assert!(validate_partial_response(
-            reqwest::StatusCode::OK, Some((0, 0, 4096)), Some(1), 0, 0, 4096
-        ).is_err());
-        assert!(validate_partial_response(
-            status, Some((0, 0, 8192)), Some(1), 0, 0, 4096
-        ).is_err());
+            reqwest::StatusCode::OK,
+            Some((0, 0, 4096)),
+            Some(1),
+            0,
+            0,
+            4096
+        )
+        .is_err());
+        assert!(
+            validate_partial_response(status, Some((0, 0, 8192)), Some(1), 0, 0, 4096).is_err()
+        );
     }
 
     #[test]
     fn reuses_existing_iso_only_when_expected_sha256_matches() {
-        use std::{fs, time::{SystemTime, UNIX_EPOCH}};
-        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        use std::{
+            fs,
+            time::{SystemTime, UNIX_EPOCH},
+        };
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let path = std::env::temp_dir().join(format!("void-boot-cache-{stamp}.iso"));
         fs::write(&path, b"abc").unwrap();
         let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
