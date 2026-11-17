@@ -13,6 +13,8 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] QEMU BIOS and UEFI menu-start smoke-test automation.
 - [x] Manual Debian Live full-handoff test harness.
 - [x] Select a local GNU/BSD publisher checksum manifest before download and load the digest for the exact ISO filename; reject missing or conflicting entries.
+- [x] Restrict ISO downloads to HTTPS hosts that resolve only to public IP addresses; pin the validated DNS results for the transfer and reject unsafe IP ranges.
+- [x] Validate every redirect and allow only the original verified HTTPS host and port, preventing redirects to local or private services. Direct download URLs are required when an upstream page redirects to a separate CDN host.
 
 ## Required before a stable release
 
