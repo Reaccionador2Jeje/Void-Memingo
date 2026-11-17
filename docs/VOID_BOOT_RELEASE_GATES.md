@@ -12,6 +12,7 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Linux read-only removable-device inventory.
 - [x] QEMU BIOS and UEFI menu-start smoke-test automation.
 - [x] Manual Debian Live full-handoff test harness.
+- [x] Select a local GNU/BSD publisher checksum manifest before download and load the digest for the exact ISO filename; reject missing or conflicting entries.
 
 ## Required before a stable release
 
