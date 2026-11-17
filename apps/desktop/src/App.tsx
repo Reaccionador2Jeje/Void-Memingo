@@ -33,6 +33,14 @@ type BootDownload = { id: string; file_name: string; path: string; downloaded_by
 type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
 
+function normalizeDistroArchitecture(value: string): string {
+  const architecture = value.trim().toLocaleLowerCase().replace(/\\s+/g, '');
+  if (['amd64', 'x64', 'x86-64', 'x86_64'].includes(architecture)) return 'x86_64';
+  if (['arm64', 'aarch64', 'armv8', 'armv8l'].includes(architecture)) return 'aarch64';
+  if (['armhf', 'armv7', 'armv7l'].includes(architecture)) return 'armhf';
+  return architecture;
+}
+
 type OsBase = {
   id: string;
   name: string;
@@ -282,13 +290,13 @@ function App() {
 
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
   const distroFamilies = useMemo(() => Array.from(new Set(voidBootCatalog.map((entry) => entry.family))).sort(), [voidBootCatalog]);
-  const distroArchitectures = useMemo(() => Array.from(new Set(voidBootCatalog.flatMap((entry) => entry.architectures))).sort(), [voidBootCatalog]);
+  const distroArchitectures = useMemo(() => Array.from(new Set(voidBootCatalog.flatMap((entry) => entry.architectures.map(normalizeDistroArchitecture)))).sort(), [voidBootCatalog]);
   const filteredDistroCatalog = useMemo(() => {
     const query = distroSearch.trim().toLocaleLowerCase();
     return voidBootCatalog.filter((entry) => {
       const matchesSearch = !query || [entry.name, entry.description, entry.family, entry.id].some((value) => value.toLocaleLowerCase().includes(query));
       const matchesFamily = distroFamily === 'all' || entry.family === distroFamily;
-      const matchesArchitecture = distroArchitecture === 'all' || entry.architectures.includes(distroArchitecture);
+      const matchesArchitecture = distroArchitecture === 'all' || entry.architectures.some((architecture) => normalizeDistroArchitecture(architecture) === distroArchitecture);
       const kind = entry.kind ?? 'linux_distribution';
       const matchesCategory = distroCategory === 'all'
         || (distroCategory === 'linux' && kind === 'linux_distribution')
