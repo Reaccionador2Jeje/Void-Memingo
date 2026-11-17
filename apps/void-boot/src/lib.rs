@@ -279,7 +279,7 @@ mod tests {
     fn reads_publisher_checksum_for_exact_iso_filename() {
         let manifest = unique_temp_path("publisher-SHA256SUMS");
         let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
-        fs::write(&manifest, format!("{digest}  debian-live.iso\\n{digest}  other.iso\\n"))
+        fs::write(&manifest, format!("{digest}  debian-live.iso\n{digest}  other.iso\n"))
             .expect("write publisher manifest");
         assert_eq!(
             expected_sha256_from_manifest(&manifest, "debian-live.iso").unwrap(),
