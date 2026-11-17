@@ -12,6 +12,14 @@ pub fn scan_void_boot_iso_directory(directory: String) -> Result<Vec<IsoEntry>, 
 }
 
 #[tauri::command]
+pub fn lookup_void_boot_official_release_checksum(
+    distribution_id: String,
+    file_name: String,
+) -> Result<::void_boot::releases::OfficialReleaseChecksum, String> {
+    ::void_boot::releases::lookup_official_release_checksum(&distribution_id, &file_name)
+}
+
+#[tauri::command]
 pub fn read_void_boot_expected_sha256(
     manifest_path: String,
     file_name: String,
