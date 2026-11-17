@@ -700,7 +700,7 @@ function App() {
         directory: voidBootDownloadDirectory,
         expectedSha256: voidBootExpectedSha256.trim() || null
       });
-      addLog('Void Boot: descarga iniciada. El archivo .part permite reanudarla si se pausa o se interrumpe.');
+      addLog('Void Boot Smart Download: descarga iniciada. Si el mirror admite HTTP Range se usan hasta 8 conexiones y se pueden reanudar partes; si no, se cambia automáticamente a una conexión simple.');
       await refreshVoidBootDownloads();
     } catch (error) {
       addLog('No se pudo iniciar la descarga: ' + String(error));
@@ -1587,7 +1587,7 @@ directory = ${quote(osOutputDir)}
                       <a className="distro-project-link" href={voidBootSelectedDistro.project_url} target="_blank" rel="noreferrer">Sitio oficial del proyecto ↗</a>
                       {(voidBootSelectedDistro.kind ?? 'linux_distribution') === 'linux_distribution' && voidBootSelectedDistro.installation.delivery === 'direct_iso_to_void_data_partition' ? (
                         <div className="distro-download-panel">
-                          <div className="distro-detail-section"><strong>DESCARGA A BIBLIOTECA</strong><span>Usa un enlace HTTPS directo a una ISO publicada por el proyecto. El destino se elige explícitamente.</span></div>
+                          <div className="distro-detail-section"><strong>DESCARGA A BIBLIOTECA</strong><span>Smart Download detecta si el mirror admite HTTP Range: usa hasta 8 conexiones paralelas con reanudación por partes o cambia a una conexión simple. El destino se elige explícitamente.</span></div>
                           <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => setVoidBootDownloadUrl(event.target.value)} />
                           <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => { setVoidBootDownloadName(event.target.value); setVoidBootExpectedSha256(''); }} placeholder="distribution.iso" />
                           <input aria-label="SHA-256 oficial esperado (opcional)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres, opcional)" spellCheck={false} />
@@ -1597,7 +1597,7 @@ directory = ${quote(osOutputDir)}
                           )}
                           <small className="distro-checksum-hint">Puedes pegar el SHA-256, cargar un manifiesto GNU/BSD local o consultar fuentes oficiales compatibles (Debian amd64, Arch x86_64, Ubuntu 24.04 LTS amd64, Fedora Workstation 45 x86_64 y openSUSE Tumbleweed DVD x86_64). Se busca el nombre exacto de la ISO; si no hay una única coincidencia válida, se rechaza. La descarga solo se finaliza si el hash coincide. Esto comprueba integridad, no sustituye la verificación de firma del editor.</small>
                           <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}><FolderOpen size={14} /> {voidBootDownloadDirectory ? voidBootDownloadDirectory.split(/[\\/]/).filter(Boolean).pop() : 'Elegir carpeta de biblioteca'}</button>
-                          <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando descarga…' : 'Descargar / reanudar ISO'}</button>
+                          <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando descarga…' : 'Descargar ISO'}</button>
                         </div>
                       ) : (
                         <div className="distro-download-panel distro-external-only"><AlertCircle size={16} /><span>Solo catálogo y enlace oficial. No se ofrece descarga automatizada ni se afirma compatibilidad multiboot para este sistema.</span></div>
