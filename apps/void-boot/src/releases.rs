@@ -37,6 +37,18 @@ const SOURCES: &[ChecksumSource] = &[
         manifest_url: "https://archlinux.org/iso/latest/sha256sums.txt",
         allowed_host: "archlinux.org",
     },
+    ChecksumSource {
+        distribution_id: "ubuntu",
+        release_label: "Ubuntu 24.04 LTS · official amd64 release manifest",
+        manifest_url: "https://releases.ubuntu.com/24.04/SHA256SUMS",
+        allowed_host: "releases.ubuntu.com",
+    },
+    ChecksumSource {
+        distribution_id: "fedora",
+        release_label: "Fedora Workstation 45 · x86_64",
+        manifest_url: "https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Workstation/x86_64/iso/Fedora-Workstation-45-1.4-x86_64-CHECKSUM",
+        allowed_host: "dl.fedoraproject.org",
+    },
 ];
 
 fn safe_iso_name(value: &str) -> bool {
@@ -138,10 +150,11 @@ mod tests {
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 2);
-        assert!(sources.iter().any(|(id, _)| id == "debian"));
-        assert!(sources.iter().any(|(id, _)| id == "arch"));
-        assert!(!sources.iter().any(|(id, _)| id == "fedora"));
+        assert_eq!(sources.len(), 4);
+        for expected in ["debian", "arch", "ubuntu", "fedora"] {
+            assert!(sources.iter().any(|(id, _)| id == expected), "missing {expected}");
+        }
+        assert!(!sources.iter().any(|(id, _)| id == "linuxmint"));
     }
 
     #[test]
