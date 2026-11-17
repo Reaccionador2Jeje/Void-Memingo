@@ -40,7 +40,7 @@ pub struct DownloadManager {
     tasks: Arc<Mutex<HashMap<String, DownloadTask>>>,
 }
 
-fn is_safe_ip(address: std::net::IpAddr) -> bool {
+pub(crate) fn is_safe_ip(address: std::net::IpAddr) -> bool {
     use std::net::IpAddr;
 
     match address {
