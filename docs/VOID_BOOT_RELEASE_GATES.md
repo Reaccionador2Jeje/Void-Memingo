@@ -15,7 +15,7 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Select a local GNU/BSD publisher checksum manifest before download and load the digest for the exact ISO filename; reject missing or conflicting entries.
 - [x] Restrict ISO downloads to HTTPS hosts that resolve only to public IP addresses; pin the validated DNS results for the transfer and reject unsafe IP ranges.
 - [x] Validate every redirect and allow only the original verified HTTPS host and port, preventing redirects to local or private services. Direct download URLs are required when an upstream page redirects to a separate CDN host.
-- [x] Add pinned online checksum-manifest adapters for Debian stable amd64 ISO CD, Arch Linux current x86_64, Ubuntu 24.04 LTS amd64 and Fedora Workstation 45 x86_64; require exact ISO filename matches and reject unknown distributions, redirects, oversized manifests and non-public DNS results.
+- [x] Add pinned online checksum-manifest adapters for Debian stable amd64 ISO CD, Arch Linux current x86_64, Ubuntu 24.04 LTS amd64, Fedora Workstation 45 x86_64 and openSUSE Tumbleweed current DVD x86_64; require exact ISO filename matches and reject unknown distributions, redirects, oversized manifests and non-public DNS results.
 
 ## Required before a stable release
 
