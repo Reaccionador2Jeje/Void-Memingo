@@ -218,6 +218,10 @@ pub fn list_arch_official_mirrors() -> Result<Vec<OfficialMirror>, String> {
     }
     let document: serde_json::Value = serde_json::from_slice(&body)
         .map_err(|error| format!("La API oficial devolvió JSON inválido: {error}"))?;
+    parse_arch_mirror_status(&document)
+}
+
+fn parse_arch_mirror_status(document: &serde_json::Value) -> Result<Vec<OfficialMirror>, String> {
     let entries = document.get("urls").and_then(serde_json::Value::as_array)
         .ok_or_else(|| "La API oficial no contiene la lista de mirrors esperada.".to_string())?;
 
@@ -229,10 +233,10 @@ pub fn list_arch_official_mirrors() -> Result<Vec<OfficialMirror>, String> {
             continue;
         }
         let completion = entry.get("completion_pct").and_then(serde_json::Value::as_f64).unwrap_or(0.0);
-        let delay = entry.get("delay").and_then(serde_json::Value::as_u64);
-        let score = entry.get("score").and_then(serde_json::Value::as_f64).unwrap_or(f64::MAX);
-        let Some(delay_seconds) = delay else { continue };
-        if completion < 99.0 || delay_seconds > 6 * 60 * 60 || !score.is_finite() {
+        let delay = entry.get("delay").and_then(serde_json::Value::as_f64);
+        let Some(delay_seconds) = delay.filter(|value| value.is_finite() && *value >= 0.0).map(|value| value.round() as u64) else { continue };
+        let score = entry.get("score").and_then(serde_json::Value::as_f64).filter(|value| value.is_finite()).unwrap_or(delay_seconds as f64);
+        if completion < 99.0 || delay_seconds > 6 * 60 * 60 {
             continue;
         }
         let Some(raw_url) = entry.get("url").and_then(serde_json::Value::as_str) else { continue };
@@ -256,7 +260,6 @@ pub fn list_arch_official_mirrors() -> Result<Vec<OfficialMirror>, String> {
         mirrors.push(OfficialMirror { base_url, country, delay_seconds, score });
     }
 
-    // Prefer mirrors in Chile, then lower official mirror scores.
     mirrors.sort_by(|left, right| {
         let left_local = left.country.eq_ignore_ascii_case("Chile");
         let right_local = right.country.eq_ignore_ascii_case("Chile");
@@ -272,6 +275,29 @@ pub fn list_arch_official_mirrors() -> Result<Vec<OfficialMirror>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+
+    #[test]
+    fn arch_mirror_parser_keeps_only_healthy_https_and_prefers_chile() {
+        let document = serde_json::json!({"urls": [
+            {"url":"https://far.example/arch/", "protocol":"https", "active":true, "country":"Farland", "completion_pct":100.0, "delay":120.0, "score":2.0},
+            {"url":"https://cl.example/arch/", "protocol":"https", "active":true, "country":"Chile", "completion_pct":100.0, "delay":300.5, "score":4.0},
+            {"url":"http://plain.example/arch/", "protocol":"http", "active":true, "country":"Chile", "completion_pct":100.0, "delay":1.0, "score":1.0},
+            {"url":"https://stale.example/arch/", "protocol":"https", "active":true, "country":"Chile", "completion_pct":100.0, "delay":25000.0, "score":1.0},
+            {"url":"https://weak.example/arch/", "protocol":"https", "active":true, "country":"Chile", "completion_pct":80.0, "delay":1.0, "score":1.0}
+        ]});
+        let mirrors = parse_arch_mirror_status(&document).unwrap();
+        assert_eq!(mirrors.len(), 2);
+        assert_eq!(mirrors[0].country, "Chile");
+        assert_eq!(mirrors[0].delay_seconds, 301);
+        assert_eq!(mirrors[1].country, "Farland");
+    }
+
+    #[test]
+    fn arch_mirror_parser_rejects_missing_or_empty_lists() {
+        assert!(parse_arch_mirror_status(&serde_json::json!({})).is_err());
+        assert!(parse_arch_mirror_status(&serde_json::json!({"urls": []})).is_err());
+    }
 
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
