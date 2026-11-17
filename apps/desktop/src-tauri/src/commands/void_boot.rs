@@ -12,6 +12,18 @@ pub fn scan_void_boot_iso_directory(directory: String) -> Result<Vec<IsoEntry>, 
 }
 
 #[tauri::command]
+pub fn read_void_boot_expected_sha256(
+    manifest_path: String,
+    file_name: String,
+) -> Result<String, String> {
+    if file_name.is_empty() || file_name != Path::new(&file_name).file_name().and_then(|name| name.to_str()).unwrap_or_default() {
+        return Err("Nombre de ISO no válido para consultar el manifiesto.".into());
+    }
+    ::void_boot::expected_sha256_from_manifest(Path::new(&manifest_path), &file_name)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn verify_void_boot_iso_checksum_manifest(
     iso_path: String,
     manifest_path: String,
