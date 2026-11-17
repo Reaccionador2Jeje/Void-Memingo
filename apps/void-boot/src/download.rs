@@ -288,7 +288,88 @@ impl DownloadManager {
                     );
                 }
                 if probe.status() != reqwest::StatusCode::PARTIAL_CONTENT {
-                    return Err("Este servidor no admite descargas por rangos. El modo acelerado requiere HTTP Range; no se inicia una descarga engañosamente paralela.".into());
+                    if !probe.status().is_success() {
+                        return Err(format!(
+                            "El servidor respondió con HTTP {} al consultar la descarga",
+                            probe.status()
+                        ));
+                    }
+                    // Fallback: algunos mirrors no admiten HTTP Range. Descarga en una sola
+                    // conexión en vez de fallar; esta modalidad reinicia si se interrumpe.
+                    drop(probe);
+                    let mut response = client
+                        .get(&url)
+                        .header(reqwest::header::ACCEPT_ENCODING, "identity")
+                        .send()
+                        .map_err(|error| format!("No se pudo iniciar la descarga simple: {error}"))?;
+                    if !is_safe_download_target(response.url()) || !response.status().is_success() {
+                        return Err("El servidor de descarga simple no superó la validación HTTPS.".into());
+                    }
+                    let total = response.content_length();
+                    let partial_path = directory.join(format!("{file_name}.part"));
+                    if partial_path.exists() {
+                        fs::remove_file(&partial_path)
+                            .map_err(|error| format!("No se pudo reiniciar el archivo parcial: {error}"))?;
+                    }
+                    if let Ok(mut map) = tasks.lock() {
+                        if let Some(task) = map.get_mut(&thread_id) {
+                            task.snapshot.status = "downloading".into();
+                            task.snapshot.total_bytes = total;
+                            task.snapshot.downloaded_bytes = 0;
+                            task.snapshot.connections = 1;
+                        }
+                    }
+                    let mut file = File::create(&partial_path).map_err(|error| error.to_string())?;
+                    let mut downloaded = 0u64;
+                    let mut buffer = vec![0u8; BUFFER_SIZE];
+                    loop {
+                        if pause.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        let count = response.read(&mut buffer).map_err(|error| {
+                            format!("La descarga simple se interrumpió: {error}")
+                        })?;
+                        if count == 0 {
+                            break;
+                        }
+                        file.write_all(&buffer[..count]).map_err(|error| error.to_string())?;
+                        downloaded += count as u64;
+                        if let Ok(mut map) = tasks.lock() {
+                            if let Some(task) = map.get_mut(&thread_id) {
+                                task.snapshot.downloaded_bytes = downloaded;
+                            }
+                        }
+                    }
+                    file.flush().map_err(|error| error.to_string())?;
+                    file.sync_all().map_err(|error| error.to_string())?;
+                    if pause.load(Ordering::Relaxed) {
+                        return Ok(());
+                    }
+                    if total.is_some_and(|expected| expected != downloaded) {
+                        return Err(format!(
+                            "Descarga incompleta: {downloaded}/{} bytes",
+                            total.unwrap_or_default()
+                        ));
+                    }
+                    let mut downloaded_file = File::open(&partial_path).map_err(|error| error.to_string())?;
+                    let actual_sha256 = sha256_reader(&mut downloaded_file)?;
+                    if let Some(expected) = expected_sha256.as_ref() {
+                        if !checksum_matches(&actual_sha256, Some(expected)) {
+                            let _ = fs::remove_file(&partial_path);
+                            return Err(format!(
+                                "El SHA-256 no coincide. Esperado: {expected}; recibido: {actual_sha256}. Se descartó la descarga."
+                            ));
+                        }
+                    }
+                    fs::rename(&partial_path, &final_path)
+                        .map_err(|error| format!("No se pudo finalizar la ISO: {error}"))?;
+                    if let Ok(mut map) = tasks.lock() {
+                        if let Some(task) = map.get_mut(&thread_id) {
+                            task.snapshot.sha256 = Some(actual_sha256);
+                            task.snapshot.checksum_verified = expected_sha256.is_some();
+                        }
+                    }
+                    return Ok(());
                 }
                 let range = probe
                     .headers()
