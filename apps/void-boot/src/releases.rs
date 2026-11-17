@@ -128,7 +128,7 @@ pub fn lookup_official_release_checksum(
         .build()
         .map_err(|error| format!("No se pudo preparar la consulta HTTPS: {error}"))?;
 
-    let mut response = client
+    let response = client
         .get(source.manifest_url)
         .send()
         .map_err(|error| format!("No se pudo consultar el manifiesto oficial: {error}"))?;
