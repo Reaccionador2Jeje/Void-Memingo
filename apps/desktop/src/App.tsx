@@ -29,7 +29,7 @@ type OpenTab = {
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean };
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
-type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean };
+type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean; reused_from_library: boolean };
 type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
 
@@ -694,14 +694,18 @@ function App() {
     if (!voidBootDownloadUrl.trim() || !voidBootDownloadDirectory || !voidBootDownloadName.trim()) return;
     setVoidBootDownloadBusy(true);
     try {
-      await invoke<string>('start_void_boot_download', {
+      const id = await invoke<string>('start_void_boot_download', {
         url: voidBootDownloadUrl.trim(),
         fileName: voidBootDownloadName.trim(),
         directory: voidBootDownloadDirectory,
         expectedSha256: voidBootExpectedSha256.trim() || null
       });
-      addLog('Void Boot Smart Download: descarga iniciada. Si el mirror admite HTTP Range se usan hasta 8 conexiones y se pueden reanudar partes; si no, se cambia automáticamente a una conexión simple.');
-      await refreshVoidBootDownloads();
+      const tasks = await invoke<BootDownload[]>('list_void_boot_downloads');
+      setVoidBootDownloads(tasks);
+      const reused = tasks.find((task) => task.id === id)?.reused_from_library ?? false;
+      addLog(reused
+        ? 'Void Boot ISO Cache: se reutilizó la ISO existente porque su SHA-256 coincide con el valor esperado. No se descargaron bytes.'
+        : 'Void Boot Smart Download: descarga iniciada. Si el mirror admite HTTP Range se usan hasta 8 conexiones y se pueden reanudar partes; si no, se cambia automáticamente a una conexión simple.');
     } catch (error) {
       addLog('No se pudo iniciar la descarga: ' + String(error));
     } finally {
@@ -1613,7 +1617,7 @@ directory = ${quote(osOutputDir)}
                   {!voidBootDirectory && <p>Selecciona una carpeta de biblioteca para inspeccionar archivos ISO existentes.</p>}
                   {voidBootEntries.map((entry) => <div className="distro-library-item" key={entry.path}><Disc3 size={16} /><div><strong>{entry.name}</strong><small>{(entry.size_bytes / (1024 * 1024)).toFixed(1)} MiB · SHA-256 {entry.sha256.slice(0, 16)}…</small>{voidBootChecksumStatus[entry.path] && <small className={voidBootChecksumStatus[entry.path].startsWith('SHA-256 oficial') ? 'distro-checksum-success' : 'distro-transfer-error'}>{voidBootChecksumStatus[entry.path]}</small>}</div><span>{entry.iso9660 ? 'ISO 9660' : 'No reconocida'}</span><button className="secondary-button" onClick={() => void verifyVoidBootIso(entry.path)}>Verificar</button></div>)}
                   {voidBootDirectory && voidBootEntries.length === 0 && <div className="panel-empty">{voidBootBusy ? 'Inspeccionando…' : 'No se encontraron ISO en esta carpeta.'}</div>}
-                  {voidBootDownloads.length > 0 && <div className="distro-download-history"><strong>Transferencias</strong>{voidBootDownloads.map((task) => <div className="distro-transfer-item" key={task.id}><div><b>{task.file_name}</b><small>{task.status} · {task.total_bytes ? `${(task.downloaded_bytes / task.total_bytes * 100).toFixed(1)}%` : `${(task.downloaded_bytes / (1024 * 1024)).toFixed(1)} MiB`}</small>{task.sha256 && <small>SHA-256 {task.sha256.slice(0, 20)}… · {task.checksum_verified ? 'checksum oficial coincidente' : 'sin checksum oficial'}</small>}{task.error && <small className="distro-transfer-error">{task.error}</small>}</div>{(task.status === 'downloading' || task.status === 'queued') && <button className="secondary-button" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar</button>}</div>)}</div>}
+                  {voidBootDownloads.length > 0 && <div className="distro-download-history"><strong>Transferencias</strong>{voidBootDownloads.map((task) => <div className="distro-transfer-item" key={task.id}><div><b>{task.file_name}</b><small>{task.status} · {task.total_bytes ? `${(task.downloaded_bytes / task.total_bytes * 100).toFixed(1)}%` : `${(task.downloaded_bytes / (1024 * 1024)).toFixed(1)} MiB`}</small>{task.sha256 && <small>SHA-256 {task.sha256.slice(0, 20)}… · {task.checksum_verified ? 'checksum esperado coincidente' : 'sin checksum esperado'}</small>}{task.reused_from_library && <small>ISO reutilizada desde la biblioteca · sin nueva descarga</small>}{task.reused_from_library && <small>Reutilizada desde la biblioteca · checksum coincidente</small>}{task.error && <small className="distro-transfer-error">{task.error}</small>}</div>{(task.status === 'downloading' || task.status === 'queued') && <button className="secondary-button" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar</button>}</div>)}</div>}
                 </section>
                 <section className="distro-lab-panel">
                   <div className="distro-panel-heading"><div><strong>Void Boot · Laboratorio virtual</strong><small>QEMU y perfiles GRUB · sin USB físico</small></div><Cpu size={18} /></div>
@@ -1656,7 +1660,7 @@ directory = ${quote(osOutputDir)}
                 {voidBootDownloads.length === 0 && <p>No hay descargas registradas.</p>}
                 {voidBootDownloads.map((task) => {
                   const percent = task.total_bytes && task.total_bytes > 0 ? Math.min(100, task.downloaded_bytes / task.total_bytes * 100) : null;
-                  return <div className="distro-transfer-row" key={task.id}><div><strong>{task.file_name}</strong><small>{(task.downloaded_bytes / 1073741824).toFixed(2)} GiB{task.total_bytes ? ' / ' + (task.total_bytes / 1073741824).toFixed(2) + ' GiB' : ''} · {task.status} · {task.connections} conexiones</small>{task.error && <small className="distro-transfer-error">{task.error}</small>}</div>{percent !== null && <div className="void-boot-download-progress"><span style={{ width: percent + '%' }} /></div>}{task.status === 'downloading' && <button className="text-action" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar</button>}</div>;
+                  return <div className="distro-transfer-row" key={task.id}><div><strong>{task.file_name}</strong><small>{(task.downloaded_bytes / 1073741824).toFixed(2)} GiB{task.total_bytes ? ' / ' + (task.total_bytes / 1073741824).toFixed(2) + ' GiB' : ''} · {task.status} · {task.reused_from_library ? 'ISO en caché' : task.connections + ' conexiones'}</small>{task.error && <small className="distro-transfer-error">{task.error}</small>}</div>{percent !== null && <div className="void-boot-download-progress"><span style={{ width: percent + '%' }} /></div>}{task.status === 'downloading' && <button className="text-action" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar</button>}</div>;
                 })}
               </section>
             </section>
