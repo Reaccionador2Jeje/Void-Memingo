@@ -646,6 +646,31 @@ function App() {
     if (typeof selected === 'string') setVoidBootDownloadDirectory(selected);
   }, []);
 
+  const loadVoidBootPublisherChecksum = useCallback(async () => {
+    const fileName = voidBootDownloadName.trim();
+    if (!fileName) {
+      addLog('Void Boot: indica primero el nombre exacto del archivo ISO.');
+      return;
+    }
+    const manifest = await open({
+      directory: false,
+      multiple: false,
+      title: 'Seleccionar manifiesto oficial SHA-256',
+      filters: [{ name: 'Manifiestos de checksum', extensions: ['txt', 'sha256', 'sha256sum', 'sum', 'checksums'] }]
+    });
+    if (typeof manifest !== 'string') return;
+    try {
+      const digest = await invoke<string>('read_void_boot_expected_sha256', {
+        manifestPath: manifest,
+        fileName
+      });
+      setVoidBootExpectedSha256(digest);
+      addLog('Void Boot: SHA-256 del manifiesto cargado para ' + fileName + '. La descarga lo exigirá antes de finalizar.');
+    } catch (error) {
+      addLog('No se pudo leer el SHA-256 del manifiesto: ' + String(error));
+    }
+  }, [addLog, voidBootDownloadName]);
+
   const startVoidBootDownload = useCallback(async () => {
     if (!voidBootDownloadUrl.trim() || !voidBootDownloadDirectory || !voidBootDownloadName.trim()) return;
     setVoidBootDownloadBusy(true);
@@ -1547,7 +1572,8 @@ directory = ${quote(osOutputDir)}
                           <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => setVoidBootDownloadUrl(event.target.value)} />
                           <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => setVoidBootDownloadName(event.target.value)} placeholder="distribution.iso" />
                           <input aria-label="SHA-256 oficial esperado (opcional)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres, opcional)" spellCheck={false} />
-                          <small className="distro-checksum-hint">Pega el SHA-256 publicado por el proyecto. Si lo proporcionas, la descarga solo se finaliza cuando coincide.</small>
+                          <button className="secondary-button" onClick={() => void loadVoidBootPublisherChecksum()} disabled={!voidBootDownloadName.trim()}>Cargar SHA-256 desde manifiesto oficial</button>
+                          <small className="distro-checksum-hint">Puedes pegar el SHA-256 o cargar un manifiesto GNU/BSD local. Se busca el nombre exacto de la ISO; si no hay una única coincidencia válida, se rechaza. La descarga solo se finaliza si el hash coincide. Esto comprueba integridad, no sustituye la verificación de firma del editor.</small>
                           <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}><FolderOpen size={14} /> {voidBootDownloadDirectory ? voidBootDownloadDirectory.split(/[\\/]/).filter(Boolean).pop() : 'Elegir carpeta de biblioteca'}</button>
                           <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando descarga…' : 'Descargar / reanudar ISO'}</button>
                         </div>
