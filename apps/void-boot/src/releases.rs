@@ -1,9 +1,5 @@
 use serde::Serialize;
-use std::{
-    io::Read,
-    net::ToSocketAddrs,
-    time::Duration,
-};
+use std::{io::Read, net::ToSocketAddrs, time::Duration};
 
 const MAX_MANIFEST_BYTES: u64 = 256 * 1024;
 
@@ -60,10 +56,11 @@ const SOURCES: &[ChecksumSource] = &[
 fn safe_iso_name(value: &str) -> bool {
     !value.is_empty()
         && value.to_ascii_lowercase().ends_with(".iso")
-        && value == std::path::Path::new(value)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default()
+        && value
+            == std::path::Path::new(value)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default()
         && !value.contains("..")
         && value
             .chars()
@@ -73,7 +70,12 @@ fn safe_iso_name(value: &str) -> bool {
 pub fn supported_release_sources() -> Vec<(String, String)> {
     SOURCES
         .iter()
-        .map(|source| (source.distribution_id.to_owned(), source.release_label.to_owned()))
+        .map(|source| {
+            (
+                source.distribution_id.to_owned(),
+                source.release_label.to_owned(),
+            )
+        })
         .collect()
 }
 
@@ -82,13 +84,17 @@ pub fn lookup_official_release_checksum(
     file_name: &str,
 ) -> Result<OfficialReleaseChecksum, String> {
     if !safe_iso_name(file_name) {
-        return Err("Indica el nombre exacto de una ISO, sin rutas ni caracteres especiales.".into());
+        return Err(
+            "Indica el nombre exacto de una ISO, sin rutas ni caracteres especiales.".into(),
+        );
     }
 
     let source = SOURCES
         .iter()
         .find(|source| source.distribution_id == distribution_id)
-        .ok_or_else(|| "Esta distribución todavía no tiene un adaptador oficial de checksums.".to_string())?;
+        .ok_or_else(|| {
+            "Esta distribución todavía no tiene un adaptador oficial de checksums.".to_string()
+        })?;
 
     let url = reqwest::Url::parse(source.manifest_url)
         .map_err(|error| format!("URL del adaptador inválida: {error}"))?;
@@ -96,13 +102,21 @@ pub fn lookup_official_release_checksum(
         return Err("La fuente oficial no supera la validación HTTPS del catálogo.".into());
     }
 
-    let port = url.port_or_known_default().ok_or_else(|| "No se pudo determinar el puerto HTTPS.".to_string())?;
+    let port = url
+        .port_or_known_default()
+        .ok_or_else(|| "No se pudo determinar el puerto HTTPS.".to_string())?;
     let addresses = (source.allowed_host, port)
         .to_socket_addrs()
         .map_err(|error| format!("No se pudo resolver la fuente oficial: {error}"))?
         .collect::<Vec<_>>();
-    if addresses.is_empty() || addresses.iter().any(|address| !crate::download::is_safe_ip(address.ip())) {
-        return Err("La fuente oficial resolvió a una dirección no pública; se canceló la consulta.".into());
+    if addresses.is_empty()
+        || addresses
+            .iter()
+            .any(|address| !crate::download::is_safe_ip(address.ip()))
+    {
+        return Err(
+            "La fuente oficial resolvió a una dirección no pública; se canceló la consulta.".into(),
+        );
     }
 
     let client = reqwest::blocking::Client::builder()
@@ -124,7 +138,10 @@ pub fn lookup_official_release_checksum(
             response.status()
         ));
     }
-    if response.content_length().is_some_and(|length| length > MAX_MANIFEST_BYTES) {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_MANIFEST_BYTES)
+    {
         return Err("El manifiesto oficial supera el límite de tamaño permitido.".into());
     }
 
@@ -158,14 +175,24 @@ mod tests {
         let sources = supported_release_sources();
         assert_eq!(sources.len(), 5);
         for expected in ["debian", "arch", "ubuntu", "fedora", "opensuse"] {
-            assert!(sources.iter().any(|(id, _)| id == expected), "missing {expected}");
+            assert!(
+                sources.iter().any(|(id, _)| id == expected),
+                "missing {expected}"
+            );
         }
         assert!(!sources.iter().any(|(id, _)| id == "linuxmint"));
     }
 
     #[test]
     fn rejects_paths_and_non_iso_names() {
-        for value in ["", "../debian.iso", "folder/debian.iso", "debian.zip", "debian.iso/other.iso", "debian image.iso"] {
+        for value in [
+            "",
+            "../debian.iso",
+            "folder/debian.iso",
+            "debian.zip",
+            "debian.iso/other.iso",
+            "debian image.iso",
+        ] {
             assert!(!safe_iso_name(value), "accepted {value}");
         }
         assert!(safe_iso_name("debian-13.7.0-amd64-netinst.iso"));
