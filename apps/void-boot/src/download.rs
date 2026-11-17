@@ -39,6 +39,58 @@ pub struct DownloadManager {
     tasks: Arc<Mutex<HashMap<String, DownloadTask>>>,
 }
 
+fn is_safe_download_target(url: &reqwest::Url) -> bool {
+    use std::net::IpAddr;
+
+    if url.scheme() != "https"
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return false;
+    }
+
+    let host = url.host_str().unwrap_or_default();
+    if let Ok(address) = host.parse::<IpAddr>() {
+        return match address {
+            IpAddr::V4(ip) => {
+                let octets = ip.octets();
+                !(ip.is_private()
+                    || ip.is_loopback()
+                    || ip.is_link_local()
+                    || ip.is_unspecified()
+                    || ip.is_broadcast()
+                    || ip.is_multicast()
+                    || (octets[0] == 100 && (64..=127).contains(&octets[1]))
+                    || (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
+                    || (octets[0] == 198 && (octets[1] == 18 || octets[1] == 19))
+                    || octets[0] >= 240)
+            }
+            IpAddr::V6(ip) => {
+                !(ip.is_loopback()
+                    || ip.is_unspecified()
+                    || ip.is_multicast()
+                    || ip.is_unique_local()
+                    || ip.is_unicast_link_local()
+                    || ip.to_ipv4_mapped().is_some_and(|mapped| {
+                        mapped.is_private()
+                            || mapped.is_loopback()
+                            || mapped.is_link_local()
+                            || mapped.is_unspecified()
+                    }))
+            }
+        };
+    }
+
+    let domain = host.trim_end_matches('.').to_ascii_lowercase();
+    !(domain == "localhost"
+        || domain.ends_with(".localhost")
+        || domain == "local"
+        || domain.ends_with(".local")
+        || domain == "internal"
+        || domain.ends_with(".internal"))
+}
+
 fn safe_file_name(value: &str) -> Result<String, String> {
     let name = Path::new(value)
         .file_name()
@@ -129,12 +181,8 @@ impl DownloadManager {
         expected_sha256: Option<String>,
     ) -> Result<String, String> {
         let parsed = reqwest::Url::parse(&url).map_err(|e| format!("URL inválida: {e}"))?;
-        if parsed.scheme() != "https"
-            || parsed.host_str().is_none()
-            || !parsed.username().is_empty()
-            || parsed.password().is_some()
-        {
-            return Err("Solo se permiten enlaces HTTPS públicos sin credenciales".into());
+        if !is_safe_download_target(&parsed) {
+            return Err("Solo se permiten destinos HTTPS públicos; se bloquean direcciones locales, privadas y nombres internos".into());
         }
 
         let expected_sha256 = normalize_expected_sha256(expected_sha256)?;
@@ -190,6 +238,13 @@ impl DownloadManager {
             let result = (|| -> Result<(), String> {
                 let expected_sha256 = expected_sha256.clone();
                 let client = reqwest::blocking::Client::builder()
+                    .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                        if is_safe_download_target(attempt.url()) {
+                            attempt.follow()
+                        } else {
+                            attempt.error("redirección a un destino no público o no HTTPS")
+                        }
+                    }))
                     .user_agent("VoidBoot-Downloader/0.2")
                     .timeout(std::time::Duration::from_secs(60))
                     .build()
@@ -202,7 +257,7 @@ impl DownloadManager {
                     .header(reqwest::header::ACCEPT_ENCODING, "identity")
                     .send()
                     .map_err(|e| format!("No se pudo consultar el servidor: {e}"))?;
-                if probe.url().scheme() != "https" {
+                if !is_safe_download_target(probe.url()) {
                     return Err(
                         "El servidor redirigió fuera de HTTPS; se cancela la descarga".into(),
                     );
@@ -280,7 +335,7 @@ impl DownloadManager {
                             .map_err(|e| {
                                 format!("Error de conexión en parte {}: {e}", index + 1)
                             })?;
-                        if response.url().scheme() != "https" {
+                        if !is_safe_download_target(response.url()) {
                             return Err(
                                 "El servidor redirigió fuera de HTTPS durante la transferencia"
                                     .into(),
@@ -463,6 +518,32 @@ mod tests {
         checksum_matches, normalize_expected_sha256, parse_content_range, safe_file_name,
         sha256_reader,
     };
+
+    #[test]
+    fn accepts_only_public_https_download_targets() {
+        use super::is_safe_download_target;
+
+        for url in [
+            "https://example.org/debian.iso",
+            "https://mirror.example.org/path/image.iso",
+        ] {
+            assert!(is_safe_download_target(&reqwest::Url::parse(url).unwrap()));
+        }
+        for url in [
+            "http://example.org/image.iso",
+            "https://localhost/image.iso",
+            "https://printer.local/image.iso",
+            "https://service.internal/image.iso",
+            "https://127.0.0.1/image.iso",
+            "https://10.0.0.8/image.iso",
+            "https://169.254.169.254/latest/meta-data/",
+            "https://[::1]/image.iso",
+            "https://[fd00::1]/image.iso",
+            "https://user:pass@example.org/image.iso",
+        ] {
+            assert!(!is_safe_download_target(&reqwest::Url::parse(url).unwrap()), "accepted {url}");
+        }
+    }
 
     #[test]
     fn accepts_simple_iso_file_names() {
