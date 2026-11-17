@@ -54,18 +54,23 @@ fn is_safe_ip(address: std::net::IpAddr) -> bool {
                 || ip.is_multicast()
                 || (octets[0] == 100 && (64..=127).contains(&octets[1]))
                 || (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
+                || (octets[0] == 192 && octets[1] == 0 && octets[2] == 2)
                 || (octets[0] == 198 && (octets[1] == 18 || octets[1] == 19))
+                || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100)
+                || (octets[0] == 203 && octets[1] == 0 && octets[2] == 113)
                 || octets[0] >= 240)
         }
         IpAddr::V6(ip) => {
+            let first_segment = ip.segments()[0];
+            let global_unicast = first_segment & 0xe000 == 0x2000;
             !(ip.is_loopback()
                 || ip.is_unspecified()
                 || ip.is_multicast()
                 || ip.is_unique_local()
                 || ip.is_unicast_link_local()
-                || ip.to_ipv4_mapped().is_some_and(|mapped| {
-                    is_safe_ip(IpAddr::V4(mapped)) == false
-                }))
+                || !global_unicast
+                || (ip.segments()[0] == 0x2001 && ip.segments()[1] == 0x0db8)
+                || ip.to_ipv4_mapped().is_some())
         }
     }
 }
