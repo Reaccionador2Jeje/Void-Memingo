@@ -71,6 +71,13 @@ pub fn list_void_boot_opensuse_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_linux_mint_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_linux_mint_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
 pub fn list_void_boot_freebsd_official_download_candidates(
     artifact_path: String,
 ) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
