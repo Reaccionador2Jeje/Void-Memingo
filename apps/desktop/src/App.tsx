@@ -1659,7 +1659,7 @@ directory = ${quote(osOutputDir)}
                           <div><strong>DESCARGAS BLOQUEADAS · DESARROLLO GLOBAL EN CURSO</strong><span>{voidBootReleaseGate?.message ?? 'Comprobando la barrera global de lanzamiento…'}</span><small>Sistemas validados: {voidBootReleaseGate?.validated_systems ?? 0} / {voidBootReleaseGate?.required_systems ?? 40}. No se permite iniciar descargas desde ninguna ficha del catálogo.</small></div>
                         </div>
                       ) : (
-                      {(voidBootSelectedDistro.kind ?? 'linux_distribution') === 'linux_distribution' && voidBootSelectedDistro.installation.delivery === 'direct_iso_to_void_data_partition' ? (
+                      (voidBootSelectedDistro.kind ?? 'linux_distribution') === 'linux_distribution' && voidBootSelectedDistro.installation.delivery === 'direct_iso_to_void_data_partition' ? (
                         <div className="distro-download-panel">
                           <div className="distro-detail-section"><strong>DESCARGA A BIBLIOTECA</strong><span>Smart Download detecta si el mirror admite HTTP Range: usa hasta 8 conexiones paralelas con reanudación por partes o cambia a una conexión simple. El destino se elige explícitamente.</span></div>
                           {voidBootSelectedDistro.id === 'arch' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>MIRRORS OFICIALES DE ARCH LINUX</strong><span>Lista en vivo de la API oficial. Solo HTTPS activos, con sincronización reciente y estado de completitud alto; Chile aparece primero cuando hay mirrors aptos.</span></div><button className="secondary-button" onClick={() => void loadVoidBootArchMirrors()} disabled={voidBootMirrorBusy}>{voidBootMirrorBusy ? 'Consultando mirrors…' : 'Buscar mirrors oficiales'}</button>{voidBootArchMirrors.length > 0 && <select aria-label="Seleccionar mirror oficial de Arch Linux" value={voidBootArchMirrorBase} onChange={(event) => selectVoidBootArchMirror(event.target.value)}><option value="">Seleccionar mirror…</option>{voidBootArchMirrors.map((mirror) => <option key={mirror.base_url} value={mirror.base_url}>{mirror.country} · {Math.round(mirror.delay_seconds / 60)} min de retraso · {mirror.base_url}</option>)}</select>}</div>}
@@ -1676,7 +1676,7 @@ directory = ${quote(osOutputDir)}
                         </div>
                       ) : (
                         <div className="distro-download-panel distro-external-only"><AlertCircle size={16} /><span>Solo catálogo y enlace oficial. No se ofrece descarga automatizada ni se afirma compatibilidad multiboot para este sistema.</span></div>
-                      )}
+                      )
                       )}
                     </>
                   ) : <div className="panel-empty">Selecciona un sistema del catálogo para consultar sus detalles.</div>}
