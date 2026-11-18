@@ -41,6 +41,29 @@ pub fn list_void_boot_debian_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_fedora_official_download_candidates(
+    release: String,
+    edition: String,
+    architecture: String,
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_fedora_official_download_candidates(
+        &release, &edition, &architecture, &file_name,
+    )
+}
+
+#[tauri::command]
+pub fn list_void_boot_ubuntu_official_download_candidates(
+    distribution_id: String,
+    release: String,
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_ubuntu_official_download_candidates(
+        &distribution_id, &release, &file_name,
+    )
+}
+
+#[tauri::command]
 pub fn lookup_void_boot_official_release_checksum(
     distribution_id: String,
     file_name: String,
