@@ -407,6 +407,7 @@ fn parse_kali_redirect_candidates(
 pub fn list_kali_official_download_candidates(
     artifact_path: &str,
 ) -> Result<Vec<KaliDownloadCandidate>, String> {
+    const HOST: &str = "cloudfront.debian.net";
     if artifact_path.is_empty()
         || artifact_path.starts_with('/')
         || artifact_path.contains("..")
@@ -490,8 +491,7 @@ pub fn list_debian_official_download_candidates(
         || !artifact_path.to_ascii_lowercase().ends_with(".iso")
     {
         return Err(
-            "Indica una ruta relativa válida de ISO Debian, sin rutas absolutas ni segmentos '..'.\n"
-                .trim_end()
+            "Indica una ruta relativa válida de ISO Debian, sin rutas absolutas ni segmentos '..'."
                 .into(),
         );
     }
