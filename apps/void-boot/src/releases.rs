@@ -1651,14 +1651,19 @@ mod tests {
     #[test]
     fn arch_mirror_parser_rejects_missing_or_empty_lists() {
         assert!(parse_arch_mirror_status(&serde_json::json!({})).is_err());
-        assert!(parse_arch_mirror_status(&serde_json::json!({"urls": []})).is_err());
+        assert!(parse_arch_mirror_status(&serde_json::json!({
+            "urls": []
+        }))
+        .is_err());
     }
 
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
         assert_eq!(sources.len(), 8);
-        for expected in ["debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse"] {
+        for expected in [
+            "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
+        ] {
             assert!(
                 sources.iter().any(|(id, _)| id == expected),
                 "missing {expected}"
