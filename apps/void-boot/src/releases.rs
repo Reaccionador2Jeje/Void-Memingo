@@ -568,11 +568,11 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             true,
         ),
         "debian" => (
-            "official_directory",
-            "Directorio oficial de mirrors",
-            "Debian publica mirrors para sus imágenes de instalación. La selección automática por versión y artefacto aún no está integrada; por ahora usa el directorio oficial.",
-            "https://www.debian.org/CD/http-ftp/",
-            false,
+            "official_cdn",
+            "CDN oficial de imágenes Debian",
+            "Void Boot genera enlaces HTTPS mediante cloudfront.debian.net, CDN documentado por Debian para distribuir /debian-cd/. La ruta de la ISO se especifica desde el índice oficial.",
+            "https://cloudfront.debian.net/debian-cd/",
+            true,
         ),
         "ubuntu" | "lubuntu" | "kubuntu" | "xubuntu" => (
             "official_release_directory",
