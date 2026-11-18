@@ -106,7 +106,6 @@ pub fn list_void_boot_zorin_official_download_candidates(
 }
 
 #[tauri::command]
-#[tauri::command]
 pub fn list_void_boot_popos_official_download_candidates(
     release: String,
     architecture: String,
@@ -126,6 +125,7 @@ pub fn list_void_boot_elementary_official_download_candidates(
     ::void_boot::releases::list_elementary_official_download_candidates(&file_name)
 }
 
+#[tauri::command]
 pub fn list_void_boot_endeavouros_official_download_candidates(
     file_name: String,
 ) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
