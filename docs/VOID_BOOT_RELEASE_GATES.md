@@ -104,6 +104,10 @@ Until the media builder has passed the safeguards and test gates, Void Boot only
 Nota: la caché no confía en el nombre ni en el tamaño como prueba de identidad. Para reutilizar, exige un SHA-256 esperado de una fuente que el usuario haya revisado; el resultado prueba coincidencia con ese valor, no autentica por sí solo al editor. El modo de conexión simple no puede reanudar una transferencia interrumpida en servidores que no admiten rangos; al volver a iniciarse, comienza de nuevo. La velocidad depende de la conexión, el servidor y sus límites, por lo que el paralelismo no garantiza aceleración.
 
 
+### CI scheduling
+
+The Void Boot CI runs once per pull-request update (plus manual dispatch), not once for both the branch push and the pull-request event. Each run has an independent concurrency group and does not cancel an in-progress validation. This avoids duplicate runner demand while preserving completed validation history.
+
 ### Mirror and source coverage
 
 Void Boot classifies every catalogue entry rather than showing one distribution's selector as if it applied to all systems. Implemented artifact-source resolvers currently cover 13 of the 40 catalogue IDs: Arch (live mirror API), Debian (official CloudFront image CDN), Kali (official redirector), Fedora Workstation x86_64 (official redirector), Ubuntu/Lubuntu/Kubuntu/Xubuntu (publisher-specific official endpoints), openSUSE (per-artifact MirrorCache page), FreeBSD (official GeoDNS/CDN), OpenBSD and NetBSD (publisher mirror directories), and Linux Mint (ISO-only mirror directory). Some resolvers return a single official endpoint rather than a selectable mirror list. Fedora currently supports Workstation x86_64 only. The other 27 catalogue entries still need project-specific artifact resolution. Windows uses Microsoft download pages only; third-party Windows mirrors are not offered. Implementation coverage is not release validation: the global download gate remains locked until all 40 systems have authenticated integrity metadata, tested boot profiles and required BIOS/UEFI evidence.
