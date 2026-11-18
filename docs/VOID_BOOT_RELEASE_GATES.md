@@ -24,6 +24,7 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Query openSUSE's official per-artifact `.mirrorlist` page; parse only HTTPS links with the exact requested ISO path, reject duplicate/mismatched/non-HTTPS entries, and cap the returned list.
 - [x] Read the official OpenBSD and NetBSD mirror directories and build exact-artifact HTTPS candidates only from the publishers' documented mirror roots; reject unsafe paths and non-HTTPS sources.
 - [x] Build FreeBSD ISO destinations on the official `download.freebsd.org` GeoDNS/CDN service from an exact relative artifact path; do not represent the GeoDNS endpoint as a manual mirror list.
+- [x] Read Linux Mint's official ISO mirror directory and filter only HTTPS links whose base path is the dedicated `/iso/` tree, excluding repository/package mirrors.
 - [x] Register mirror/download-source capabilities for every catalogue entry: Arch live API, Debian official image CDN, Kali image redirector, Fedora MirrorManager, openSUSE Metalink, FreeBSD GeoDNS, OpenBSD/NetBSD mirror directories, and project-specific official download sources for remaining Linux, BSD and Windows entries. Capability labels distinguish selectable lists from documentation/CDN/direct-download sources.
 - [x] Enforce a global Distro Center download release gate in both the UI and Tauri backend; no distribution can start a download or open its download-source link until every catalogue system passes release validation.
 
@@ -89,6 +90,7 @@ Until the media builder has passed the safeguards and test gates, Void Boot only
 - [x] Resolver de openSUSE: consulta la página oficial `.mirrorlist` para un artefacto exacto y filtra los mirrors HTTPS anunciados.
 - [x] Resolver de OpenBSD y NetBSD: extrae mirrors HTTPS de los directorios oficiales y construye el destino para la ruta relativa exacta de ISO indicada.
 - [x] Resolver de FreeBSD: genera el destino de ISO HTTPS en el host oficial GeoDNS/CDN a partir de una ruta relativa validada.
+- [x] Resolver de Linux Mint: obtiene mirrors ISO desde el directorio oficial y excluye las rutas de repositorios de paquetes.
 - [ ] Completar Fedora con un selector de mirrors medidos y soporte de otras ediciones/arquitecturas; el resolver actual cubre solo Workstation x86_64 mediante el redirector oficial.
 - [ ] Validar el resolver openSUSE MirrorCache con respuestas reales por arquitectura y tipo de imagen; medir disponibilidad y latencia de los mirrors antes de recomendarlos.
 - [ ] Completar pruebas de integración OpenBSD/NetBSD con respuestas reales y comprobar que cada mirror conserva la ruta de imagen correcta por versión y arquitectura.
