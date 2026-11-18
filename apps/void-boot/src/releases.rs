@@ -711,7 +711,7 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
         "ubuntu" | "lubuntu" | "kubuntu" | "xubuntu" => (
             "official_release_directory",
             "Descargas oficiales de Ubuntu",
-            "Se conserva el origen oficial de imágenes de Ubuntu y sus sabores. La elección automática de un mirror de ISO por versión todavía no está integrada.",
+            "Void Boot construye destinos HTTPS oficiales a partir de la versión y el nombre exacto: releases.ubuntu.com para Ubuntu y cdimage.ubuntu.com para Lubuntu, Kubuntu y Xubuntu. No se presenta como selector de mirrors.",
             "https://releases.ubuntu.com/",
             false,
         ),
@@ -788,9 +788,9 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
         "fedora" => (
             "official_mirrormanager",
             "Fedora MirrorManager",
-            "Fedora mantiene MirrorManager para localizar contenido. La selección de imágenes ISO por versión aún requiere integrar y validar la ruta exacta.",
-            "https://mirrormanager.fedoraproject.org/",
-            false,
+            "Void Boot consulta el redirector oficial de Fedora para una ISO exacta de Workstation x86_64 y acepta únicamente un destino HTTPS cuya ruta coincida con el artefacto solicitado.",
+            "https://download.fedoraproject.org/",
+            true,
         ),
         "opensuse" => (
             "official_metalink",
