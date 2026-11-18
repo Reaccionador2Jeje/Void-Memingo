@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import TerminalPanel from './components/TerminalPanel';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import {
   Activity, AlertCircle, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Code2, Command, Cpu, FileCode2, FilePlus2, Folder, FolderOpen,
   GitBranch, LayoutDashboard, PanelBottom, PanelLeftClose, Plus, Search,
-  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3
+  Settings, ShieldCheck, X, Zap, Layers3, HardDrive, Monitor, Disc3, Play, ExternalLink
 } from 'lucide-react';
 
 type FileEntry = {
@@ -26,8 +26,26 @@ type OpenTab = {
   dirty: boolean;
 };
 
-type SidebarView = 'explorer' | 'search' | 'source';
+type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
+type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean; iso_path_argument?: string | null; loopback_config?: string | null; loopback_config_source?: boolean };
+type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
+type BootMirror = { base_url: string; country: string; delay_seconds: number; score: number };
+type BootKaliCandidate = { url: string; priority: number; geo: string };
+type BootDebianCandidate = { url: string; provider: string; region: string };
+type BootOfficialPathCandidate = { url: string; provider: string; region: string };
+type BootMirrorSupport = { distribution_id: string; mode: string; label: string; description: string; source_url: string; selectable: boolean };
+type BootReleaseGate = { downloads_enabled: boolean; download_enabled_systems: number; required_systems: number; enabled_distribution_ids: string[]; message: string };
+type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean; reused_from_library: boolean };
+type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
+
+function normalizeDistroArchitecture(value: string): string {
+  const architecture = value.trim().toLocaleLowerCase().replace(/\s+/g, '');
+  if (['amd64', 'x64', 'x86-64', 'x86_64'].includes(architecture)) return 'x86_64';
+  if (['arm64', 'aarch64', 'armv8', 'armv8l'].includes(architecture)) return 'aarch64';
+  if (['armhf', 'armv7', 'armv7l'].includes(architecture)) return 'armhf';
+  return architecture;
+}
 
 type OsBase = {
   id: string;
@@ -159,6 +177,66 @@ function App() {
   const [terminalMounted, setTerminalMounted] = useState(false);
   const [terminalCommand, setTerminalCommand] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [voidBootDirectory, setVoidBootDirectory] = useState<string | null>(null);
+  const [voidBootCatalog, setVoidBootCatalog] = useState<BootDistribution[]>([]);
+  const [voidBootCatalogBusy, setVoidBootCatalogBusy] = useState(false);
+  const [voidBootReleaseGate, setVoidBootReleaseGate] = useState<BootReleaseGate | null>(null);
+  const [voidBootSelectedDistro, setVoidBootSelectedDistro] = useState<BootDistribution | null>(null);
+  const [distroSearch, setDistroSearch] = useState('');
+  const [distroFamily, setDistroFamily] = useState('all');
+  const [distroArchitecture, setDistroArchitecture] = useState('all');
+  const [distroCategory, setDistroCategory] = useState('all');
+  const [voidBootDownloadUrl, setVoidBootDownloadUrl] = useState('');
+  const [voidBootArchMirrors, setVoidBootArchMirrors] = useState<BootMirror[]>([]);
+  const [voidBootMirrorSupport, setVoidBootMirrorSupport] = useState<BootMirrorSupport | null>(null);
+  const [voidBootArchMirrorBase, setVoidBootArchMirrorBase] = useState('');
+  const [voidBootKaliArtifactPath, setVoidBootKaliArtifactPath] = useState('');
+  const [voidBootKaliCandidates, setVoidBootKaliCandidates] = useState<BootKaliCandidate[]>([]);
+  const [voidBootKaliCandidateUrl, setVoidBootKaliCandidateUrl] = useState('');
+  const [voidBootKaliBusy, setVoidBootKaliBusy] = useState(false);
+  const [voidBootDebianArtifactPath, setVoidBootDebianArtifactPath] = useState('');
+  const [voidBootDebianCandidates, setVoidBootDebianCandidates] = useState<BootDebianCandidate[]>([]);
+  const [voidBootDebianCandidateUrl, setVoidBootDebianCandidateUrl] = useState('');
+  const [voidBootDebianBusy, setVoidBootDebianBusy] = useState(false);
+  const [voidBootFedoraRelease, setVoidBootFedoraRelease] = useState('45');
+  const [voidBootFedoraCandidates, setVoidBootFedoraCandidates] = useState<BootOfficialPathCandidate[]>([]);
+  const [voidBootFedoraCandidateUrl, setVoidBootFedoraCandidateUrl] = useState('');
+  const [voidBootFedoraBusy, setVoidBootFedoraBusy] = useState(false);
+  const [voidBootUbuntuRelease, setVoidBootUbuntuRelease] = useState('');
+  const [voidBootUbuntuFileName, setVoidBootUbuntuFileName] = useState('');
+  const [voidBootUbuntuCandidates, setVoidBootUbuntuCandidates] = useState<BootOfficialPathCandidate[]>([]);
+  const [voidBootUbuntuCandidateUrl, setVoidBootUbuntuCandidateUrl] = useState('');
+  const [voidBootUbuntuBusy, setVoidBootUbuntuBusy] = useState(false);
+  const [voidBootOpenSuseArtifactPath, setVoidBootOpenSuseArtifactPath] = useState('');
+  const [voidBootOpenSuseCandidates, setVoidBootOpenSuseCandidates] = useState<BootOfficialPathCandidate[]>([]);
+  const [voidBootOpenSuseCandidateUrl, setVoidBootOpenSuseCandidateUrl] = useState('');
+  const [voidBootOpenSuseBusy, setVoidBootOpenSuseBusy] = useState(false);
+  const [voidBootBsdArtifactPath, setVoidBootBsdArtifactPath] = useState('');
+  const [voidBootBsdCandidates, setVoidBootBsdCandidates] = useState<BootOfficialPathCandidate[]>([]);
+  const [voidBootBsdCandidateUrl, setVoidBootBsdCandidateUrl] = useState('');
+  const [voidBootBsdBusy, setVoidBootBsdBusy] = useState(false);
+  const [voidBootReactosArtifactPath, setVoidBootReactosArtifactPath] = useState('');
+  const [voidBootReactosCandidates, setVoidBootReactosCandidates] = useState<BootOfficialPathCandidate[]>([]);
+  const [voidBootReactosCandidateUrl, setVoidBootReactosCandidateUrl] = useState('');
+  const [voidBootReactosBusy, setVoidBootReactosBusy] = useState(false);
+  const [voidBootMirrorBusy, setVoidBootMirrorBusy] = useState(false);
+  const [voidBootDownloadName, setVoidBootDownloadName] = useState('distribution.iso');
+  const [voidBootExpectedSha256, setVoidBootExpectedSha256] = useState('');
+  const [voidBootDownloadDirectory, setVoidBootDownloadDirectory] = useState<string | null>(null);
+  const [voidBootDownloads, setVoidBootDownloads] = useState<BootDownload[]>([]);
+  const [voidBootDownloadBusy, setVoidBootDownloadBusy] = useState(false);
+  const [voidBootEntries, setVoidBootEntries] = useState<BootIsoEntry[]>([]);
+  const [voidBootBusy, setVoidBootBusy] = useState(false);
+  const [voidBootChecksumStatus, setVoidBootChecksumStatus] = useState<Record<string, string>>({});
+  const [voidBootProfileFile, setVoidBootProfileFile] = useState<string | null>(null);
+  const [voidBootProfiles, setVoidBootProfiles] = useState<VoidBootProfile[]>([]);
+  const [voidBootProfileSelected, setVoidBootProfileSelected] = useState(0);
+  const [voidBootProfileStatus, setVoidBootProfileStatus] = useState<string | null>(null);
+  const [voidBootMenuPreview, setVoidBootMenuPreview] = useState<string | null>(null);
+  const [voidBootPreviewBusy, setVoidBootPreviewBusy] = useState(false);
+  const [qemuImagePath, setQemuImagePath] = useState<string | null>(null);
+  const [qemuBusy, setQemuBusy] = useState(false);
+  const [qemuStatus, setQemuStatus] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>(['Void Memingo Desktop iniciado.']);
   const [busy, setBusy] = useState(false);
   const [osBuilderOpen, setOsBuilderOpen] = useState(false);
@@ -251,6 +329,33 @@ function App() {
   }, []);
 
   const selectedOsBase = osBases.find((base) => base.id === osBaseId) ?? null;
+  const distroFamilies = useMemo(() => Array.from(new Set(voidBootCatalog.map((entry) => entry.family))).sort(), [voidBootCatalog]);
+  const distroArchitectures = useMemo(() => Array.from(new Set(voidBootCatalog.flatMap((entry) => entry.architectures.map(normalizeDistroArchitecture)))).sort(), [voidBootCatalog]);
+  const filteredDistroCatalog = useMemo(() => {
+    const query = distroSearch.trim().toLocaleLowerCase();
+    return voidBootCatalog.filter((entry) => {
+      const matchesSearch = !query || [entry.name, entry.description, entry.family, entry.id].some((value) => value.toLocaleLowerCase().includes(query));
+      const matchesFamily = distroFamily === 'all' || entry.family === distroFamily;
+      const matchesArchitecture = distroArchitecture === 'all' || entry.architectures.some((architecture) => normalizeDistroArchitecture(architecture) === distroArchitecture);
+      const kind = entry.kind ?? 'linux_distribution';
+      const matchesCategory = distroCategory === 'all'
+        || (distroCategory === 'linux' && kind === 'linux_distribution')
+        || (distroCategory === 'windows' && kind === 'operating_system' && entry.family === 'windows')
+        || (distroCategory === 'bsd' && kind === 'operating_system' && entry.family === 'bsd')
+        || (distroCategory === 'other' && kind === 'operating_system' && entry.family !== 'windows' && entry.family !== 'bsd');
+      return matchesSearch && matchesFamily && matchesArchitecture && matchesCategory;
+    });
+  }, [voidBootCatalog, distroSearch, distroFamily, distroArchitecture, distroCategory]);
+
+  useEffect(() => {
+    if (filteredDistroCatalog.length === 0) {
+      setVoidBootSelectedDistro(null);
+      return;
+    }
+    if (!filteredDistroCatalog.some((entry) => entry.id === voidBootSelectedDistro?.id)) {
+      setVoidBootSelectedDistro(filteredDistroCatalog[0]);
+    }
+  }, [filteredDistroCatalog, voidBootSelectedDistro?.id]);
   const isLinuxHost = typeof navigator !== 'undefined' && /Linux/i.test(navigator.userAgent);
 
   const activeTab = useMemo(
@@ -493,6 +598,492 @@ function App() {
       setOsBusy(false);
     }
   }, [addLog, workspace]);
+
+  const loadVoidBootCatalog = useCallback(async () => {
+    setVoidBootCatalogBusy(true);
+    try {
+      const entries = await invoke<BootDistribution[]>('list_void_boot_distributions');
+      setVoidBootCatalog(entries);
+      setVoidBootSelectedDistro((current) => current ?? entries[0] ?? null);
+      addLog(`Void Distro Center: ${entries.length} sistemas disponibles.`);
+    } catch (error) {
+      addLog('No se pudo cargar Void Distro Center: ' + String(error));
+    } finally {
+      setVoidBootCatalogBusy(false);
+    }
+  }, [addLog]);
+
+  const scanVoidBootDirectory = useCallback(async (directory: string) => {
+    setVoidBootBusy(true);
+    try {
+      const entries = await invoke<BootIsoEntry[]>('scan_void_boot_iso_directory', { directory });
+      setVoidBootDirectory(directory);
+      setVoidBootEntries(entries);
+      addLog(`Void Boot: ${entries.length} ISO(s) inspeccionadas.`);
+    } catch (error) {
+      setVoidBootEntries([]);
+      addLog('No se pudo inspeccionar la carpeta de ISOs: ' + String(error));
+    } finally {
+      setVoidBootBusy(false);
+    }
+  }, [addLog]);
+
+  const createQemuDisk = useCallback(async () => {
+    const destination = await save({ title: 'Crear disco virtual QEMU', defaultPath: 'void-boot-lab.qcow2', filters: [{ name: 'Disco QEMU', extensions: ['qcow2'] }] });
+    if (!destination) return;
+    setQemuBusy(true);
+    try {
+      const created = await invoke<string>('create_void_boot_qemu_disk', { imagePath: destination, size: '16G' });
+      setQemuImagePath(created);
+      setQemuStatus('Disco virtual creado · 16 GiB · formato QCOW2');
+      addLog('Disco virtual QEMU creado: ' + created);
+    } catch (error) {
+      setQemuStatus('No se pudo crear el disco: ' + String(error));
+    } finally { setQemuBusy(false); }
+  }, [addLog]);
+
+  const chooseQemuImage = useCallback(async () => {
+    const selected = await open({ multiple: false, title: 'Seleccionar imagen virtual Void Boot', filters: [{ name: 'Imágenes de disco', extensions: ['img', 'raw', 'qcow2'] }] });
+    if (typeof selected === 'string') { setQemuImagePath(selected); setQemuStatus(null); }
+  }, []);
+
+  const launchVoidBootQemu = useCallback(async () => {
+    if (!qemuImagePath) return;
+    setQemuBusy(true);
+    try {
+      const pid = await invoke<number>('start_void_boot_qemu', { imagePath: qemuImagePath });
+      setQemuStatus('QEMU iniciado · PID ' + pid + ' · modo snapshot');
+      addLog('Void Boot QEMU iniciado (PID ' + pid + '). El archivo original está protegido por snapshot.');
+    } catch (error) {
+      setQemuStatus('No se pudo iniciar QEMU: ' + String(error));
+      addLog('Void Boot QEMU: ' + String(error));
+    } finally { setQemuBusy(false); }
+  }, [addLog, qemuImagePath]);
+
+  const chooseVoidBootDirectory = useCallback(async () => {
+    const selected = await open({ directory: true, multiple: false, title: 'Seleccionar carpeta que contiene ISOs' });
+    if (typeof selected === 'string') await scanVoidBootDirectory(selected);
+  }, [scanVoidBootDirectory]);
+
+  const refreshVoidBootDownloads = useCallback(async () => {
+    try {
+      const tasks = await invoke<BootDownload[]>('list_void_boot_downloads');
+      setVoidBootDownloads(tasks);
+    } catch (error) {
+      addLog('No se pudo consultar el gestor de descargas: ' + String(error));
+    }
+  }, [addLog]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void invoke<BootReleaseGate>('get_void_boot_release_gate')
+      .then((gate) => { if (!cancelled) setVoidBootReleaseGate(gate); })
+      .catch((error) => {
+        if (!cancelled) {
+          setVoidBootReleaseGate({
+            downloads_enabled: false,
+            download_enabled_systems: 0,
+            required_systems: 40,
+            enabled_distribution_ids: [],
+            message: 'No se pudo comprobar el estado de lanzamiento. Las descargas permanecen bloqueadas por seguridad.'
+          });
+          addLog('No se pudo consultar la barrera de lanzamiento de Distro Center: ' + String(error));
+        }
+      });
+    return () => { cancelled = true; };
+  }, [addLog]);
+
+  useEffect(() => {
+    const distributionId = voidBootSelectedDistro?.id;
+    if (!distributionId) {
+      setVoidBootMirrorSupport(null);
+      return;
+    }
+    let cancelled = false;
+    setVoidBootMirrorSupport(null);
+    void invoke<BootMirrorSupport>('get_void_boot_mirror_support', { distributionId })
+      .then((support) => { if (!cancelled) setVoidBootMirrorSupport(support); })
+      .catch((error) => {
+        if (!cancelled) addLog('No se pudo consultar la política de mirrors: ' + String(error));
+      });
+    return () => { cancelled = true; };
+  }, [addLog, voidBootSelectedDistro?.id]);
+
+  useEffect(() => {
+    const active = voidBootDownloads.some((task) => task.status === 'downloading' || task.status === 'queued');
+    if (!active) return;
+    const timer = window.setInterval(() => { void refreshVoidBootDownloads(); }, 1200);
+    return () => window.clearInterval(timer);
+  }, [voidBootDownloads, refreshVoidBootDownloads]);
+
+  const chooseVoidBootDownloadDirectory = useCallback(async () => {
+    const selected = await open({ directory: true, multiple: false, title: 'Carpeta destino (VOIDDATA montada o biblioteca local)' });
+    if (typeof selected === 'string') setVoidBootDownloadDirectory(selected);
+  }, []);
+
+  const loadVoidBootArchMirrors = useCallback(async () => {
+    setVoidBootMirrorBusy(true);
+    try {
+      const mirrors = await invoke<BootMirror[]>('list_void_boot_arch_official_mirrors');
+      setVoidBootArchMirrors(mirrors);
+      addLog('Void Boot: ' + mirrors.length + ' mirrors HTTPS activos obtenidos de la API oficial de estado de Arch Linux. Se priorizan los de Chile y los sincronizados.');
+    } catch (error) {
+      setVoidBootArchMirrors([]);
+      addLog('No se pudieron consultar los mirrors oficiales de Arch: ' + String(error));
+    } finally {
+      setVoidBootMirrorBusy(false);
+    }
+  }, [addLog]);
+
+  const selectVoidBootArchMirror = useCallback((baseUrl: string) => {
+    setVoidBootArchMirrorBase(baseUrl);
+    const cleanName = voidBootDownloadName.trim();
+    setVoidBootDownloadUrl(cleanName ? baseUrl + 'iso/latest/' + cleanName : '');
+  }, [voidBootDownloadName]);
+
+  const loadVoidBootKaliCandidates = useCallback(async () => {
+    const artifactPath = voidBootKaliArtifactPath.trim();
+    if (!artifactPath) {
+      addLog('Void Boot: indica la ruta relativa exacta de la ISO en el índice oficial de Kali.');
+      return;
+    }
+    setVoidBootKaliBusy(true);
+    try {
+      const candidates = await invoke<BootKaliCandidate[]>('list_void_boot_kali_official_download_candidates', { artifactPath });
+      setVoidBootKaliCandidates(candidates);
+      setVoidBootKaliCandidateUrl(candidates[0]?.url ?? '');
+      addLog('Void Boot: el redirector oficial de Kali anunció ' + candidates.length + ' candidatos HTTPS para la ISO solicitada.');
+    } catch (error) {
+      setVoidBootKaliCandidates([]);
+      setVoidBootKaliCandidateUrl('');
+      addLog('No se pudieron consultar los mirrors oficiales de Kali: ' + String(error));
+    } finally {
+      setVoidBootKaliBusy(false);
+    }
+  }, [addLog, voidBootKaliArtifactPath]);
+
+  const loadVoidBootDebianCandidates = useCallback(async () => {
+    const artifactPath = voidBootDebianArtifactPath.trim();
+    if (!artifactPath) {
+      addLog('Void Boot: indica la ruta relativa exacta de la ISO en el índice oficial de imágenes Debian.');
+      return;
+    }
+    setVoidBootDebianBusy(true);
+    try {
+      const candidates = await invoke<BootDebianCandidate[]>('list_void_boot_debian_official_download_candidates', { artifactPath });
+      setVoidBootDebianCandidates(candidates);
+      setVoidBootDebianCandidateUrl(candidates[0]?.url ?? '');
+      addLog('Void Boot: se preparó ' + candidates.length + ' destino HTTPS del CDN oficial de imágenes Debian.');
+    } catch (error) {
+      setVoidBootDebianCandidates([]);
+      setVoidBootDebianCandidateUrl('');
+      addLog('No se pudo preparar el destino oficial de Debian: ' + String(error));
+    } finally {
+      setVoidBootDebianBusy(false);
+    }
+  }, [addLog, voidBootDebianArtifactPath]);
+
+  const loadVoidBootFedoraCandidates = useCallback(async () => {
+    const fileName = voidBootDownloadName.trim();
+    if (!fileName) {
+      addLog('Void Boot: indica el nombre exacto de la ISO Fedora.');
+      return;
+    }
+    setVoidBootFedoraBusy(true);
+    try {
+      const candidates = await invoke<BootOfficialPathCandidate[]>('list_void_boot_fedora_official_download_candidates', {
+        release: voidBootFedoraRelease.trim(),
+        edition: 'Workstation',
+        architecture: 'x86_64',
+        fileName
+      });
+      setVoidBootFedoraCandidates(candidates);
+      setVoidBootFedoraCandidateUrl(candidates[0]?.url ?? '');
+      addLog('Void Boot: Fedora MirrorManager resolvió el destino HTTPS para ' + fileName + '.');
+    } catch (error) {
+      setVoidBootFedoraCandidates([]);
+      setVoidBootFedoraCandidateUrl('');
+      addLog('No se pudo resolver el mirror oficial de Fedora: ' + String(error));
+    } finally {
+      setVoidBootFedoraBusy(false);
+    }
+  }, [addLog, voidBootDownloadName, voidBootFedoraRelease]);
+
+  const loadVoidBootUbuntuCandidates = useCallback(async () => {
+    const release = voidBootUbuntuRelease.trim();
+    const fileName = voidBootUbuntuFileName.trim();
+    const distributionId = voidBootSelectedDistro?.id;
+    if (!distributionId || !release || !fileName) {
+      addLog('Void Boot: indica la versión y el nombre exacto de la ISO Ubuntu.');
+      return;
+    }
+    setVoidBootUbuntuBusy(true);
+    try {
+      const candidates = await invoke<BootOfficialPathCandidate[]>('list_void_boot_ubuntu_official_download_candidates', {
+        distributionId,
+        release,
+        fileName
+      });
+      setVoidBootUbuntuCandidates(candidates);
+      setVoidBootUbuntuCandidateUrl(candidates[0]?.url ?? '');
+      addLog('Void Boot: se preparó el destino oficial de ' + distributionId + ' ' + release + '.');
+    } catch (error) {
+      setVoidBootUbuntuCandidates([]);
+      setVoidBootUbuntuCandidateUrl('');
+      addLog('No se pudo resolver el destino oficial de Ubuntu: ' + String(error));
+    } finally {
+      setVoidBootUbuntuBusy(false);
+    }
+  }, [addLog, voidBootSelectedDistro, voidBootUbuntuFileName, voidBootUbuntuRelease]);
+
+  const loadVoidBootOpenSuseCandidates = useCallback(async () => {
+    const artifactPath = voidBootOpenSuseArtifactPath.trim();
+    if (!artifactPath) {
+      addLog('Void Boot: indica la ruta relativa exacta de la ISO en el índice oficial de openSUSE.');
+      return;
+    }
+    setVoidBootOpenSuseBusy(true);
+    try {
+      const candidates = await invoke<BootOfficialPathCandidate[]>('list_void_boot_opensuse_official_download_candidates', { artifactPath });
+      setVoidBootOpenSuseCandidates(candidates);
+      setVoidBootOpenSuseCandidateUrl(candidates[0]?.url ?? '');
+      addLog('Void Boot: MirrorCache de openSUSE anunció ' + candidates.length + ' mirrors HTTPS para la ISO exacta.');
+    } catch (error) {
+      setVoidBootOpenSuseCandidates([]);
+      setVoidBootOpenSuseCandidateUrl('');
+      addLog('No se pudieron consultar los mirrors oficiales de openSUSE: ' + String(error));
+    } finally {
+      setVoidBootOpenSuseBusy(false);
+    }
+  }, [addLog, voidBootOpenSuseArtifactPath]);
+
+  const loadVoidBootBsdCandidates = useCallback(async () => {
+    const artifactPath = voidBootBsdArtifactPath.trim();
+    const distributionId = voidBootSelectedDistro?.id;
+    if (!artifactPath || !['freebsd', 'openbsd', 'netbsd', 'linux-mint'].includes(distributionId ?? '')) {
+      addLog('Void Boot: indica la ruta relativa exacta de la ISO BSD.');
+      return;
+    }
+    setVoidBootBsdBusy(true);
+    try {
+      const command = distributionId === 'linux-mint'
+        ? 'list_void_boot_linux_mint_official_download_candidates'
+        : distributionId === 'freebsd'
+          ? 'list_void_boot_freebsd_official_download_candidates'
+          : distributionId === 'openbsd'
+            ? 'list_void_boot_openbsd_official_download_candidates'
+            : 'list_void_boot_netbsd_official_download_candidates';
+      const candidates = await invoke<BootOfficialPathCandidate[]>(command, { artifactPath });
+      setVoidBootBsdCandidates(candidates);
+      setVoidBootBsdCandidateUrl(candidates[0]?.url ?? '');
+      addLog('Void Boot: se encontraron ' + candidates.length + ' mirrors HTTPS oficiales para ' + distributionId + '.');
+    } catch (error) {
+      setVoidBootBsdCandidates([]);
+      setVoidBootBsdCandidateUrl('');
+      addLog('No se pudieron consultar los mirrors oficiales BSD: ' + String(error));
+    } finally {
+      setVoidBootBsdBusy(false);
+    }
+  }, [addLog, voidBootBsdArtifactPath, voidBootSelectedDistro]);
+
+
+  const loadVoidBootReactosCandidates = useCallback(async () => {
+    const artifactPath = voidBootReactosArtifactPath.trim();
+    if (!artifactPath) {
+      addLog('Void Boot: indica la ruta exacta dentro de bootcd/ o livecd/ del archivo oficial de ReactOS.');
+      return;
+    }
+    setVoidBootReactosBusy(true);
+    try {
+      const candidates = await invoke<BootOfficialPathCandidate[]>(
+        'list_void_boot_reactos_official_download_candidates',
+        { artifactPath }
+      );
+      setVoidBootReactosCandidates(candidates);
+      setVoidBootReactosCandidateUrl(candidates[0]?.url ?? '');
+      if (candidates[0]) {
+        setVoidBootDownloadUrl(candidates[0].url);
+        setVoidBootDownloadName(artifactPath.split('/').pop() ?? 'reactos.iso');
+        setVoidBootExpectedSha256('');
+      }
+      addLog('ReactOS: fuente ISO oficial BuildBot resuelta. Atención: es un build nocturno de prueba, no el lanzamiento estable.');
+    } catch (error) {
+      setVoidBootReactosCandidates([]);
+      setVoidBootReactosCandidateUrl('');
+      addLog('No se pudo resolver la ISO nocturna oficial de ReactOS: ' + String(error));
+    } finally {
+      setVoidBootReactosBusy(false);
+    }
+  }, [addLog, voidBootReactosArtifactPath]);
+
+  const loadVoidBootPublisherChecksum = useCallback(async () => {
+    const fileName = voidBootDownloadName.trim();
+    if (!fileName) {
+      addLog('Void Boot: indica primero el nombre exacto del archivo ISO.');
+      return;
+    }
+    const manifest = await open({
+      directory: false,
+      multiple: false,
+      title: 'Seleccionar manifiesto oficial SHA-256',
+      filters: [{ name: 'Manifiestos de checksum', extensions: ['txt', 'sha256', 'sha256sum', 'sum', 'checksums'] }]
+    });
+    if (typeof manifest !== 'string') return;
+    try {
+      const digest = await invoke<string>('read_void_boot_expected_sha256', {
+        manifestPath: manifest,
+        fileName
+      });
+      setVoidBootExpectedSha256(digest);
+      addLog('Void Boot: SHA-256 del manifiesto cargado para ' + fileName + '. La descarga lo exigirá antes de finalizar.');
+    } catch (error) {
+      addLog('No se pudo leer el SHA-256 del manifiesto: ' + String(error));
+    }
+  }, [addLog, voidBootDownloadName]);
+
+  const loadVoidBootOfficialReleaseChecksum = useCallback(async () => {
+    const distributionId = voidBootSelectedDistro?.id;
+    const fileName = voidBootDownloadName.trim();
+    if (!distributionId || !fileName) {
+      addLog('Void Boot: selecciona una distribución compatible e indica el nombre exacto de la ISO.');
+      return;
+    }
+    try {
+      const result = await invoke<{ release_label: string; manifest_url: string; file_name: string; sha256: string }>(
+        'lookup_void_boot_official_release_checksum',
+        { distributionId, fileName }
+      );
+      setVoidBootExpectedSha256(result.sha256);
+      addLog('Void Boot: SHA-256 consultado en ' + result.release_label + ' para ' + result.file_name + '. Fuente: ' + result.manifest_url);
+    } catch (error) {
+      addLog('No se pudo consultar el checksum oficial: ' + String(error));
+    }
+  }, [addLog, voidBootDownloadName, voidBootSelectedDistro]);
+
+  const startVoidBootDownload = useCallback(async () => {
+    const distributionId = voidBootSelectedDistro?.id;
+    const checksum = voidBootExpectedSha256.trim();
+    if (!distributionId || !voidBootReleaseGate?.enabled_distribution_ids.includes(distributionId)) {
+      addLog('Distro Center: esta distribución todavía no tiene descarga automatizada habilitada.');
+      return;
+    }
+    if (!/^[a-fA-F0-9]{64}$/.test(checksum)) {
+      addLog('Distro Center: consulta el SHA-256 oficial en línea antes de descargar.');
+      return;
+    }
+    if (!voidBootDownloadUrl.trim() || !voidBootDownloadDirectory || !voidBootDownloadName.trim()) return;
+    setVoidBootDownloadBusy(true);
+    try {
+      const id = await invoke<string>('start_void_boot_download', {
+        distributionId,
+        url: voidBootDownloadUrl.trim(),
+        fileName: voidBootDownloadName.trim(),
+        directory: voidBootDownloadDirectory,
+        expectedSha256: checksum
+      });
+      const tasks = await invoke<BootDownload[]>('list_void_boot_downloads');
+      setVoidBootDownloads(tasks);
+      const reused = tasks.find((task) => task.id === id)?.reused_from_library ?? false;
+      addLog(reused
+        ? 'Void Boot ISO Cache: se reutilizó la ISO existente porque su SHA-256 coincide con el valor esperado. No se descargaron bytes.'
+        : 'Void Boot Smart Download: descarga iniciada. Si el mirror admite HTTP Range se usan hasta 8 conexiones y se pueden reanudar partes; si no, se cambia automáticamente a una conexión simple.');
+    } catch (error) {
+      addLog('No se pudo iniciar la descarga: ' + String(error));
+    } finally {
+      setVoidBootDownloadBusy(false);
+    }
+  }, [addLog, voidBootDownloadDirectory, voidBootDownloadName, voidBootDownloadUrl, voidBootExpectedSha256, voidBootReleaseGate, voidBootSelectedDistro]);
+
+  const pauseVoidBootDownload = useCallback(async (id: string) => {
+    try {
+      await invoke('pause_void_boot_download', { id });
+      await refreshVoidBootDownloads();
+    } catch (error) {
+      addLog('No se pudo pausar la descarga: ' + String(error));
+    }
+  }, [addLog, refreshVoidBootDownloads]);
+
+
+  const verifyVoidBootIso = useCallback(async (isoPath: string) => {
+    const manifest = await open({
+      directory: false,
+      multiple: false,
+      title: 'Seleccionar manifiesto SHA-256 oficial',
+      filters: [{ name: 'Manifiestos de checksum', extensions: ['txt', 'sha256', 'sha256sum', 'sum', 'checksums'] }]
+    });
+    if (typeof manifest !== 'string') return;
+    setVoidBootChecksumStatus((current) => ({ ...current, [isoPath]: 'Verificando…' }));
+    try {
+      await invoke('verify_void_boot_iso_checksum_manifest', { isoPath, manifestPath: manifest });
+      setVoidBootChecksumStatus((current) => ({ ...current, [isoPath]: 'SHA-256 oficial verificado' }));
+      addLog('Void Boot: el SHA-256 de ' + isoPath.split(/[\\/]/).pop() + ' coincide con el manifiesto seleccionado.');
+    } catch (error) {
+      setVoidBootChecksumStatus((current) => ({ ...current, [isoPath]: 'No verificado: ' + String(error) }));
+      addLog('Void Boot: verificación SHA-256 fallida: ' + String(error));
+    }
+  }, [addLog]);
+
+  const chooseVoidBootProfile = useCallback(async () => {
+    const selected = await open({ directory: false, multiple: false, title: 'Abrir catálogo de perfiles Void Boot', filters: [{ name: 'Perfiles Void Boot', extensions: ['toml'] }] });
+    if (typeof selected !== 'string') return;
+    setVoidBootPreviewBusy(true);
+    try {
+      const profiles = await invoke<VoidBootProfile[]>('load_void_boot_profile_catalog', { profileFile: selected });
+      setVoidBootProfileFile(selected);
+      setVoidBootProfiles(profiles);
+      setVoidBootProfileSelected(0);
+      const preview = await invoke<string>('preview_void_boot_menu', { profileFile: selected });
+      setVoidBootMenuPreview(preview);
+      setVoidBootProfileStatus(`Catálogo cargado: ${profiles.length} perfil(es).`);
+      addLog('Void Boot: catálogo de perfiles cargado en el editor visual.');
+    } catch (error) {
+      setVoidBootMenuPreview(null);
+      setVoidBootProfileStatus('No se pudo abrir el catálogo: ' + String(error));
+      addLog('No se pudo abrir el catálogo de perfiles Void Boot: ' + String(error));
+    } finally {
+      setVoidBootPreviewBusy(false);
+    }
+  }, [addLog]);
+
+  const saveVoidBootProfileCatalog = useCallback(async () => {
+    const destination = await save({
+      title: 'Guardar catálogo de perfiles Void Boot',
+      defaultPath: voidBootProfileFile ?? 'void-boot-profiles.toml',
+      filters: [{ name: 'Perfiles Void Boot', extensions: ['toml'] }]
+    });
+    if (typeof destination !== 'string') return;
+    setVoidBootPreviewBusy(true);
+    try {
+      await invoke('save_void_boot_profile_catalog', { profileFile: destination, profiles: voidBootProfiles });
+      setVoidBootProfileFile(destination);
+      const preview = await invoke<string>('preview_void_boot_menu', { profileFile: destination });
+      setVoidBootMenuPreview(preview);
+      setVoidBootProfileStatus(`Guardado y validado: ${voidBootProfiles.length} perfil(es).`);
+      addLog('Void Boot: catálogo guardado y validado; vista previa GRUB actualizada.');
+    } catch (error) {
+      setVoidBootProfileStatus('No se pudo guardar: ' + String(error));
+      addLog('Void Boot: error al guardar perfiles: ' + String(error));
+    } finally {
+      setVoidBootPreviewBusy(false);
+    }
+  }, [addLog, voidBootProfileFile, voidBootProfiles]);
+
+  const refreshVoidBootPreview = useCallback(async () => {
+    if (!voidBootProfileFile) return;
+    setVoidBootPreviewBusy(true);
+    try {
+      const preview = await invoke<string>('preview_void_boot_menu', { profileFile: voidBootProfileFile });
+      setVoidBootMenuPreview(preview);
+      setVoidBootProfileStatus('Vista previa actualizada desde el catálogo guardado.');
+      addLog('Void Boot: vista previa actualizada.');
+    } catch (error) {
+      setVoidBootMenuPreview(null);
+      setVoidBootProfileStatus('Error de vista previa: ' + String(error));
+      addLog('Error al actualizar la vista previa: ' + String(error));
+    } finally {
+      setVoidBootPreviewBusy(false);
+    }
+  }, [addLog, voidBootProfileFile]);
 
   const refreshWorkspace = useCallback(async (root: string) => {
     const result = await invoke<FileEntry[]>('list_directory', {
@@ -1082,6 +1673,9 @@ directory = ${quote(osOutputDir)}
             <button className="rail-button" onClick={() => setBottomOpen(!bottomOpen)} title="Panel inferior">
               <PanelBottom size={20} />
             </button>
+            <button className={'rail-button ' + (sidebarView === 'boot' ? 'active' : '')} onClick={() => { setOsBuilderOpen(false); setSidebarView('boot'); setSidebarOpen(true); void loadVoidBootCatalog(); void invoke<BootDownload[]>('list_void_boot_downloads').then(setVoidBootDownloads).catch((error) => addLog('Descargas Void Boot: ' + String(error))); }} title="Void Boot — centro de control gráfico">
+              <Disc3 size={20} />
+            </button>
             <button className={'rail-button ' + (osBuilderOpen ? 'active' : '')} onClick={() => { setOsBuilderOpen(true); setSidebarOpen(false); }} title="OS Builder">
               <Layers3 size={20} />
             </button>
@@ -1092,10 +1686,10 @@ directory = ${quote(osOutputDir)}
           </div>
         </nav>
 
-        {sidebarOpen && (
+        {sidebarOpen && sidebarView !== 'boot' && (
           <aside className="sidebar">
             <div className="sidebar-heading">
-              <span>{sidebarView === 'explorer' ? 'EXPLORADOR' : sidebarView === 'search' ? 'BÚSQUEDA' : 'CONTROL DE CÓDIGO'}</span>
+              <span>{sidebarView === 'explorer' ? 'EXPLORADOR' : sidebarView === 'search' ? 'BÚSQUEDA' : sidebarView === 'source' ? 'CONTROL DE CÓDIGO' : 'VOID BOOT'}</span>
               <button className="subtle-icon" onClick={() => setSidebarOpen(false)} title="Ocultar panel"><PanelLeftClose size={15} /></button>
             </div>
 
@@ -1208,6 +1802,167 @@ directory = ${quote(osOutputDir)}
         )}
 
         <main className="main-column">
+          {sidebarView === 'boot' ? (
+            <section className="distro-center-view">
+              <header className="distro-center-header">
+                <div>
+                  <div className="eyebrow">ATDEV DEV <span>•</span> VOID BOOT</div>
+                  <h1>Void Boot</h1>
+                  <p>Centro de control gráfico para explorar sistemas, administrar imágenes, verificar integridad y probar perfiles de arranque.</p>
+                </div>
+                <div className="distro-center-header-actions">
+                  <span className="distro-center-count"><Disc3 size={14} /> {voidBootCatalog.length} sistemas catalogados</span>
+                  <button className="secondary-button" onClick={() => { void loadVoidBootCatalog(); if (voidBootDirectory) void scanVoidBootDirectory(voidBootDirectory); }} disabled={voidBootCatalogBusy || voidBootBusy}><Activity size={14} /> Actualizar</button>
+                </div>
+              </header>
+              <div className="distro-center-notice">
+                <ShieldCheck size={17} />
+                <span>Las fuentes oficiales se muestran por separado de la compatibilidad de arranque. Windows está en el catálogo, pero su arranque multiboot aún no está implementado ni validado.</span>
+              </div>
+              <div className="distro-center-toolbar">
+                <label className="distro-search"><Search size={16} /><input value={distroSearch} onChange={(event) => setDistroSearch(event.target.value)} placeholder="Buscar sistemas, familias o nombres…" /></label>
+                <select aria-label="Filtrar por categoría" value={distroCategory} onChange={(event) => setDistroCategory(event.target.value)}>
+                  <option value="all">Todos los sistemas</option><option value="linux">Distribuciones Linux</option><option value="windows">Windows</option><option value="bsd">BSD</option><option value="other">Otros sistemas</option>
+                </select>
+                <select aria-label="Filtrar por familia" value={distroFamily} onChange={(event) => setDistroFamily(event.target.value)}>
+                  <option value="all">Todas las familias</option>
+                  {distroFamilies.map((family) => <option key={family} value={family}>{family}</option>)}
+                </select>
+                <select aria-label="Filtrar por arquitectura" value={distroArchitecture} onChange={(event) => setDistroArchitecture(event.target.value)}>
+                  <option value="all">Todas las arquitecturas</option>{distroArchitectures.map((architecture) => <option key={architecture} value={architecture}>{architecture}</option>)}
+                </select>
+              </div>
+              <div className="distro-center-layout">
+                <div className="distro-center-results">
+                  <div className="distro-center-results-heading"><strong>CATÁLOGO</strong><span>{filteredDistroCatalog.length} resultados</span></div>
+                  {voidBootCatalogBusy && <div className="panel-empty">Cargando catálogo…</div>}
+                  {!voidBootCatalogBusy && filteredDistroCatalog.length === 0 && <div className="panel-empty">No hay sistemas que coincidan con estos filtros.</div>}
+                  <div className="distro-center-grid">
+                    {filteredDistroCatalog.map((distro) => {
+                      const isWindows = (distro.kind ?? 'linux_distribution') === 'operating_system';
+                      const selected = voidBootSelectedDistro?.id === distro.id;
+                      return (
+                        <button key={distro.id} className={'distro-center-card' + (selected ? ' selected' : '')} onClick={() => { setVoidBootSelectedDistro(distro); setVoidBootDownloadName(distro.id + '.iso'); setVoidBootDownloadUrl(''); setVoidBootExpectedSha256(''); setVoidBootArchMirrors([]); setVoidBootArchMirrorBase(''); }}>
+                          <span className="distro-card-icon">{isWindows ? <Monitor size={23} /> : <Disc3 size={23} />}</span>
+                          <span className="distro-card-main"><strong>{distro.name}</strong><small>{distro.family} · {distro.architectures.join(', ')}</small></span>
+                          <span className={'distro-kind ' + (isWindows ? 'external' : 'linux')}>{isWindows ? (distro.family === 'windows' ? 'Windows' : distro.family === 'bsd' ? 'BSD' : 'Otro OS') : 'Linux'}</span>
+                          <span className="distro-card-description">{distro.description}</span>
+                          <span className="distro-card-footer">{distro.editions.slice(0, 2).join(' · ')}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <aside className="distro-center-detail">
+                  {voidBootSelectedDistro ? (
+                    <>
+                      <div className="distro-detail-topline"><span>FICHA DEL SISTEMA</span><span className={(voidBootSelectedDistro.kind ?? 'linux_distribution') === 'operating_system' ? 'distro-detail-status external' : 'distro-detail-status'}>{(voidBootSelectedDistro.kind ?? 'linux_distribution') === 'operating_system' ? 'Catálogo externo' : 'Distribución Linux'}</span></div>
+                      <h2>{voidBootSelectedDistro.name}</h2>
+                      <p>{voidBootSelectedDistro.description}</p>
+                      <div className="distro-detail-meta">
+                        <div><small>FAMILIA</small><strong>{voidBootSelectedDistro.family}</strong></div>
+                        <div><small>ARQUITECTURAS</small><strong>{voidBootSelectedDistro.architectures.join(', ')}</strong></div>
+                        <div><small>MODELO</small><strong>{voidBootSelectedDistro.release_model}</strong></div>
+                        <div><small>FORMATOS</small><strong>{voidBootSelectedDistro.formats.join(', ')}</strong></div>
+                      </div>
+                      <div className="distro-detail-section"><strong>EDICIONES</strong><span>{voidBootSelectedDistro.editions.join(' · ')}</span></div>
+                      <div className="distro-detail-section"><strong>VERIFICACIÓN</strong><span>{voidBootSelectedDistro.verification}</span></div>
+                      <div className="distro-detail-section"><strong>COMPATIBILIDAD Y ENTREGA</strong><span>{voidBootSelectedDistro.installation.note}</span></div>
+                      <span className="distro-download-locked-link" aria-disabled={!voidBootReleaseGate?.enabled_distribution_ids.includes(voidBootSelectedDistro.id)}><ExternalLink size={15} /> {voidBootReleaseGate?.enabled_distribution_ids.includes(voidBootSelectedDistro.id) ? "Descarga automatizada disponible con SHA-256 oficial" : "Descarga automatizada aún no habilitada para este sistema"}</span>
+                      <a className="distro-project-link" href={voidBootSelectedDistro.project_url} target="_blank" rel="noreferrer">Sitio oficial del proyecto ↗</a>
+                      {voidBootMirrorSupport && <div className="distro-detail-section"><strong>FUENTE DE DESCARGA · {voidBootMirrorSupport.label.toLocaleUpperCase()}</strong><span>{voidBootMirrorSupport.description}</span><a className="distro-project-link" href={voidBootMirrorSupport.source_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Abrir fuente oficial de descarga</a><span className="distro-download-locked-link" aria-disabled={!voidBootReleaseGate?.enabled_distribution_ids.includes(voidBootSelectedDistro.id)}><ExternalLink size={14} /> {voidBootReleaseGate?.enabled_distribution_ids.includes(voidBootSelectedDistro.id) ? "Descarga automatizada disponible con checksum oficial" : "Descarga automatizada pendiente de verificación"}</span>{voidBootMirrorSupport.selectable && <small>Selector automático disponible para esta distribución.</small>}</div>}
+                      {voidBootSelectedDistro.id === 'kali' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>REDIRECTOR OFICIAL DE IMÁGENES KALI</strong><span>Introduce la ruta relativa exacta que aparece en el índice oficial. Void Boot consulta el redirector y muestra el destino elegido junto con las alternativas HTTPS anunciadas por Kali.</span></div><input aria-label="Ruta relativa de ISO de Kali" placeholder="kali-2026.3/nombre-exacto.iso" value={voidBootKaliArtifactPath} onChange={(event) => { setVoidBootKaliArtifactPath(event.target.value); setVoidBootKaliCandidates([]); setVoidBootKaliCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootKaliCandidates()} disabled={voidBootKaliBusy || !voidBootKaliArtifactPath.trim()}>{voidBootKaliBusy ? 'Consultando redirector…' : 'Buscar mirrors oficiales de Kali'}</button>{voidBootKaliCandidates.length > 0 && <select aria-label="Seleccionar candidato oficial de Kali" value={voidBootKaliCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootKaliCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'kali.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar mirror…</option>{voidBootKaliCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>Prioridad {candidate.priority} · zona {candidate.geo} · {new URL(candidate.url).host}</option>)}</select>}</div>}
+                      {voidBootSelectedDistro.id === 'fedora' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>FEDORA MIRRORMANAGER OFICIAL</strong><span>Consulta el redirector oficial para Fedora Workstation x86_64. MirrorManager elige el servidor; Void Boot solo acepta una redirección HTTPS que conserve la ruta de la ISO exacta.</span></div><input aria-label="Versión de Fedora" placeholder="45" value={voidBootFedoraRelease} onChange={(event) => { setVoidBootFedoraRelease(event.target.value); setVoidBootFedoraCandidates([]); setVoidBootFedoraCandidateUrl(''); }} /><input aria-label="Nombre exacto de ISO Fedora" placeholder="Fedora-Workstation-Live-x86_64-45-1.1.iso" value={voidBootDownloadName} onChange={(event) => { setVoidBootDownloadName(event.target.value); setVoidBootFedoraCandidates([]); setVoidBootFedoraCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootFedoraCandidates()} disabled={voidBootFedoraBusy || !voidBootDownloadName.trim()}>{voidBootFedoraBusy ? 'Consultando MirrorManager…' : 'Buscar mirror oficial Fedora'}</button>{voidBootFedoraCandidates.length > 0 && <select aria-label="Seleccionar mirror Fedora" value={voidBootFedoraCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootFedoraCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'fedora.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar mirror…</option>{voidBootFedoraCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region}</option>)}</select>}</div>}
+                      {['ubuntu', 'lubuntu', 'kubuntu', 'xubuntu'].includes(voidBootSelectedDistro.id) && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>FUENTE OFICIAL DE IMÁGENES UBUNTU</strong><span>Usa la versión y el nombre exacto del archivo publicados por Canonical o el sabor seleccionado. Ubuntu principal usa releases.ubuntu.com; los sabores seleccionados usan cdimage.ubuntu.com. Es un destino oficial, no una lista de mirrors manual.</span></div><input aria-label="Versión de Ubuntu" placeholder="24.04.3" value={voidBootUbuntuRelease} onChange={(event) => { setVoidBootUbuntuRelease(event.target.value); setVoidBootUbuntuCandidates([]); setVoidBootUbuntuCandidateUrl(''); }} /><input aria-label="Nombre exacto de ISO Ubuntu" placeholder="ubuntu-24.04.3-desktop-amd64.iso" value={voidBootUbuntuFileName} onChange={(event) => { setVoidBootUbuntuFileName(event.target.value); setVoidBootUbuntuCandidates([]); setVoidBootUbuntuCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootUbuntuCandidates()} disabled={voidBootUbuntuBusy || !voidBootUbuntuRelease.trim() || !voidBootUbuntuFileName.trim()}>{voidBootUbuntuBusy ? 'Preparando destino…' : 'Preparar fuente oficial'}</button>{voidBootUbuntuCandidates.length > 0 && <select aria-label="Seleccionar fuente oficial Ubuntu" value={voidBootUbuntuCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootUbuntuCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'ubuntu.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar destino…</option>{voidBootUbuntuCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region}</option>)}</select>}</div>}
+                      {voidBootSelectedDistro.id === 'opensuse' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>OPENSUSE MIRRORCACHE OFICIAL</strong><span>Introduce la ruta relativa exacta de la ISO que aparece en download.opensuse.org. Void Boot consulta la página oficial .mirrorlist y conserva solo enlaces HTTPS que coincidan con el mismo artefacto.</span></div><input aria-label="Ruta relativa de ISO openSUSE" placeholder="tumbleweed/iso/nombre-exacto.iso" value={voidBootOpenSuseArtifactPath} onChange={(event) => { setVoidBootOpenSuseArtifactPath(event.target.value); setVoidBootOpenSuseCandidates([]); setVoidBootOpenSuseCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootOpenSuseCandidates()} disabled={voidBootOpenSuseBusy || !voidBootOpenSuseArtifactPath.trim()}>{voidBootOpenSuseBusy ? 'Consultando MirrorCache…' : 'Buscar mirrors oficiales openSUSE'}</button>{voidBootOpenSuseCandidates.length > 0 && <select aria-label="Seleccionar mirror openSUSE" value={voidBootOpenSuseCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootOpenSuseCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'opensuse.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar mirror…</option>{voidBootOpenSuseCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region} · {new URL(candidate.url).host}</option>)}</select>}</div>}
+                      {voidBootSelectedDistro.id === 'reactos' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>ARCHIVO OFICIAL DE IMÁGENES REACTOS</strong><span>Introduce la ruta exacta publicada en el archivo BuildBot. bootcd/ instala el sistema y livecd/ permite probarlo. Son builds nocturnos de desarrollo, pueden tener errores y no sustituyen la versión estable.</span></div><input aria-label="Ruta relativa de ISO ReactOS" placeholder="bootcd/nombre-exacto.iso" value={voidBootReactosArtifactPath} onChange={(event) => { setVoidBootReactosArtifactPath(event.target.value); setVoidBootReactosCandidates([]); setVoidBootReactosCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootReactosCandidates()} disabled={voidBootReactosBusy || !voidBootReactosArtifactPath.trim()}>{voidBootReactosBusy ? 'Validando ruta oficial…' : 'Resolver ISO nocturna oficial'}</button>{voidBootReactosCandidates.length > 0 && <select aria-label="Seleccionar ISO nocturna de ReactOS" value={voidBootReactosCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootReactosCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'reactos.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar ISO…</option>{voidBootReactosCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region}</option>)}</select>}</div>}
+                      {['freebsd', 'openbsd', 'netbsd', 'linux-mint'].includes(voidBootSelectedDistro.id) && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>{voidBootSelectedDistro.id === 'linux-mint' ? 'MIRRORS OFICIALES DE ISO LINUX MINT' : voidBootSelectedDistro.id === 'freebsd' ? 'FREEBSD GEODNS / CDN OFICIAL' : voidBootSelectedDistro.id === 'openbsd' ? 'MIRRORS HTTPS OFICIALES DE OPENBSD' : 'MIRRORS HTTPS OFICIALES DE NETBSD'}</strong><span>{voidBootSelectedDistro.id === 'linux-mint' ? 'Introduce la ruta relativa exacta de la ISO. Void Boot usa solo mirrors que la página oficial identifica como fuentes de imágenes ISO, no los mirrors de paquetes.' : voidBootSelectedDistro.id === 'freebsd' ? 'Introduce la ruta relativa exacta publicada por FreeBSD. El servidor oficial usa GeoDNS/CDN para elegir la ruta de descarga.' : 'Introduce la ruta relativa exacta de la ISO publicada por el proyecto. Void Boot lee el directorio oficial de mirrors y conserva solo bases HTTPS reconocidas con la misma ruta de artefacto.'}</span></div><input aria-label="Ruta relativa de ISO BSD" placeholder={voidBootSelectedDistro.id === 'linux-mint' ? 'stable/22.3/linuxmint-22.3-cinnamon-64bit.iso' : voidBootSelectedDistro.id === 'freebsd' ? 'releases/ISO-IMAGES/15.1/FreeBSD-15.1-RELEASE-amd64-disc1.iso' : voidBootSelectedDistro.id === 'openbsd' ? '7.9/amd64/install79.iso' : 'images/10.1/amd64/NetBSD-10.1-amd64.iso'} value={voidBootBsdArtifactPath} onChange={(event) => { setVoidBootBsdArtifactPath(event.target.value); setVoidBootBsdCandidates([]); setVoidBootBsdCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootBsdCandidates()} disabled={voidBootBsdBusy || !voidBootBsdArtifactPath.trim()}>{voidBootBsdBusy ? 'Consultando fuentes…' : 'Buscar fuente oficial'}</button>{voidBootBsdCandidates.length > 0 && <select aria-label="Seleccionar fuente BSD" value={voidBootBsdCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootBsdCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'bsd.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar fuente…</option>{voidBootBsdCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region}</option>)}</select>}</div>}
+                      {voidBootSelectedDistro.id === 'debian' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>CDN OFICIAL DE IMÁGENES DEBIAN</strong><span>Usa el prefijo de ruta publicado por Debian. Ejemplo: current/amd64/iso-cd/debian-stable-amd64-netinst.iso. El destino se sirve por HTTPS desde el CDN global documentado por Debian.</span></div><input aria-label="Ruta relativa de ISO Debian" placeholder="current/amd64/iso-cd/nombre-exacto.iso" value={voidBootDebianArtifactPath} onChange={(event) => { setVoidBootDebianArtifactPath(event.target.value); setVoidBootDebianCandidates([]); setVoidBootDebianCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootDebianCandidates()} disabled={voidBootDebianBusy || !voidBootDebianArtifactPath.trim()}>{voidBootDebianBusy ? 'Preparando destino…' : 'Preparar descarga oficial Debian'}</button>{voidBootDebianCandidates.length > 0 && <select aria-label="Seleccionar CDN oficial Debian" value={voidBootDebianCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootDebianCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'debian.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar destino…</option>{voidBootDebianCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region}</option>)}</select>}</div>}
+                      {(voidBootSelectedDistro.kind ?? 'linux_distribution') === 'linux_distribution'
+                      && voidBootSelectedDistro.installation.delivery === 'direct_iso_to_void_data_partition'
+                      && voidBootReleaseGate?.enabled_distribution_ids.includes(voidBootSelectedDistro.id) ? (
+                        <div className="distro-download-panel">
+                          <div className="distro-detail-section"><strong>DESCARGA DIRECTA VERIFICADA</strong><span>Smart Download admite reanudación y hasta 8 conexiones cuando el servidor soporta HTTP Range. El SHA-256 oficial se comprueba antes de aceptar el archivo.</span></div>
+                          {voidBootSelectedDistro.id === 'arch' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>MIRRORS OFICIALES DE ARCH LINUX</strong><span>Lista en vivo de la API oficial. Solo HTTPS activos y sincronizados.</span></div><button className="secondary-button" onClick={() => void loadVoidBootArchMirrors()} disabled={voidBootMirrorBusy}>{voidBootMirrorBusy ? 'Consultando mirrors…' : 'Buscar mirrors oficiales'}</button>{voidBootArchMirrors.length > 0 && <select aria-label="Seleccionar mirror oficial de Arch Linux" value={voidBootArchMirrorBase} onChange={(event) => selectVoidBootArchMirror(event.target.value)}><option value="">Seleccionar mirror…</option>{voidBootArchMirrors.map((mirror) => <option key={mirror.base_url} value={mirror.base_url}>{mirror.country} · {Math.round(mirror.delay_seconds / 60)} min · {mirror.base_url}</option>)}</select>}</div>}
+                          <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => { setVoidBootArchMirrorBase(''); setVoidBootDownloadUrl(event.target.value); }} />
+                          <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => { const name = event.target.value; setVoidBootDownloadName(name); setVoidBootExpectedSha256(''); if (voidBootArchMirrorBase) setVoidBootDownloadUrl(voidBootArchMirrorBase + 'iso/latest/' + name.trim()); }} placeholder="distribution.iso" />
+                          <input aria-label="SHA-256 oficial esperado (obligatorio)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres)" spellCheck={false} />
+                          <button className="secondary-button" onClick={() => void loadVoidBootPublisherChecksum()} disabled={!voidBootDownloadName.trim()}>Cargar SHA-256 desde manifiesto local</button>
+                          {['debian', 'arch', 'ubuntu', 'fedora', 'opensuse'].includes(voidBootSelectedDistro.id) && <button className="secondary-button" onClick={() => void loadVoidBootOfficialReleaseChecksum()} disabled={!voidBootDownloadName.trim()}>Consultar checksum oficial en línea</button>}
+                          <small className="distro-checksum-hint">La descarga directa solo se activa para distribuciones con un adaptador de checksum oficial en backend. Para las demás, usa la página oficial y verifica el archivo siguiendo las instrucciones del editor antes de usarlo. La verificación de checksum no sustituye las firmas criptográficas.</small>
+                          <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}><FolderOpen size={14} /> {voidBootDownloadDirectory ? voidBootDownloadDirectory.split(/[\\/]/).filter(Boolean).pop() : 'Elegir carpeta de biblioteca'}</button>
+                          <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory || !/^[a-fA-F0-9]{64}$/.test(voidBootExpectedSha256.trim())}>{voidBootDownloadBusy ? 'Iniciando descarga…' : 'Descargar ISO'}</button>
+                        </div>
+                      ) : (
+                        <div className="distro-download-panel distro-external-only">
+                          <div className="distro-detail-section"><strong>DESCARGA OFICIAL DISPONIBLE</strong><span>Void Memingo abre el canal de descarga publicado por el proyecto. Allí puedes elegir edición, arquitectura, mirror o medio de instalación. La descarga externa no se presenta como verificada por Void Boot.</span></div>
+                          <a className="primary-button" href={voidBootSelectedDistro.download_page} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> Abrir descarga oficial de {voidBootSelectedDistro.name}</a>
+                          <small className="distro-checksum-hint">Sistemas con acceso al medio oficial: {voidBootCatalog.length} / {voidBootCatalog.length}. Descarga directa con comprobación automática de checksum: {voidBootReleaseGate?.download_enabled_systems ?? 0} / {voidBootReleaseGate?.required_systems ?? 40}. La compatibilidad de arranque se valida por separado.</small>
+                        </div>
+                      )}
+                    </>
+                  ) : <div className="panel-empty">Selecciona un sistema del catálogo para consultar sus detalles.</div>}
+                </aside>
+              </div>
+              <div className="distro-center-lower">
+                <section className="distro-library-panel">
+                  <div className="distro-panel-heading"><div><strong>Biblioteca ISO local</strong><small>Inspección de solo lectura · no modifica dispositivos</small></div><button className="secondary-button" onClick={() => void chooseVoidBootDirectory()} disabled={voidBootBusy}><FolderOpen size={14} /> Elegir carpeta</button></div>
+                  {voidBootDirectory && <div className="distro-library-path">{voidBootDirectory}</div>}
+                  {!voidBootDirectory && <p>Selecciona una carpeta de biblioteca para inspeccionar archivos ISO existentes.</p>}
+                  {voidBootEntries.map((entry) => <div className="distro-library-item" key={entry.path}><Disc3 size={16} /><div><strong>{entry.name}</strong><small>{(entry.size_bytes / (1024 * 1024)).toFixed(1)} MiB · SHA-256 {entry.sha256.slice(0, 16)}…</small>{voidBootChecksumStatus[entry.path] && <small className={voidBootChecksumStatus[entry.path].startsWith('SHA-256 oficial') ? 'distro-checksum-success' : 'distro-transfer-error'}>{voidBootChecksumStatus[entry.path]}</small>}</div><span>{entry.iso9660 ? 'ISO 9660' : 'No reconocida'}</span><button className="secondary-button" onClick={() => void verifyVoidBootIso(entry.path)}>Verificar</button></div>)}
+                  {voidBootDirectory && voidBootEntries.length === 0 && <div className="panel-empty">{voidBootBusy ? 'Inspeccionando…' : 'No se encontraron ISO en esta carpeta.'}</div>}
+                  {voidBootDownloads.length > 0 && <div className="distro-download-history"><strong>Transferencias</strong>{voidBootDownloads.map((task) => <div className="distro-transfer-item" key={task.id}><div><b>{task.file_name}</b><small>{task.status} · {task.total_bytes ? `${(task.downloaded_bytes / task.total_bytes * 100).toFixed(1)}%` : `${(task.downloaded_bytes / (1024 * 1024)).toFixed(1)} MiB`}</small>{task.sha256 && <small>SHA-256 {task.sha256.slice(0, 20)}… · {task.checksum_verified ? 'checksum esperado coincidente' : 'sin checksum esperado'}</small>}{task.reused_from_library && <small>ISO reutilizada desde la biblioteca · checksum esperado coincidente · sin nueva descarga</small>}{task.error && <small className="distro-transfer-error">{task.error}</small>}</div>{(task.status === 'downloading' || task.status === 'queued') && <button className="secondary-button" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar</button>}</div>)}</div>}
+                </section>
+                <section className="distro-lab-panel">
+                  <div className="distro-panel-heading"><div><strong>Void Boot · Laboratorio virtual</strong><small>QEMU y perfiles GRUB · sin USB físico</small></div><Cpu size={18} /></div>
+                  <p>Prueba imágenes virtuales de forma aislada. QEMU utiliza snapshot y red desactivada; los cambios se descartan al cerrar la máquina.</p>
+                  <div className="distro-lab-actions">
+                    <button className="secondary-button" onClick={() => void chooseQemuImage()}><FolderOpen size={14} /> Seleccionar disco virtual</button>
+                    <button className="secondary-button" onClick={() => void createQemuDisk()} disabled={qemuBusy}>＋ Crear QCOW2 desechable</button>
+                    <button className="primary-button" onClick={() => void launchVoidBootQemu()} disabled={!qemuImagePath || qemuBusy}><Play size={14} /> Iniciar QEMU UEFI</button>
+                  </div>
+                  {qemuImagePath && <small className="distro-library-path">{qemuImagePath}</small>}
+                  {qemuStatus && <div className="distro-lab-status">{qemuStatus}</div>}
+                  <div className="distro-profile-actions"><button className="secondary-button" onClick={() => void chooseVoidBootProfile()} disabled={voidBootPreviewBusy}>{voidBootPreviewBusy ? 'Cargando…' : 'Abrir catálogo'}</button><button className="secondary-button" onClick={() => { setVoidBootProfileSelected(voidBootProfiles.length); setVoidBootProfileStatus('Perfil nuevo sin guardar. Completa sus datos y guarda el catálogo.'); setVoidBootProfiles((current) => [...current, { id: 'profile-' + Date.now(), name: 'Nuevo sistema', iso: 'iso/system.iso', kernel: 'live/vmlinuz', initrd: 'live/initrd.img', linux_args: ['boot=live'], findiso: true, iso_path_argument: null }]); }} disabled={voidBootPreviewBusy}>＋ Añadir perfil</button><button className="secondary-button" onClick={() => void saveVoidBootProfileCatalog()} disabled={voidBootPreviewBusy || voidBootProfiles.length === 0}>Guardar catálogo</button><button className="secondary-button" onClick={() => void refreshVoidBootPreview()} disabled={!voidBootProfileFile || voidBootPreviewBusy}>Actualizar vista previa</button></div>
+                  {voidBootProfiles.length > 0 && (
+                    <div className="void-boot-profile-editor">
+                      <div className="void-boot-profile-list" role="list" aria-label="Perfiles del catálogo">
+                        {voidBootProfiles.map((profile, index) => <button key={profile.id + '-' + index} className={'void-boot-profile-tab' + (voidBootProfileSelected === index ? ' active' : '')} onClick={() => setVoidBootProfileSelected(index)}>{profile.name || 'Perfil sin nombre'}</button>)}
+                      </div>
+                      {voidBootProfiles[voidBootProfileSelected] && (() => {
+                        const profile = voidBootProfiles[voidBootProfileSelected];
+                        const updateProfile = (patch: Partial<VoidBootProfile>) => setVoidBootProfiles((current) => current.map((item, index) => index === voidBootProfileSelected ? { ...item, ...patch } : item));
+                        return <div className="void-boot-profile-fields">
+                          <label>ID interno<input value={profile.id} onChange={(event) => updateProfile({ id: event.target.value })} placeholder="debian-live" /></label>
+                          <label>Nombre visible<input value={profile.name} onChange={(event) => updateProfile({ name: event.target.value })} placeholder="Debian Live" /></label>
+                          <label>Ruta de ISO<input value={profile.iso} onChange={(event) => updateProfile({ iso: event.target.value })} placeholder="iso/debian-live.iso" /></label>
+                          <label>Ruta del kernel<input value={profile.kernel} onChange={(event) => updateProfile({ kernel: event.target.value })} placeholder="live/vmlinuz" /></label>
+                          <label>Ruta del initrd<input value={profile.initrd} onChange={(event) => updateProfile({ initrd: event.target.value })} placeholder="live/initrd.img" /></label>
+                          <label>Argumentos del kernel<input value={profile.linux_args.join(' ')} onChange={(event) => updateProfile({ linux_args: event.target.value.split(/\s+/).filter(Boolean) })} placeholder="boot=live quiet" /></label>
+                          <label className="void-boot-profile-check"><input type="checkbox" checked={profile.findiso} onChange={(event) => updateProfile({ findiso: event.target.checked, iso_path_argument: event.target.checked ? null : profile.iso_path_argument })} /> Añadir búsqueda automática de ISO (findiso)</label>
+                          <label>Parámetro de ruta ISO (opcional)<input value={profile.iso_path_argument ?? ''} onChange={(event) => updateProfile({ iso_path_argument: event.target.value.trim() || null, findiso: event.target.value.trim() ? false : profile.findiso })} placeholder="iso-scan/filename" /></label>
+                          <label>Archivo GRUB incluido en la ISO (opcional)<input value={profile.loopback_config ?? ''} onChange={(event) => updateProfile({ loopback_config: event.target.value.trim() || null, findiso: event.target.value.trim() ? false : profile.findiso, iso_path_argument: event.target.value.trim() ? null : profile.iso_path_argument })} placeholder="boot/grub/loopback.cfg" /></label>
+                          <label className="void-boot-profile-check"><input type="checkbox" checked={Boolean(profile.loopback_config_source)} disabled={!profile.loopback_config} onChange={(event) => updateProfile({ loopback_config_source: event.target.checked })} /> Cargar el archivo con source (en vez de configfile)</label>
+                          <button className="text-action" onClick={() => { setVoidBootProfiles((current) => current.filter((_, index) => index !== voidBootProfileSelected)); setVoidBootProfileSelected((current) => Math.max(0, Math.min(current, voidBootProfiles.length - 2))); }}>Eliminar perfil seleccionado</button>
+                        </div>;
+                      })()}
+                    </div>
+                  )}
+                  {voidBootProfileStatus && <div className="distro-lab-status">{voidBootProfileStatus}</div>}
+                  {voidBootMenuPreview && <pre className="distro-profile-preview">{voidBootMenuPreview}</pre>}
+                </section>
+              </div>
+              <section className="distro-downloads-panel">
+                <div className="distro-panel-heading"><div><strong>Transferencias</strong><small>Descargas reanudables de Void Boot</small></div><span>{voidBootDownloads.length} tareas</span></div>
+                {voidBootDownloads.length === 0 && <p>No hay descargas registradas.</p>}
+                {voidBootDownloads.map((task) => {
+                  const percent = task.total_bytes && task.total_bytes > 0 ? Math.min(100, task.downloaded_bytes / task.total_bytes * 100) : null;
+                  return <div className="distro-transfer-row" key={task.id}><div><strong>{task.file_name}</strong><small>{(task.downloaded_bytes / 1073741824).toFixed(2)} GiB{task.total_bytes ? ' / ' + (task.total_bytes / 1073741824).toFixed(2) + ' GiB' : ''} · {task.status} · {task.reused_from_library ? 'ISO en caché' : task.connections + ' conexiones'}</small>{task.error && <small className="distro-transfer-error">{task.error}</small>}</div>{percent !== null && <div className="void-boot-download-progress"><span style={{ width: percent + '%' }} /></div>}{task.status === 'downloading' && <button className="text-action" onClick={() => void pauseVoidBootDownload(task.id)}>Pausar</button>}</div>;
+                })}
+              </section>
+            </section>
+          ) : (
+            <>
           <div className="editor-tabs">
             <div className="tabs-list">
               {tabs.map((tab) => (
@@ -1520,7 +2275,7 @@ directory = ${quote(osOutputDir)}
             </section>
           )}
 
-          <section className="bottom-panel" style={{ display: bottomOpen ? 'flex' : 'none' }}>
+          <section className="bottom-panel" style={{ display: bottomOpen && String(sidebarView) !== 'boot' ? 'flex' : 'none' }}>
               <div className="panel-tabs">
                 <button className={bottomView === 'problems' ? 'selected' : ''} onClick={() => setBottomView('problems')}>PROBLEMAS</button>
                 <button className={bottomView === 'output' ? 'selected' : ''} onClick={() => setBottomView('output')}>SALIDA</button>
@@ -1578,6 +2333,8 @@ directory = ${quote(osOutputDir)}
                 )}
               </div>
             </section>
+            </>
+          )}
         </main>
       </div>
 

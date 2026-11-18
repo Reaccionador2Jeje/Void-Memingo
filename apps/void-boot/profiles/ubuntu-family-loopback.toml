@@ -1,0 +1,38 @@
+# Experimental GRUB loopback recipes for Ubuntu and its official desktop flavours.
+# These entries use the casper layout and iso-scan/filename kernel parameter.
+# Keep them experimental until each exact release is boot-tested in BIOS and UEFI.
+[[profiles]]
+id = "ubuntu-live-amd64-experimental"
+name = "Ubuntu Live (experimental)"
+iso = "iso/ubuntu-amd64.iso"
+kernel = "casper/vmlinuz"
+initrd = "casper/initrd"
+linux_args = ["boot=casper", "quiet", "splash"]
+iso_path_argument = "iso-scan/filename"
+
+[[profiles]]
+id = "lubuntu-live-amd64-experimental"
+name = "Lubuntu Live (experimental)"
+iso = "iso/lubuntu-amd64.iso"
+kernel = "casper/vmlinuz"
+initrd = "casper/initrd"
+linux_args = ["boot=casper", "quiet", "splash"]
+iso_path_argument = "iso-scan/filename"
+
+[[profiles]]
+id = "kubuntu-live-amd64-experimental"
+name = "Kubuntu Live (experimental)"
+iso = "iso/kubuntu-amd64.iso"
+kernel = "casper/vmlinuz"
+initrd = "casper/initrd"
+linux_args = ["boot=casper", "quiet", "splash"]
+iso_path_argument = "iso-scan/filename"
+
+[[profiles]]
+id = "xubuntu-live-amd64-experimental"
+name = "Xubuntu Live (experimental)"
+iso = "iso/xubuntu-amd64.iso"
+kernel = "casper/vmlinuz"
+initrd = "casper/initrd"
+linux_args = ["boot=casper", "quiet", "splash"]
+iso_path_argument = "iso-scan/filename"

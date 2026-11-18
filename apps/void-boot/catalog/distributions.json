@@ -1,0 +1,1147 @@
+[
+  {
+    "id": "debian",
+    "name": "Debian",
+    "description": "Sistema universal y estable; ofrece imágenes Live e instaladores.",
+    "family": "debian",
+    "project_url": "https://www.debian.org/",
+    "download_page": "https://www.debian.org/distrib/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "armhf",
+      "ppc64el",
+      "s390x"
+    ],
+    "editions": [
+      "netinst",
+      "Live",
+      "DVD"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Consulta los checksums y firmas publicados junto a cada imagen.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "ubuntu",
+    "name": "Ubuntu",
+    "description": "Distribución de escritorio y servidor basada en Debian.",
+    "family": "ubuntu",
+    "project_url": "https://ubuntu.com/",
+    "download_page": "https://ubuntu.com/download",
+    "architectures": [
+      "x86_64",
+      "arm64",
+      "armhf",
+      "ppc64el",
+      "s390x"
+    ],
+    "editions": [
+      "Desktop",
+      "Server",
+      "Flavours"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Verifica el SHA-256 usando los archivos oficiales SHA256SUMS y su firma.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "fedora",
+    "name": "Fedora",
+    "description": "Distribución comunitaria con ediciones Workstation, Server y Spins.",
+    "family": "fedora",
+    "project_url": "https://fedoraproject.org/",
+    "download_page": "https://fedoraproject.org/workstation/download",
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Workstation",
+      "Server",
+      "Spins",
+      "Atomic Desktops"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa la verificación oficial de descarga de Fedora antes de arrancar la imagen.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "arch",
+    "name": "Arch Linux",
+    "description": "Distribución rolling-release para usuarios que desean construir su sistema.",
+    "family": "arch",
+    "project_url": "https://archlinux.org/",
+    "download_page": "https://archlinux.org/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Installation medium"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Comprueba la firma PGP y el checksum publicados por Arch Linux.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "linux-mint",
+    "name": "Linux Mint",
+    "description": "Distribución de escritorio basada en Ubuntu o Debian.",
+    "family": "ubuntu/debian",
+    "project_url": "https://linuxmint.com/",
+    "download_page": "https://linuxmint.com/download.php",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Cinnamon",
+      "MATE",
+      "Xfce",
+      "LMDE"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Sigue las instrucciones oficiales para verificar integridad y autenticidad.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "zorin-os",
+    "name": "Zorin OS",
+    "description": "Distribución de escritorio basada en Ubuntu.",
+    "family": "ubuntu",
+    "project_url": "https://zorin.com/os/",
+    "download_page": "https://zorin.com/os/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Core",
+      "Pro",
+      "Education"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Compara el checksum publicado por el proyecto para la versión descargada.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "opensuse",
+    "name": "openSUSE",
+    "description": "Distribución comunitaria con ramas estables y rolling-release.",
+    "family": "suse",
+    "project_url": "https://www.opensuse.org/",
+    "download_page": "https://get.opensuse.org/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "ppc64le",
+      "s390x"
+    ],
+    "editions": [
+      "Leap",
+      "Tumbleweed"
+    ],
+    "release_model": "fixed/rolling",
+    "formats": [
+      "ISO",
+      "Network installer"
+    ],
+    "verification": "Comprueba los checksums y firmas publicados por openSUSE.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "pop-os",
+    "name": "Pop!_OS",
+    "description": "Distribución de escritorio de System76 con entorno COSMIC.",
+    "family": "ubuntu",
+    "project_url": "https://system76.com/",
+    "download_page": "https://system76.com/download-pop/",
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "editions": [
+      "Intel/AMD",
+      "NVIDIA",
+      "ARM"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Compara el SHA-256 que aparece en la página oficial para la variante exacta.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "elementary-os",
+    "name": "elementary OS",
+    "description": "Distribución de escritorio basada en Ubuntu y centrada en Pantheon.",
+    "family": "ubuntu",
+    "project_url": "https://elementary.io/",
+    "download_page": "https://elementary.io/",
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "editions": [
+      "Desktop"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Verifica el SHA-256 de la imagen descargada siguiendo la guía oficial.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "kali",
+    "name": "Kali Linux",
+    "description": "Distribución Debian especializada en seguridad informática y auditorías autorizadas.",
+    "family": "debian",
+    "project_url": "https://www.kali.org/",
+    "download_page": "https://www.kali.org/get-kali/",
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "editions": [
+      "Installer",
+      "Live",
+      "Weekly images"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO",
+      "Images"
+    ],
+    "verification": "Comprueba SHA256SUMS y su firma GPG mediante las instrucciones oficiales.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "endeavouros",
+    "name": "EndeavourOS",
+    "description": "Distribución basada en Arch con instalador y experiencia cercana a Arch Linux.",
+    "family": "arch",
+    "project_url": "https://endeavouros.com/",
+    "download_page": "https://endeavouros.com/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Live installer"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Verifica el checksum SHA-512 y la firma GPG de la imagen.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "manjaro",
+    "name": "Manjaro",
+    "description": "Distribución basada en Arch con ediciones de escritorio y opciones ARM.",
+    "family": "arch",
+    "project_url": "https://manjaro.org/",
+    "download_page": "https://manjaro.org/products/",
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Xfce",
+      "KDE Plasma",
+      "GNOME",
+      "ARM"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO",
+      "Images"
+    ],
+    "verification": "Usa los checksums y las instrucciones de verificación publicados por Manjaro.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "mx-linux",
+    "name": "MX Linux",
+    "description": "Distribución basada en Debian, disponible en varias ediciones de escritorio.",
+    "family": "debian",
+    "project_url": "https://mxlinux.org/",
+    "download_page": "https://mxlinux.org/download-links/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Xfce",
+      "KDE Plasma",
+      "Fluxbox"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Comprueba el checksum publicado para la imagen y el mirror elegidos.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "nixos",
+    "name": "NixOS",
+    "description": "Distribución declarativa con configuraciones reproducibles y actualizaciones transaccionales.",
+    "family": "independent",
+    "project_url": "https://nixos.org/",
+    "download_page": "https://nixos.org/download/",
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Graphical",
+      "Minimal"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Consulta los hashes y las instrucciones oficiales para la versión descargada.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "void-linux",
+    "name": "Void Linux",
+    "description": "Distribución independiente y rolling-release que utiliza runit.",
+    "family": "independent",
+    "project_url": "https://voidlinux.org/",
+    "download_page": "https://voidlinux.org/download/",
+    "architectures": [
+      "x86_64",
+      "i686",
+      "aarch64",
+      "arm"
+    ],
+    "editions": [
+      "Base",
+      "Xfce",
+      "glibc",
+      "musl"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO",
+      "Root filesystem tarball"
+    ],
+    "verification": "Descarga y verifica el checksum y su firma siguiendo el Void Handbook.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "rocky-linux",
+    "name": "Rocky Linux",
+    "description": "Distribución comunitaria compatible con Red Hat Enterprise Linux.",
+    "family": "rhel",
+    "project_url": "https://rockylinux.org/",
+    "download_page": "https://rockylinux.org/download",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "ppc64le",
+      "s390x"
+    ],
+    "editions": [
+      "Minimal",
+      "DVD",
+      "Boot"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Comprueba los checksums y firmas publicados para la versión elegida.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "almalinux",
+    "name": "AlmaLinux",
+    "description": "Distribución Linux comunitaria compatible con el ecosistema RHEL.",
+    "family": "rhel",
+    "project_url": "https://almalinux.org/",
+    "download_page": "https://almalinux.org/get-almalinux/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "ppc64le",
+      "s390x"
+    ],
+    "editions": [
+      "DVD",
+      "Boot",
+      "Minimal",
+      "Live"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Compara el SHA-256 publicado y sigue las instrucciones oficiales de verificación.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "alpine",
+    "name": "Alpine Linux",
+    "description": "Distribución ligera orientada a seguridad, contenedores y sistemas pequeños.",
+    "family": "independent",
+    "project_url": "https://www.alpinelinux.org/",
+    "download_page": "https://www.alpinelinux.org/downloads/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "armv7",
+      "ppc64le",
+      "riscv64",
+      "s390x"
+    ],
+    "editions": [
+      "Standard",
+      "Extended",
+      "Virtual",
+      "Netboot"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO",
+      "Images"
+    ],
+    "verification": "Verifica el SHA-256 y la firma GPG publicados junto a cada imagen.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "mageia",
+    "name": "Mageia",
+    "description": "Distribución comunitaria con instaladores clásicos y varias opciones de escritorio.",
+    "family": "independent",
+    "project_url": "https://www.mageia.org/",
+    "download_page": "https://www.mageia.org/en/downloads/",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Plasma",
+      "GNOME",
+      "Xfce",
+      "Network installer"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Comprueba la integridad de la imagen después de descargarla desde un mirror oficial.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga directamente en la carpeta de datos elegida; Void Boot debe tener un perfil de arranque validado para iniciar esta distribución."
+    }
+  },
+  {
+    "id": "windows-11-x64",
+    "kind": "operating_system",
+    "name": "Windows 11 (x64)",
+    "description": "Sistema operativo de escritorio de Microsoft para equipos x86-64. El medio oficial puede contener varias ediciones; la activación depende de la licencia.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/windows-11",
+    "download_page": "https://www.microsoft.com/software-download/windows11",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Windows 11 Home",
+      "Windows 11 Pro",
+      "Otras ediciones según licencia"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO",
+      "USB installation media"
+    ],
+    "verification": "Descarga únicamente desde Microsoft y verifica la integridad del archivo según los datos publicados por Microsoft. No se admite una ISO de terceros como medio oficial.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlace oficial únicamente. El arranque e instalación multiboot de Windows requieren un flujo específico y todavía no están implementados ni validados en Void Boot."
+    }
+  },
+  {
+    "id": "windows-11-arm64",
+    "kind": "operating_system",
+    "name": "Windows 11 (ARM64)",
+    "description": "Edición de Windows 11 para dispositivos compatibles con procesadores ARM64.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/windows-11",
+    "download_page": "https://www.microsoft.com/software-download/windows11arm64",
+    "architectures": [
+      "aarch64"
+    ],
+    "editions": [
+      "Windows 11 ARM64"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Descarga únicamente desde Microsoft y verifica la integridad del archivo según los datos publicados por Microsoft.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlace oficial únicamente. El arranque e instalación multiboot de Windows requieren un flujo específico y todavía no están implementados ni validados en Void Boot."
+    }
+  },
+  {
+    "id": "freebsd",
+    "kind": "operating_system",
+    "name": "FreeBSD",
+    "description": "Sistema operativo tipo Unix basado en BSD, con imágenes oficiales de instalación, máquinas virtuales y sistemas embebidos.",
+    "family": "bsd",
+    "project_url": "https://www.freebsd.org/",
+    "download_page": "https://www.freebsd.org/where/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "i686",
+      "riscv64",
+      "powerpc64",
+      "powerpc64le"
+    ],
+    "editions": [
+      "FreeBSD 15.1-RELEASE",
+      "FreeBSD 14.5-RELEASE"
+    ],
+    "release_model": "stable",
+    "formats": [
+      "ISO",
+      "IMG",
+      "QCOW2"
+    ],
+    "verification": "Usa la página oficial para elegir arquitectura e imagen; consulta los checksums firmados publicados por FreeBSD.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
+    }
+  },
+  {
+    "id": "openbsd",
+    "kind": "operating_system",
+    "name": "OpenBSD",
+    "description": "Sistema operativo BSD multipropósito que prioriza seguridad, corrección y portabilidad. Sus medios oficiales varían por arquitectura.",
+    "family": "bsd",
+    "project_url": "https://www.openbsd.org/",
+    "download_page": "https://www.openbsd.org/faq/faq4.html",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "i686",
+      "riscv64",
+      "powerpc64",
+      "sparc64"
+    ],
+    "editions": [
+      "OpenBSD 8.0"
+    ],
+    "release_model": "stable",
+    "formats": [
+      "ISO",
+      "IMG",
+      "installation sets"
+    ],
+    "verification": "Descarga desde los espejos enlazados por OpenBSD y verifica SHA256 y la firma SHA256.sig cuando corresponda.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
+    }
+  },
+  {
+    "id": "netbsd",
+    "kind": "operating_system",
+    "name": "NetBSD",
+    "description": "Sistema operativo BSD conocido por su amplia portabilidad entre plataformas de hardware.",
+    "family": "bsd",
+    "project_url": "https://www.netbsd.org/",
+    "download_page": "https://www.netbsd.org/mirrors/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "i686",
+      "arm",
+      "mips",
+      "powerpc",
+      "sparc64"
+    ],
+    "editions": [
+      "NetBSD 11.1",
+      "NetBSD 11.0"
+    ],
+    "release_model": "stable",
+    "formats": [
+      "ISO",
+      "IMG",
+      "USB"
+    ],
+    "verification": "Elige un espejo desde el sitio oficial y verifica los hashes firmados publicados junto a los archivos de distribución.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
+    }
+  },
+  {
+    "id": "reactos",
+    "kind": "operating_system",
+    "name": "ReactOS",
+    "description": "Sistema operativo experimental de código abierto compatible a nivel de diseño con aplicaciones y controladores de Windows. El proyecto advierte que sigue en fase alfa.",
+    "family": "reactos",
+    "project_url": "https://reactos.org/",
+    "download_page": "https://reactos.org/download/",
+    "architectures": [
+      "i686"
+    ],
+    "editions": [
+      "ReactOS 0.4.16"
+    ],
+    "release_model": "alpha",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Obtén las imágenes desde el proyecto ReactOS. Es software alfa y no debe considerarse adecuado para datos importantes ni para uso de producción.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlaces oficiales únicamente. Void Boot todavía no ha implementado ni validado el arranque multiboot de este sistema; no se debe marcar como compatible sin pruebas específicas en QEMU BIOS y UEFI."
+    }
+  },
+  {
+    "id": "centos-stream",
+    "name": "CentOS Stream",
+    "description": "Distribución comunitaria de flujo continuo situada entre Fedora y Red Hat Enterprise Linux.",
+    "family": "rhel",
+    "project_url": "https://www.centos.org/",
+    "download_page": "https://www.centos.org/download/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "ppc64le"
+    ],
+    "editions": [
+      "Boot ISO",
+      "DVD ISO"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO",
+      "Images"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "gentoo",
+    "name": "Gentoo Linux",
+    "description": "Distribución flexible basada en compilación desde código fuente y perfiles seleccionables.",
+    "family": "independent",
+    "project_url": "https://www.gentoo.org/",
+    "download_page": "https://www.gentoo.org/downloads/",
+    "architectures": [
+      "x86_64",
+      "aarch64",
+      "riscv64"
+    ],
+    "editions": [
+      "Minimal Installation CD",
+      "LiveGUI"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO",
+      "Stage archives"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "slackware",
+    "name": "Slackware Linux",
+    "description": "Distribución clásica de propósito general, conocida por su enfoque sencillo y tradicional.",
+    "family": "independent",
+    "project_url": "https://www.slackware.com/",
+    "download_page": "https://www.slackware.com/getslack/",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Slackware",
+      "Slackware64"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "lubuntu",
+    "name": "Lubuntu",
+    "description": "Variante oficial de Ubuntu que utiliza el entorno de escritorio LXQt y prioriza la ligereza.",
+    "family": "ubuntu",
+    "project_url": "https://lubuntu.me/",
+    "download_page": "https://lubuntu.me/downloads/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Desktop",
+      "LTS",
+      "Interim"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "kubuntu",
+    "name": "Kubuntu",
+    "description": "Variante oficial de Ubuntu con el entorno de escritorio KDE Plasma.",
+    "family": "ubuntu",
+    "project_url": "https://kubuntu.org/",
+    "download_page": "https://kubuntu.org/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Desktop",
+      "LTS",
+      "Interim"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "xubuntu",
+    "name": "Xubuntu",
+    "description": "Variante oficial de Ubuntu con el escritorio Xfce, enfocada en una experiencia ligera y configurable.",
+    "family": "ubuntu",
+    "project_url": "https://xubuntu.org/",
+    "download_page": "https://xubuntu.org/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Desktop",
+      "Minimal",
+      "LTS",
+      "Interim"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "linux-lite",
+    "name": "Linux Lite",
+    "description": "Distribución de escritorio basada en Ubuntu que busca facilitar la transición desde otros sistemas.",
+    "family": "ubuntu",
+    "project_url": "https://www.linuxliteos.com/",
+    "download_page": "https://www.linuxliteos.com/download.php",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Standard"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "deepin",
+    "name": "deepin",
+    "description": "Distribución Linux con escritorio propio y ediciones para distintas arquitecturas.",
+    "family": "debian",
+    "project_url": "https://www.deepin.org/",
+    "download_page": "https://www.deepin.org/en/download/",
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Desktop",
+      "Live"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "solus",
+    "name": "Solus",
+    "description": "Distribución independiente de escritorio con ediciones Budgie, GNOME, KDE Plasma y Xfce.",
+    "family": "independent",
+    "project_url": "https://getsol.us/",
+    "download_page": "https://getsol.us/download/",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "Budgie",
+      "GNOME",
+      "Plasma",
+      "Xfce"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "kde-neon",
+    "name": "KDE neon",
+    "description": "Sistema basado en Ubuntu que ofrece versiones recientes del software KDE Plasma.",
+    "family": "ubuntu",
+    "project_url": "https://neon.kde.org/",
+    "download_page": "https://neon.kde.org/download",
+    "architectures": [
+      "x86_64"
+    ],
+    "editions": [
+      "User Edition",
+      "Testing Edition",
+      "Developer Edition"
+    ],
+    "release_model": "rolling",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "oracle-linux",
+    "name": "Oracle Linux",
+    "description": "Distribución empresarial compatible con el ecosistema Red Hat Enterprise Linux.",
+    "family": "rhel",
+    "project_url": "https://www.oracle.com/linux/",
+    "download_page": "https://yum.oracle.com/oracle-linux-isos.html",
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "editions": [
+      "Full ISO",
+      "Boot ISO",
+      "UEK Boot ISO"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "antix",
+    "name": "antiX Linux",
+    "description": "Distribución ligera basada en Debian, diseñada para funcionar en equipos modestos.",
+    "family": "debian",
+    "project_url": "https://antixlinux.com/",
+    "download_page": "https://antixlinux.com/download/",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Full",
+      "Base",
+      "Core",
+      "Net"
+    ],
+    "release_model": "fixed",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Usa únicamente el medio del proyecto oficial y verifica SHA-256 y, cuando el proyecto lo ofrezca, su firma criptográfica.",
+    "installation": {
+      "delivery": "direct_iso_to_void_data_partition",
+      "requires_full_image": true,
+      "boot_profile_required": true,
+      "note": "La ISO se descarga en la biblioteca de Void Memingo. El perfil de arranque debe validarse para la versión y arquitectura elegidas antes de intentar iniciar el sistema."
+    }
+  },
+  {
+    "id": "windows-10-home",
+    "kind": "operating_system",
+    "name": "Windows 10 Home",
+    "description": "Edición doméstica de Windows 10. Comparte el medio ISO oficial de Windows 10 con Pro; la edición instalada depende de la licencia o clave de producto.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/",
+    "download_page": "https://www.microsoft.com/en-us/software-download/windows10ISO",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Windows 10 Home"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Descarga desde Microsoft y compara SHA-256 con los valores oficiales publicados por Microsoft cuando estén disponibles.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlace oficial únicamente. Windows 10 Home y Pro terminó su soporte general el 14 de octubre de 2025; úsalo solo si existe una necesidad de compatibilidad y un plan de actualizaciones de seguridad aplicable. El arranque multiboot de Windows todavía requiere un flujo específico validado."
+    }
+  },
+  {
+    "id": "windows-10-pro",
+    "kind": "operating_system",
+    "name": "Windows 10 Pro",
+    "description": "Edición profesional de Windows 10. Comparte el medio ISO oficial de Windows 10 con Home; la edición instalada depende de la licencia o clave de producto.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/",
+    "download_page": "https://www.microsoft.com/en-us/software-download/windows10ISO",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Windows 10 Pro"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Descarga desde Microsoft y compara SHA-256 con los valores oficiales publicados por Microsoft cuando estén disponibles.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "Catálogo y enlace oficial únicamente. Windows 10 Home y Pro terminó su soporte general el 14 de octubre de 2025; úsalo solo si existe una necesidad de compatibilidad y un plan de actualizaciones de seguridad aplicable. El arranque multiboot de Windows todavía requiere un flujo específico validado."
+    }
+  },
+  {
+    "id": "windows-10-ltsc",
+    "kind": "operating_system",
+    "name": "Windows 10 Enterprise LTSC (Evaluation)",
+    "description": "Edición Enterprise LTSC de Windows 10. Microsoft ofrece ISO de evaluación de 90 días; el uso permanente requiere una licencia LTSC válida.",
+    "family": "windows",
+    "project_url": "https://www.microsoft.com/windows/",
+    "download_page": "https://www.microsoft.com/es-es/evalcenter/download-windows-10-enterprise",
+    "architectures": [
+      "x86_64",
+      "i686"
+    ],
+    "editions": [
+      "Windows 10 Enterprise LTSC Evaluation (90 días)",
+      "LTSC con licencia empresarial"
+    ],
+    "release_model": "serviced",
+    "formats": [
+      "ISO"
+    ],
+    "verification": "Descarga desde Microsoft y compara SHA-256 con los valores oficiales publicados por Microsoft cuando estén disponibles.",
+    "installation": {
+      "delivery": "official_media_page_only",
+      "requires_full_image": true,
+      "boot_profile_required": false,
+      "note": "El enlace de Microsoft ofrece medios de evaluación de 90 días. Para uso permanente se necesita una licencia LTSC válida. Esta ficha no convierte la evaluación en una licencia gratuita ni implica compatibilidad multiboot."
+    }
+  }
+]

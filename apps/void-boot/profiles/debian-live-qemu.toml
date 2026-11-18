@@ -1,0 +1,9 @@
+# QEMU-only Debian Live profile. Serial console makes successful userspace boot observable in CI.
+[[profiles]]
+id = "debian-live-qemu"
+name = "Debian Live 13.7.0 (QEMU test)"
+iso = "iso/debian-live-amd64.iso"
+kernel = "live/vmlinuz"
+initrd = "live/initrd.img"
+linux_args = ["boot=live", "components", "console=ttyS0,115200n8"]
+findiso = true

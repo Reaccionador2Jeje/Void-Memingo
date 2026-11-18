@@ -3,6 +3,7 @@ mod commands;
 fn main() {
     tauri::Builder::default()
         .manage(commands::terminal::TerminalState::default())
+        .manage(::void_boot::download::DownloadManager::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::git::git_clone_repository,
@@ -38,7 +39,54 @@ fn main() {
             commands::os_builder::append_os_build_job_log,
             commands::os_builder::update_os_build_job,
             commands::os_builder::list_os_build_jobs,
-            commands::os_builder::read_os_build_job_log
+            commands::os_builder::read_os_build_job_log,
+            commands::void_boot::list_void_boot_distributions,
+            commands::void_boot::start_void_boot_download,
+            commands::void_boot::pause_void_boot_download,
+            commands::void_boot::list_void_boot_downloads,
+            commands::void_boot::start_void_boot_qemu,
+            commands::void_boot::create_void_boot_qemu_disk,
+            commands::void_boot::scan_void_boot_iso_directory,
+            commands::void_boot::verify_void_boot_iso_checksum_manifest,
+            commands::void_boot::lookup_void_boot_official_release_checksum,
+            commands::void_boot::get_void_boot_release_gate,
+            commands::void_boot::get_void_boot_mirror_support,
+            commands::void_boot::list_void_boot_arch_official_mirrors,
+            commands::void_boot::list_void_boot_kali_official_download_candidates,
+            commands::void_boot::list_void_boot_debian_official_download_candidates,
+            commands::void_boot::list_void_boot_fedora_official_download_candidates,
+            commands::void_boot::list_void_boot_ubuntu_official_download_candidates,
+            commands::void_boot::list_void_boot_opensuse_official_download_candidates,
+            commands::void_boot::list_void_boot_linux_mint_official_download_candidates,
+            commands::void_boot::list_void_boot_freebsd_official_download_candidates,
+            commands::void_boot::list_void_boot_openbsd_official_download_candidates,
+            commands::void_boot::list_void_boot_netbsd_official_download_candidates,
+            commands::void_boot::list_void_boot_manjaro_official_download_candidates,
+            commands::void_boot::list_void_boot_zorin_official_download_candidates,
+            commands::void_boot::list_void_boot_popos_official_download_candidates,
+            commands::void_boot::list_void_boot_elementary_official_download_candidates,
+            commands::void_boot::list_void_boot_alpine_official_download_candidates,
+            commands::void_boot::list_void_boot_nixos_official_download_candidates,
+            commands::void_boot::list_void_boot_gentoo_official_download_candidates,
+            commands::void_boot::list_void_boot_void_linux_official_download_candidates,
+            commands::void_boot::list_void_boot_mx_official_download_candidates,
+            commands::void_boot::list_void_boot_mageia_official_download_candidates,
+            commands::void_boot::list_void_boot_reactos_official_download_candidates,
+            commands::void_boot::list_void_boot_slackware_official_download_candidates,
+            commands::void_boot::list_void_boot_linux_lite_official_download_candidates,
+            commands::void_boot::list_void_boot_solus_official_download_candidates,
+            commands::void_boot::list_void_boot_antix_official_download_candidates,
+            commands::void_boot::list_void_boot_kde_neon_official_download_candidates,
+            commands::void_boot::list_void_boot_deepin_official_download_candidates,
+            commands::void_boot::list_void_boot_endeavouros_official_download_candidates,
+            commands::void_boot::list_void_boot_centos_stream_official_download_candidates,
+            commands::void_boot::list_void_boot_oracle_linux_official_download_candidates,
+            commands::void_boot::list_void_boot_rocky_official_download_candidates,
+            commands::void_boot::list_void_boot_almalinux_official_download_candidates,
+            commands::void_boot::read_void_boot_expected_sha256,
+            commands::void_boot::load_void_boot_profile_catalog,
+            commands::void_boot::save_void_boot_profile_catalog,
+            commands::void_boot::preview_void_boot_menu
         ])
         .run(tauri::generate_context!())
         .expect("error while running Void Memingo");

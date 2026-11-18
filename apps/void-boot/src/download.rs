@@ -1,0 +1,900 @@
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+use std::{
+    collections::HashMap,
+    fs::{self, File, OpenOptions},
+    io::{Read, Write},
+    net::ToSocketAddrs,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc, Mutex,
+    },
+    thread,
+};
+
+const DOWNLOAD_CONNECTIONS: u64 = 8;
+const BUFFER_SIZE: usize = 256 * 1024;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DownloadSnapshot {
+    pub id: String,
+    pub file_name: String,
+    pub path: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: Option<u64>,
+    pub connections: u8,
+    pub status: String,
+    pub error: Option<String>,
+    pub sha256: Option<String>,
+    pub checksum_verified: bool,
+    pub reused_from_library: bool,
+}
+
+struct DownloadTask {
+    snapshot: DownloadSnapshot,
+    pause: Arc<AtomicBool>,
+}
+
+#[derive(Clone, Default)]
+pub struct DownloadManager {
+    tasks: Arc<Mutex<HashMap<String, DownloadTask>>>,
+}
+
+pub(crate) fn is_safe_ip(address: std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+
+    match address {
+        IpAddr::V4(ip) => {
+            let octets = ip.octets();
+            !(ip.is_private()
+                || ip.is_loopback()
+                || ip.is_link_local()
+                || ip.is_unspecified()
+                || ip.is_broadcast()
+                || ip.is_multicast()
+                || (octets[0] == 100 && (64..=127).contains(&octets[1]))
+                || (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
+                || (octets[0] == 192 && octets[1] == 0 && octets[2] == 2)
+                || (octets[0] == 198 && (octets[1] == 18 || octets[1] == 19))
+                || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100)
+                || (octets[0] == 203 && octets[1] == 0 && octets[2] == 113)
+                || octets[0] >= 240)
+        }
+        IpAddr::V6(ip) => {
+            let first_segment = ip.segments()[0];
+            let global_unicast = first_segment & 0xe000 == 0x2000;
+            !(ip.is_loopback()
+                || ip.is_unspecified()
+                || ip.is_multicast()
+                || ip.is_unique_local()
+                || ip.is_unicast_link_local()
+                || !global_unicast
+                || (ip.segments()[0] == 0x2001 && ip.segments()[1] == 0x0db8)
+                || ip.to_ipv4_mapped().is_some())
+        }
+    }
+}
+
+fn is_safe_download_target(url: &reqwest::Url) -> bool {
+    use std::net::IpAddr;
+
+    if url.scheme() != "https"
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return false;
+    }
+
+    let host = url.host_str().unwrap_or_default();
+    // Url::host_str() may retain brackets around IPv6 literals.
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    if let Ok(address) = host.parse::<IpAddr>() {
+        return is_safe_ip(address);
+    }
+
+    let domain = host.trim_end_matches('.').to_ascii_lowercase();
+    !(domain == "localhost"
+        || domain.ends_with(".localhost")
+        || domain == "local"
+        || domain.ends_with(".local")
+        || domain == "internal"
+        || domain.ends_with(".internal"))
+}
+
+fn safe_file_name(value: &str) -> Result<String, String> {
+    let name = Path::new(value)
+        .file_name()
+        .and_then(|v| v.to_str())
+        .ok_or_else(|| "Nombre de archivo no válido".to_string())?;
+    if name.is_empty()
+        || name != value
+        || name.contains("..")
+        || !name.to_ascii_lowercase().ends_with(".iso")
+        || !name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+    {
+        return Err("Usa un nombre simple terminado en .iso".into());
+    }
+    Ok(name.to_string())
+}
+
+fn normalize_expected_sha256(value: Option<String>) -> Result<Option<String>, String> {
+    let normalized = value
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty());
+    if normalized.as_ref().is_some_and(|value| {
+        value.len() != 64 || !value.chars().all(|character| character.is_ascii_hexdigit())
+    }) {
+        return Err(
+            "El SHA-256 esperado debe contener exactamente 64 caracteres hexadecimales".into(),
+        );
+    }
+    Ok(normalized)
+}
+
+fn checksum_matches(actual: &str, expected: Option<&str>) -> bool {
+    expected.is_none_or(|expected| actual.eq_ignore_ascii_case(expected))
+}
+
+fn parse_content_range(value: &str) -> Option<(u64, u64, u64)> {
+    let (unit, range) = value.split_once(' ')?;
+    if unit != "bytes" {
+        return None;
+    }
+    let (bounds, total) = range.split_once('/')?;
+    let (start, end) = bounds.split_once('-')?;
+    let start = start.parse::<u64>().ok()?;
+    let end = end.parse::<u64>().ok()?;
+    let total = total.parse::<u64>().ok()?;
+    if total == 0 || start > end || end >= total {
+        return None;
+    }
+    Some((start, end, total))
+}
+
+fn validate_partial_response(
+    status: reqwest::StatusCode,
+    content_range: Option<(u64, u64, u64)>,
+    content_length: Option<u64>,
+    expected_start: u64,
+    expected_end: u64,
+    expected_total: u64,
+) -> Result<(), String> {
+    if status != reqwest::StatusCode::PARTIAL_CONTENT {
+        return Err(format!(
+            "Se esperaba HTTP 206 Partial Content, se recibió HTTP {status}"
+        ));
+    }
+    if content_range != Some((expected_start, expected_end, expected_total)) {
+        return Err("El servidor devolvió un Content-Range distinto al solicitado".into());
+    }
+    let expected_length = expected_end
+        .checked_sub(expected_start)
+        .and_then(|length| length.checked_add(1))
+        .ok_or_else(|| "El rango solicitado tiene límites inválidos".to_string())?;
+    if content_length.is_some_and(|length| length != expected_length) {
+        return Err(format!(
+            "Content-Length no coincide con el rango: se esperaban {expected_length} bytes"
+        ));
+    }
+    Ok(())
+}
+
+fn inspect_reusable_iso(
+    path: &Path,
+    expected_sha256: Option<&str>,
+) -> Result<Option<(u64, String)>, String> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("No se pudo inspeccionar la ISO existente: {error}")),
+    };
+    if !metadata.file_type().is_file() {
+        return Err("El destino existente no es un archivo ISO regular; no se reutilizará.".into());
+    }
+    let expected = expected_sha256.ok_or_else(|| {
+        "Ya existe una ISO con ese nombre. Para reutilizarla, consulta y proporciona primero el SHA-256 oficial.".to_string()
+    })?;
+    let mut file =
+        File::open(path).map_err(|error| format!("No se pudo abrir la ISO existente: {error}"))?;
+    let opened_metadata = file.metadata().map_err(|error| error.to_string())?;
+    if !opened_metadata.is_file() || opened_metadata.len() != metadata.len() {
+        return Err("La ISO existente cambió durante la inspección; vuelve a intentarlo.".into());
+    }
+    let actual = sha256_reader(&mut file)?;
+    if !checksum_matches(&actual, Some(expected)) {
+        return Err(format!(
+            "Ya existe una ISO con ese nombre, pero su SHA-256 no coincide. Esperado: {expected}; encontrado: {actual}. No se reutilizó ni sobrescribió."
+        ));
+    }
+    Ok(Some((opened_metadata.len(), actual)))
+}
+
+fn sha256_reader(reader: &mut impl Read) -> Result<String, String> {
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; BUFFER_SIZE];
+    loop {
+        let count = reader
+            .read(&mut buffer)
+            .map_err(|error| error.to_string())?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn update_progress(
+    tasks: &Arc<Mutex<HashMap<String, DownloadTask>>>,
+    id: &str,
+    downloaded: u64,
+    total: u64,
+) {
+    if let Ok(mut map) = tasks.lock() {
+        if let Some(task) = map.get_mut(id) {
+            task.snapshot.downloaded_bytes = downloaded;
+            task.snapshot.total_bytes = Some(total);
+        }
+    }
+}
+
+impl DownloadManager {
+    pub fn start(
+        &self,
+        url: String,
+        file_name: String,
+        directory: String,
+        expected_sha256: Option<String>,
+    ) -> Result<String, String> {
+        let parsed = reqwest::Url::parse(&url).map_err(|e| format!("URL inválida: {e}"))?;
+        if !is_safe_download_target(&parsed) {
+            return Err("Solo se permiten destinos HTTPS públicos; se bloquean direcciones locales, privadas y nombres internos".into());
+        }
+        let expected_sha256 = normalize_expected_sha256(expected_sha256)?;
+        let file_name = safe_file_name(&file_name)?;
+        let directory = PathBuf::from(directory);
+        if !directory.is_dir() {
+            return Err("Selecciona una carpeta de destino existente".into());
+        }
+        let final_path = directory.join(&file_name);
+        let id = format!("{}-{}", file_name, directory.to_string_lossy());
+
+        // Reuse a library ISO only when its bytes match a caller-supplied expected digest.
+        if let Some((size_bytes, sha256)) =
+            inspect_reusable_iso(&final_path, expected_sha256.as_deref())?
+        {
+            let mut map = self
+                .tasks
+                .lock()
+                .map_err(|_| "Gestor bloqueado".to_string())?;
+            if map.get(&id).is_some_and(|task| {
+                task.snapshot.status == "downloading" || task.snapshot.status == "queued"
+            }) {
+                return Err("Esta descarga ya está en curso".into());
+            }
+            map.insert(
+                id.clone(),
+                DownloadTask {
+                    snapshot: DownloadSnapshot {
+                        id: id.clone(),
+                        file_name,
+                        path: final_path.to_string_lossy().into_owned(),
+                        downloaded_bytes: size_bytes,
+                        total_bytes: Some(size_bytes),
+                        connections: 0,
+                        status: "completed".into(),
+                        error: None,
+                        sha256: Some(sha256),
+                        checksum_verified: true,
+                        reused_from_library: true,
+                    },
+                    pause: Arc::new(AtomicBool::new(false)),
+                },
+            );
+            return Ok(id);
+        }
+
+        let host = parsed
+            .host_str()
+            .ok_or_else(|| "La URL no contiene un host".to_string())?
+            .to_owned();
+        let port = parsed
+            .port_or_known_default()
+            .ok_or_else(|| "No se pudo determinar el puerto HTTPS".to_string())?;
+        let resolved_addresses = (host.as_str(), port)
+            .to_socket_addrs()
+            .map_err(|error| format!("No se pudo resolver el servidor: {error}"))?
+            .collect::<Vec<_>>();
+        if resolved_addresses.is_empty()
+            || resolved_addresses
+                .iter()
+                .any(|address| !is_safe_ip(address.ip()))
+        {
+            return Err(
+                "El servidor resuelve a una dirección no pública; se cancela la descarga".into(),
+            );
+        }
+        let pause = Arc::new(AtomicBool::new(false));
+        {
+            let mut map = self
+                .tasks
+                .lock()
+                .map_err(|_| "Gestor bloqueado".to_string())?;
+            if map
+                .get(&id)
+                .is_some_and(|t| t.snapshot.status == "downloading")
+            {
+                return Err("Esta descarga ya está en curso".into());
+            }
+            let partial = directory.join(format!("{file_name}.part"));
+            let existing = fs::metadata(&partial).map_or(0, |m| m.len());
+            map.insert(
+                id.clone(),
+                DownloadTask {
+                    snapshot: DownloadSnapshot {
+                        id: id.clone(),
+                        file_name: file_name.clone(),
+                        path: final_path.to_string_lossy().into_owned(),
+                        downloaded_bytes: existing,
+                        total_bytes: None,
+                        connections: DOWNLOAD_CONNECTIONS as u8,
+                        status: "queued".into(),
+                        error: None,
+                        sha256: None,
+                        checksum_verified: false,
+                        reused_from_library: false,
+                    },
+                    pause: pause.clone(),
+                },
+            );
+        }
+
+        let tasks = self.tasks.clone();
+        let thread_id = id.clone();
+        thread::spawn(move || {
+            let result = (|| -> Result<(), String> {
+                let expected_sha256 = expected_sha256.clone();
+                let client = reqwest::blocking::Client::builder()
+                    .resolve_to_addrs(&host, &resolved_addresses)
+                    .redirect(reqwest::redirect::Policy::custom({
+                        let host = host.clone();
+                        move |attempt| {
+                            let same_origin_host = attempt.url().host_str()
+                                .is_some_and(|target| target.eq_ignore_ascii_case(&host));
+                            let same_port = attempt.url().port_or_known_default() == Some(port);
+                            if same_origin_host && same_port && is_safe_download_target(attempt.url()) {
+                                attempt.follow()
+                            } else {
+                                attempt.error("solo se permiten redirecciones HTTPS al mismo host y puerto verificados")
+                            }
+                        }
+                    }))
+                    .user_agent("VoidBoot-Downloader/0.2")
+                    .timeout(std::time::Duration::from_secs(60))
+                    .build()
+                    .map_err(|e| e.to_string())?;
+
+                // Probe one byte to discover file size and range support before parallel transfer.
+                let probe = client
+                    .get(&url)
+                    .header(reqwest::header::RANGE, "bytes=0-0")
+                    .header(reqwest::header::ACCEPT_ENCODING, "identity")
+                    .send()
+                    .map_err(|e| format!("No se pudo consultar el servidor: {e}"))?;
+                if !is_safe_download_target(probe.url()) {
+                    return Err(
+                        "El servidor redirigió fuera de HTTPS; se cancela la descarga".into(),
+                    );
+                }
+                if probe.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+                    if !probe.status().is_success() {
+                        return Err(format!(
+                            "El servidor respondió con HTTP {} al consultar la descarga",
+                            probe.status()
+                        ));
+                    }
+                    // Fallback: algunos mirrors no admiten HTTP Range. Descarga en una sola
+                    // conexión en vez de fallar; esta modalidad reinicia si se interrumpe.
+                    drop(probe);
+                    let mut response = client
+                        .get(&url)
+                        .header(reqwest::header::ACCEPT_ENCODING, "identity")
+                        .send()
+                        .map_err(|error| {
+                            format!("No se pudo iniciar la descarga simple: {error}")
+                        })?;
+                    if !is_safe_download_target(response.url()) || !response.status().is_success() {
+                        return Err(
+                            "El servidor de descarga simple no superó la validación HTTPS.".into(),
+                        );
+                    }
+                    let total = response.content_length();
+                    let partial_path = directory.join(format!("{file_name}.part"));
+                    if partial_path.exists() {
+                        fs::remove_file(&partial_path).map_err(|error| {
+                            format!("No se pudo reiniciar el archivo parcial: {error}")
+                        })?;
+                    }
+                    if let Ok(mut map) = tasks.lock() {
+                        if let Some(task) = map.get_mut(&thread_id) {
+                            task.snapshot.status = "downloading".into();
+                            task.snapshot.total_bytes = total;
+                            task.snapshot.downloaded_bytes = 0;
+                            task.snapshot.connections = 1;
+                        }
+                    }
+                    let mut file =
+                        File::create(&partial_path).map_err(|error| error.to_string())?;
+                    let mut downloaded = 0u64;
+                    let mut buffer = vec![0u8; BUFFER_SIZE];
+                    loop {
+                        if pause.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        let count = response.read(&mut buffer).map_err(|error| {
+                            format!("La descarga simple se interrumpió: {error}")
+                        })?;
+                        if count == 0 {
+                            break;
+                        }
+                        file.write_all(&buffer[..count])
+                            .map_err(|error| error.to_string())?;
+                        downloaded += count as u64;
+                        if let Ok(mut map) = tasks.lock() {
+                            if let Some(task) = map.get_mut(&thread_id) {
+                                task.snapshot.downloaded_bytes = downloaded;
+                            }
+                        }
+                    }
+                    file.flush().map_err(|error| error.to_string())?;
+                    file.sync_all().map_err(|error| error.to_string())?;
+                    if pause.load(Ordering::Relaxed) {
+                        return Ok(());
+                    }
+                    if total.is_some_and(|expected| expected != downloaded) {
+                        return Err(format!(
+                            "Descarga incompleta: {downloaded}/{} bytes",
+                            total.unwrap_or_default()
+                        ));
+                    }
+                    let mut downloaded_file =
+                        File::open(&partial_path).map_err(|error| error.to_string())?;
+                    let actual_sha256 = sha256_reader(&mut downloaded_file)?;
+                    if let Some(expected) = expected_sha256.as_ref() {
+                        if !checksum_matches(&actual_sha256, Some(expected)) {
+                            let _ = fs::remove_file(&partial_path);
+                            return Err(format!(
+                                "El SHA-256 no coincide. Esperado: {expected}; recibido: {actual_sha256}. Se descartó la descarga."
+                            ));
+                        }
+                    }
+                    fs::rename(&partial_path, &final_path)
+                        .map_err(|error| format!("No se pudo finalizar la ISO: {error}"))?;
+                    if let Ok(mut map) = tasks.lock() {
+                        if let Some(task) = map.get_mut(&thread_id) {
+                            task.snapshot.sha256 = Some(actual_sha256);
+                            task.snapshot.checksum_verified = expected_sha256.is_some();
+                        }
+                    }
+                    return Ok(());
+                }
+                let range = probe
+                    .headers()
+                    .get(reqwest::header::CONTENT_RANGE)
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(parse_content_range)
+                    .ok_or_else(|| {
+                        "El servidor devolvió un encabezado Content-Range inválido".to_string()
+                    })?;
+                let (_, _, total) = range;
+                validate_partial_response(
+                    probe.status(),
+                    Some(range),
+                    probe.content_length(),
+                    0,
+                    0,
+                    total,
+                )?;
+                drop(probe);
+
+                let part_paths: Vec<PathBuf> = (0..DOWNLOAD_CONNECTIONS)
+                    .map(|i| directory.join(format!("{file_name}.part.{i:02}")))
+                    .collect();
+                let chunk_size = total.div_ceil(DOWNLOAD_CONNECTIONS);
+                let progress = Arc::new(AtomicU64::new(
+                    part_paths
+                        .iter()
+                        .map(|p| fs::metadata(p).map_or(0, |m| m.len()))
+                        .sum(),
+                ));
+                update_progress(&tasks, &thread_id, progress.load(Ordering::Relaxed), total);
+                if let Ok(mut map) = tasks.lock() {
+                    if let Some(task) = map.get_mut(&thread_id) {
+                        task.snapshot.status = "downloading".into();
+                        task.snapshot.total_bytes = Some(total);
+                    }
+                }
+
+                let mut workers = Vec::new();
+                for index in 0..DOWNLOAD_CONNECTIONS {
+                    let start = index * chunk_size;
+                    if start >= total {
+                        continue;
+                    }
+                    let end = std::cmp::min(start + chunk_size - 1, total - 1);
+                    let chunk_path = part_paths[index as usize].clone();
+                    let worker_client = client.clone();
+                    let worker_url = url.clone();
+                    let worker_pause = pause.clone();
+                    let worker_progress = progress.clone();
+                    let worker_tasks = tasks.clone();
+                    let worker_id = thread_id.clone();
+
+                    workers.push(thread::spawn(move || -> Result<(), String> {
+                        let mut offset = fs::metadata(&chunk_path).map_or(0, |m| m.len());
+                        let expected_len = end - start + 1;
+                        if offset > expected_len {
+                            fs::remove_file(&chunk_path).map_err(|e| e.to_string())?;
+                            offset = 0;
+                        }
+                        if offset == expected_len {
+                            return Ok(());
+                        }
+
+                        let request_start = start + offset;
+                        let mut response = worker_client
+                            .get(&worker_url)
+                            .header(
+                                reqwest::header::RANGE,
+                                format!("bytes={request_start}-{end}"),
+                            )
+                            .header(reqwest::header::ACCEPT_ENCODING, "identity")
+                            .send()
+                            .map_err(|e| {
+                                format!("Error de conexión en parte {}: {e}", index + 1)
+                            })?;
+                        if !is_safe_download_target(response.url()) {
+                            return Err(
+                                "El servidor redirigió fuera de HTTPS durante la transferencia"
+                                    .into(),
+                            );
+                        }
+                        let actual_range = response
+                            .headers()
+                            .get(reqwest::header::CONTENT_RANGE)
+                            .and_then(|value| value.to_str().ok())
+                            .and_then(parse_content_range);
+                        validate_partial_response(
+                            response.status(),
+                            actual_range,
+                            response.content_length(),
+                            request_start,
+                            end,
+                            total,
+                        )
+                        .map_err(|error| {
+                            format!("Respuesta inválida en la parte {}: {error}", index + 1)
+                        })?;
+
+                        let mut file = OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(&chunk_path)
+                            .map_err(|e| {
+                                format!("No se pudo guardar la parte {}: {e}", index + 1)
+                            })?;
+                        let mut buffer = vec![0u8; BUFFER_SIZE];
+                        let mut received = offset;
+                        while received < expected_len {
+                            if worker_pause.load(Ordering::Relaxed) {
+                                break;
+                            }
+                            let count = response.read(&mut buffer).map_err(|e| {
+                                format!("Conexión interrumpida en parte {}: {e}", index + 1)
+                            })?;
+                            if count == 0 {
+                                break;
+                            }
+                            let allowed =
+                                std::cmp::min(count as u64, expected_len - received) as usize;
+                            file.write_all(&buffer[..allowed])
+                                .map_err(|e| e.to_string())?;
+                            received += allowed as u64;
+                            let now = worker_progress.fetch_add(allowed as u64, Ordering::Relaxed)
+                                + allowed as u64;
+                            update_progress(&worker_tasks, &worker_id, now, total);
+                        }
+                        file.flush().map_err(|e| e.to_string())?;
+                        if !worker_pause.load(Ordering::Relaxed) && received != expected_len {
+                            return Err(format!("La parte {} quedó incompleta", index + 1));
+                        }
+                        if !worker_pause.load(Ordering::Relaxed) && received == expected_len {
+                            let mut extra = [0u8; 1];
+                            if response.read(&mut extra).map_err(|error| {
+                                format!(
+                                    "No se pudo validar el final de la parte {}: {error}",
+                                    index + 1
+                                )
+                            })? != 0
+                            {
+                                return Err(format!(
+                                    "El servidor envió más bytes de los solicitados en la parte {}",
+                                    index + 1
+                                ));
+                            }
+                        }
+                        Ok(())
+                    }));
+                }
+
+                let mut first_error = None;
+                for worker in workers {
+                    match worker.join() {
+                        Ok(Ok(())) => {}
+                        Ok(Err(error)) => {
+                            if first_error.is_none() {
+                                first_error = Some(error);
+                            }
+                        }
+                        Err(_) => {
+                            if first_error.is_none() {
+                                first_error =
+                                    Some("Una conexión de descarga terminó inesperadamente".into());
+                            }
+                        }
+                    }
+                }
+                if let Some(error) = first_error {
+                    return Err(error);
+                }
+                if pause.load(Ordering::Relaxed) {
+                    return Ok(());
+                }
+
+                // Join the verified byte ranges in order into the final temporary ISO.
+                let merged_path = directory.join(format!("{file_name}.part"));
+                let mut merged = File::create(&merged_path).map_err(|e| e.to_string())?;
+                for (index, path) in part_paths.iter().enumerate() {
+                    let start = index as u64 * chunk_size;
+                    if start >= total {
+                        break;
+                    }
+                    let expected = std::cmp::min(chunk_size, total - start);
+                    let actual = fs::metadata(path).map_err(|e| e.to_string())?.len();
+                    if actual != expected {
+                        return Err(format!(
+                            "La parte {} no está completa: {actual}/{expected} bytes",
+                            index + 1
+                        ));
+                    }
+                    let mut part = File::open(path).map_err(|e| e.to_string())?;
+                    std::io::copy(&mut part, &mut merged).map_err(|e| e.to_string())?;
+                }
+                merged.flush().map_err(|e| e.to_string())?;
+                if fs::metadata(&merged_path).map_err(|e| e.to_string())?.len() != total {
+                    return Err(
+                        "El tamaño final no coincide con el tamaño anunciado por el servidor"
+                            .into(),
+                    );
+                }
+                let mut merged_file = File::open(&merged_path).map_err(|e| e.to_string())?;
+                let actual_sha256 = sha256_reader(&mut merged_file)?;
+                if let Some(expected) = expected_sha256.as_ref() {
+                    if !checksum_matches(&actual_sha256, Some(expected)) {
+                        let _ = fs::remove_file(&merged_path);
+                        for path in &part_paths {
+                            let _ = fs::remove_file(path);
+                        }
+                        return Err(format!("El SHA-256 no coincide. Esperado: {expected}; recibido: {actual_sha256}. Se descartaron las partes para evitar reanudar datos no verificados."));
+                    }
+                }
+                fs::rename(&merged_path, &final_path)
+                    .map_err(|e| format!("No se pudo finalizar la ISO: {e}"))?;
+                if let Ok(mut map) = tasks.lock() {
+                    if let Some(task) = map.get_mut(&thread_id) {
+                        task.snapshot.sha256 = Some(actual_sha256);
+                        task.snapshot.checksum_verified = expected_sha256.is_some();
+                    }
+                }
+                for path in part_paths {
+                    let _ = fs::remove_file(path);
+                }
+                Ok(())
+            })();
+
+            if let Ok(mut map) = tasks.lock() {
+                if let Some(task) = map.get_mut(&thread_id) {
+                    match result {
+                        Ok(()) if pause.load(Ordering::Relaxed) => {
+                            task.snapshot.status = "paused".into()
+                        }
+                        Ok(()) => task.snapshot.status = "completed".into(),
+                        Err(error) => {
+                            task.snapshot.status = "error".into();
+                            task.snapshot.error = Some(error);
+                        }
+                    }
+                }
+            }
+        });
+        Ok(id)
+    }
+
+    pub fn pause(&self, id: &str) -> Result<(), String> {
+        let map = self
+            .tasks
+            .lock()
+            .map_err(|_| "Gestor bloqueado".to_string())?;
+        let task = map
+            .get(id)
+            .ok_or_else(|| "Descarga no encontrada".to_string())?;
+        if task.snapshot.status != "downloading" && task.snapshot.status != "queued" {
+            return Err("La descarga no está activa".into());
+        }
+        task.pause.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn list(&self) -> Result<Vec<DownloadSnapshot>, String> {
+        let map = self
+            .tasks
+            .lock()
+            .map_err(|_| "Gestor bloqueado".to_string())?;
+        Ok(map.values().map(|task| task.snapshot.clone()).collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        checksum_matches, inspect_reusable_iso, normalize_expected_sha256, parse_content_range,
+        safe_file_name, sha256_reader, validate_partial_response,
+    };
+
+    #[test]
+    fn accepts_only_public_https_download_targets() {
+        use super::is_safe_download_target;
+
+        for url in [
+            "https://example.org/debian.iso",
+            "https://mirror.example.org/path/image.iso",
+        ] {
+            assert!(is_safe_download_target(&reqwest::Url::parse(url).unwrap()));
+        }
+        assert!(super::is_safe_ip("8.8.8.8".parse().unwrap()));
+        assert!(!super::is_safe_ip("192.168.1.1".parse().unwrap()));
+        assert!(!super::is_safe_ip("100.64.0.1".parse().unwrap()));
+        assert!(!super::is_safe_ip("2001:db8::1".parse().unwrap()));
+        for url in [
+            "http://example.org/image.iso",
+            "https://localhost/image.iso",
+            "https://printer.local/image.iso",
+            "https://service.internal/image.iso",
+            "https://127.0.0.1/image.iso",
+            "https://10.0.0.8/image.iso",
+            "https://169.254.169.254/latest/meta-data/",
+            "https://[::1]/image.iso",
+            "https://[fd00::1]/image.iso",
+            "https://user:pass@example.org/image.iso",
+        ] {
+            assert!(
+                !is_safe_download_target(&reqwest::Url::parse(url).unwrap()),
+                "accepted {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_simple_iso_file_names() {
+        assert_eq!(
+            safe_file_name("debian-live.iso").unwrap(),
+            "debian-live.iso"
+        );
+        assert_eq!(
+            safe_file_name("void_boot_01.iso").unwrap(),
+            "void_boot_01.iso"
+        );
+    }
+
+    #[test]
+    fn normalizes_and_validates_publisher_sha256() {
+        let uppercase = "A".repeat(64);
+        assert_eq!(
+            normalize_expected_sha256(Some(uppercase)).unwrap(),
+            Some("a".repeat(64))
+        );
+        assert_eq!(normalize_expected_sha256(None).unwrap(), None);
+        assert!(normalize_expected_sha256(Some("not-a-checksum".into())).is_err());
+        assert!(normalize_expected_sha256(Some("a".repeat(63))).is_err());
+    }
+
+    #[test]
+    fn computes_sha256_for_downloaded_bytes() {
+        let mut reader = std::io::Cursor::new(b"abc");
+        assert_eq!(
+            sha256_reader(&mut reader).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn parses_only_well_formed_byte_ranges() {
+        assert_eq!(parse_content_range("bytes 0-0/4096"), Some((0, 0, 4096)));
+        assert_eq!(
+            parse_content_range("bytes 1024-2047/4096"),
+            Some((1024, 2047, 4096))
+        );
+        assert_eq!(parse_content_range("items 0-0/4096"), None);
+        assert_eq!(parse_content_range("bytes 0-4096/4096"), None);
+        assert_eq!(parse_content_range("bytes 4-3/4096"), None);
+        assert_eq!(parse_content_range("bytes 0-0/0"), None);
+        assert_eq!(parse_content_range("bytes 0-0/*"), None);
+        assert_eq!(parse_content_range("bytes 0-0/4096 extra"), None);
+        assert_eq!(parse_content_range("bytes 0-0"), None);
+    }
+
+    #[test]
+    fn validates_http_partial_content_status_range_and_length() {
+        let status = reqwest::StatusCode::PARTIAL_CONTENT;
+        assert!(validate_partial_response(status, Some((0, 0, 4096)), Some(1), 0, 0, 4096).is_ok());
+        assert!(
+            validate_partial_response(status, Some((0, 0, 4096)), Some(2), 0, 0, 4096).is_err()
+        );
+        assert!(
+            validate_partial_response(status, Some((1, 1, 4096)), Some(1), 0, 0, 4096).is_err()
+        );
+        assert!(validate_partial_response(
+            reqwest::StatusCode::OK,
+            Some((0, 0, 4096)),
+            Some(1),
+            0,
+            0,
+            4096
+        )
+        .is_err());
+        assert!(
+            validate_partial_response(status, Some((0, 0, 8192)), Some(1), 0, 0, 4096).is_err()
+        );
+    }
+
+    #[test]
+    fn reuses_existing_iso_only_when_expected_sha256_matches() {
+        use std::{
+            fs,
+            time::{SystemTime, UNIX_EPOCH},
+        };
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("void-boot-cache-{stamp}.iso"));
+        fs::write(&path, b"abc").unwrap();
+        let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        let cached = inspect_reusable_iso(&path, Some(digest)).unwrap().unwrap();
+        assert_eq!(cached.0, 3);
+        assert_eq!(cached.1, digest);
+        assert!(inspect_reusable_iso(&path, None).is_err());
+        assert!(inspect_reusable_iso(&path, Some(&"0".repeat(64))).is_err());
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn publisher_checksum_must_match_before_finalization() {
+        let expected = "a".repeat(64);
+        assert!(checksum_matches(&expected, Some(&expected)));
+        assert!(!checksum_matches(&"b".repeat(64), Some(&expected)));
+        assert!(checksum_matches("any-digest", None));
+    }
+
+    #[test]
+    fn rejects_paths_and_non_iso_names() {
+        assert!(safe_file_name("../debian.iso").is_err());
+        assert!(safe_file_name("folder/debian.iso").is_err());
+        assert!(safe_file_name("debian.zip").is_err());
+        assert!(safe_file_name("debian.iso/other.iso").is_err());
+    }
+}

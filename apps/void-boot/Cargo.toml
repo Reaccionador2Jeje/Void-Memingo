@@ -1,0 +1,27 @@
+[package]
+name = "void-boot"
+version = "0.1.0"
+edition = "2021"
+description = "ISO inventory and graphical multiboot menu tooling for Void Boot"
+license = "GPL-3.0-or-later"
+
+[lib]
+name = "void_boot"
+path = "src/lib.rs"
+
+# Internal build/CI helper only. The supported user interface is the Void Memingo GUI.
+[features]
+default = []
+internal-cli = []
+
+[[bin]]
+name = "void-boot-internal"
+path = "src/main.rs"
+required-features = ["internal-cli"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+toml = "0.8"
