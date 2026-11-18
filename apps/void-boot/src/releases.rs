@@ -2333,6 +2333,9 @@ pub fn list_slackware_official_download_candidates(
 pub fn list_linux_lite_official_download_candidates(
     file_name: &str,
 ) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("linux-lite-") {
+        return Err("Indica el nombre exacto de una ISO Linux Lite.".into());
+    }
     const PAGE_URL: &str = "https://www.linuxliteos.com/download.php";
     let html = fetch_official_mirror_page(
         PAGE_URL,
@@ -2351,6 +2354,9 @@ pub fn list_linux_lite_official_download_candidates(
 pub fn list_solus_official_download_candidates(
     file_name: &str,
 ) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("Solus-") {
+        return Err("Indica el nombre exacto de una ISO Solus.".into());
+    }
     const PAGE_URL: &str = "https://getsol.us/download/";
     let html = fetch_official_mirror_page(
         PAGE_URL,
@@ -2370,6 +2376,9 @@ pub fn list_solus_official_download_candidates(
 pub fn list_antix_official_download_candidates(
     file_name: &str,
 ) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("antiX-") {
+        return Err("Indica el nombre exacto de una ISO antiX.".into());
+    }
     const PAGE_URL: &str = "https://antixlinux.com/download/";
     let html = fetch_official_mirror_page(
         PAGE_URL,
@@ -3058,6 +3067,13 @@ mod tests {
             &["downloads.getsol.us"],
         )
         .is_err());
+    }
+
+    #[test]
+    fn publisher_resolvers_reject_invalid_names_before_network_access() {
+        assert!(list_linux_lite_official_download_candidates("../image.iso").is_err());
+        assert!(list_solus_official_download_candidates("other.iso").is_err());
+        assert!(list_antix_official_download_candidates("image.iso").is_err());
     }
 
     #[test]
