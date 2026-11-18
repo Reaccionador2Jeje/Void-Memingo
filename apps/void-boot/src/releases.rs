@@ -3031,13 +3031,14 @@ mod tests {
         assert_eq!(gate.download_enabled_systems, 8);
         assert_eq!(gate.required_systems, 40);
         for id in [
-            "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse", "antix",
+            "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
         ] {
             assert!(gate
                 .enabled_distribution_ids
                 .iter()
                 .any(|enabled| enabled == id));
         }
+        assert!(!gate.enabled_distribution_ids.iter().any(|enabled| enabled == "antix"));
         assert!(ensure_distro_center_downloads_enabled("kali", "kali.iso", None).is_err());
         assert!(ensure_distro_center_downloads_enabled("fedora", "fedora.iso", None).is_err());
         assert!(ensure_distro_center_downloads_enabled("opensuse", "opensuse.iso", None).is_err());
