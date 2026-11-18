@@ -19,6 +19,8 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Discover Arch Linux HTTPS mirrors from the official mirror-status JSON API; reject inactive, low-completion, stale, non-HTTPS or malformed entries, prefer Chile, and retain download-time HTTPS/DNS/public-IP validation.
 - [x] Build Debian ISO download candidates on Debian's documented CloudFront-backed `/debian-cd/` endpoint; accept only safe relative `.iso` paths and keep the URL pinned to the official HTTPS CDN.
 - [x] Query Kali's official `cdimage.kali.org` redirector for an exact ISO and parse its advertised HTTPS redirect and duplicate-mirror candidates; reject unsafe paths, non-HTTPS URLs and mismatched artifacts.
+- [x] Resolve Fedora Workstation x86_64 ISO requests through Fedora's official `download.fedoraproject.org` redirector; pin the redirector DNS result, reject non-HTTPS destinations, credentials, query strings and artifact-path mismatches.
+- [x] Build official Ubuntu, Lubuntu, Kubuntu and Xubuntu ISO destinations from an explicit release and exact filename; use Canonical's documented `releases.ubuntu.com` or `cdimage.ubuntu.com` host without pretending these fixed endpoints are a multi-mirror selector.
 - [x] Register mirror/download-source capabilities for every catalogue entry: Arch live API, Debian official image CDN, Kali image redirector, Fedora MirrorManager, openSUSE Metalink, FreeBSD GeoDNS, OpenBSD/NetBSD mirror directories, and project-specific official download sources for remaining Linux, BSD and Windows entries. Capability labels distinguish selectable lists from documentation/CDN/direct-download sources.
 - [x] Enforce a global Distro Center download release gate in both the UI and Tauri backend; no distribution can start a download or open its download-source link until every catalogue system passes release validation.
 
@@ -79,7 +81,12 @@ Until the media builder has passed the safeguards and test gates, Void Boot only
 - [x] Selector dinámico real para Arch Linux: API oficial, solo HTTPS activo, completitud ≥99%, retraso ≤6 horas y prioridad de Chile.
 - [x] Resolver de Debian: genera el destino de ISO usando el CDN oficial `cloudfront.debian.net/debian-cd/`, con validación de ruta relativa; el CDN global no se presenta como selector de múltiples mirrors.
 - [x] Resolver de Kali: consulta el redirector oficial para obtener el destino y los mirrors HTTPS alternativos anunciados para la ISO exacta.
-- [ ] Convertir los servicios oficiales de Fedora, openSUSE, OpenBSD y NetBSD en selectores automáticos de ISO con resolución de versión, arquitectura y artefacto exactos. Mejorar Debian con descubrimiento y medición de mirrors de imagen más allá de su CDN oficial.
+- [x] Resolver de Fedora Workstation x86_64: consulta el redirector oficial y valida el destino HTTPS anunciado para el archivo exacto.
+- [x] Resolver de Ubuntu, Lubuntu, Kubuntu y Xubuntu: genera destinos de ISO en los hosts oficiales a partir de versión y nombre de archivo exactos; no lo presenta como selección de mirrors.
+- [ ] Completar Fedora con un selector de mirrors medidos y soporte de otras ediciones/arquitecturas; el resolver actual cubre solo Workstation x86_64 mediante el redirector oficial.
+- [ ] Integrar el MirrorCache/Metalink de openSUSE como selector de mirrors por artefacto.
+- [ ] Integrar OpenBSD y NetBSD con resolución automática de ISO por versión y arquitectura.
+- [ ] Mejorar Debian con descubrimiento y medición de mirrors de imagen más allá de su CDN oficial.
 - [ ] Integrar los índices propios de mirrors ISO de Ubuntu y derivados, Linux Mint y otros proyectos cuando se puedan verificar; no reutilizar mirrors de paquetes como si alojaran ISOs.
 - [ ] Medir y comparar disponibilidad/latencia de mirrors sin tratar una lista estática o un CDN GeoDNS como un selector manual.
 - [x] Reutilización de ISO ya presentes en la carpeta de biblioteca cuando se proporciona un SHA-256 esperado válido y el archivo existente coincide exactamente; se calcula el hash local y se registra como reutilización sin tráfico de descarga.
