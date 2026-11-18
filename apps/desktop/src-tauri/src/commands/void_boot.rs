@@ -149,12 +149,6 @@ pub fn list_void_boot_gentoo_official_download_candidates(
     ::void_boot::releases::list_gentoo_official_download_candidates()
 }
 
-#[tauri::command]
-pub fn list_void_boot_mx_linux_official_download_candidates(
-    file_name: String,
-) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
-    ::void_boot::releases::list_mx_linux_official_download_candidates(&file_name)
-}
 
 #[tauri::command]
 pub fn list_void_boot_endeavouros_official_download_candidates(
