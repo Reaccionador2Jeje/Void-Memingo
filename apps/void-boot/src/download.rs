@@ -88,6 +88,8 @@ fn is_safe_download_target(url: &reqwest::Url) -> bool {
     }
 
     let host = url.host_str().unwrap_or_default();
+    // Url::host_str() may retain brackets around IPv6 literals.
+    let host = host.trim_start_matches('[').trim_end_matches(']');
     if let Ok(address) = host.parse::<IpAddr>() {
         return is_safe_ip(address);
     }
