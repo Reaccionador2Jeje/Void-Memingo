@@ -947,9 +947,9 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
         "opensuse" => (
             "official_metalink",
             "MirrorCache / Metalink oficial",
-            "openSUSE publica listas y Metalinks por artefacto. La selección automática se habilitará cuando Void Boot reciba la ruta exacta de la ISO.",
+            "Void Boot consulta la página .mirrorlist oficial para la ruta exacta de la ISO y extrae únicamente destinos HTTPS que conservan el mismo artefacto.",
             "https://download.opensuse.org/",
-            false,
+            true,
         ),
         "freebsd" => (
             "official_geodns",
