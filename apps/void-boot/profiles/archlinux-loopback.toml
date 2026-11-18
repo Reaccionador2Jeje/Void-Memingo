@@ -1,0 +1,12 @@
+# Arch Linux official archiso loopback entry.
+# Arch's ISO ships boot/grub/loopback.cfg; this profile delegates to that
+# distro-maintained recipe instead of hardcoding kernel/initramfs names.
+# Keep experimental until the exact ISO is tested in BIOS and UEFI QEMU.
+[[profiles]]
+id = "archlinux-x86_64-loopback-experimental"
+name = "Arch Linux (x86_64, experimental)"
+iso = "iso/archlinux-x86_64.iso"
+kernel = "unused"
+initrd = "unused"
+linux_args = []
+loopback_config = "boot/grub/loopback.cfg"
