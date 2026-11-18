@@ -1071,7 +1071,7 @@ fn parse_endeavouros_mirror_links(
         let Some(&quote) = html.as_bytes().get(position) else {
             break;
         };
-        if quote != b'"' && quote != b'\\'' {
+        if quote != b'"' && quote != b'\'' {
             cursor = position + 1;
             continue;
         }
