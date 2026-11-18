@@ -1451,6 +1451,28 @@ mod tests {
     }
 
     #[test]
+    fn almalinux_mirror_parser_accepts_only_official_tree_and_exact_iso() {
+        let html = r#"
+            <a href="https://mirror.example/almalinux/">AlmaLinux official tree</a>
+            <a href="https://mirror.example/other/">Unrelated tree</a>
+            <a href="http://plain.example/almalinux/">Insecure tree</a>
+        "#;
+        let candidates = parse_publisher_mirror_directory(
+            html,
+            "https://mirrors.almalinux.org/",
+            "10/isos/x86_64/AlmaLinux-10-x86_64-dvd.iso",
+            &["/almalinux/"],
+            "AlmaLinux official mirror",
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://mirror.example/almalinux/10/isos/x86_64/AlmaLinux-10-x86_64-dvd.iso"
+        );
+    }
+
+    #[test]
     fn rocky_resolver_builds_only_official_versioned_iso_paths() {
         let candidates = list_rocky_official_download_candidates(
             "10/isos/x86_64/Rocky-10.1-x86_64-minimal.iso",
