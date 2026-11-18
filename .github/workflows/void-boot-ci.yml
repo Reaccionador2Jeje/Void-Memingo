@@ -1,8 +1,10 @@
 name: Void Boot CI
 
+# Keep each Void Boot CI run independent: rapid commits must not cancel
+# a validation run that is already testing the previous commit.
 concurrency:
-  group: void-boot-${{ github.ref }}
-  cancel-in-progress: true
+  group: void-boot-${{ github.run_id }}
+  cancel-in-progress: false
 
 on:
   push:
