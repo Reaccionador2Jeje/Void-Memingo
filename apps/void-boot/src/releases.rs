@@ -113,6 +113,10 @@ pub fn supported_release_sources() -> Vec<(String, String)> {
         "oracle-linux".to_owned(),
         "Oracle Linux 9/10 · checksum oficial x86_64".to_owned(),
     ));
+    sources.push((
+        "centos-stream".to_owned(),
+        "CentOS Stream 9/10 · SHA256SUM oficial x86_64".to_owned(),
+    ));
     sources
 }
 
@@ -310,6 +314,53 @@ fn lookup_oracle_linux_release_checksum(file_name: &str) -> Result<OfficialRelea
     )
 }
 
+fn centos_stream_checksum_url_for_iso(file_name: &str) -> Result<(String, String), String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("CentOS-Stream-") {
+        return Err("Indica el nombre exacto de una ISO CentOS Stream.".into());
+    }
+    let parts = file_name.strip_suffix(".iso").unwrap_or_default().split('-').collect::<Vec<_>>();
+    if parts.len() != 6 || parts[0] != "CentOS" || parts[1] != "Stream" {
+        return Err("El nombre de ISO CentOS Stream no tiene el formato oficial esperado.".into());
+    }
+    let major = parts[2];
+    if !matches!(major, "9" | "10") {
+        return Err("El adaptador CentOS Stream cubre únicamente las ramas 9 y 10.".into());
+    }
+    let compose = parts[3];
+    if compose != "latest" {
+        let mut pieces = compose.split('.');
+        let date = pieces.next().unwrap_or_default();
+        let respin = pieces.next().unwrap_or_default();
+        if pieces.next().is_some()
+            || date.len() != 8
+            || !date.bytes().all(|byte| byte.is_ascii_digit())
+            || respin.is_empty()
+            || !respin.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err("La composición CentOS Stream debe ser latest o YYYYMMDD.N.".into());
+        }
+    }
+    if parts[4] != "x86_64" || !matches!(parts[5], "boot" | "dvd1") {
+        return Err("El adaptador CentOS Stream cubre ISO x86_64 boot/dvd1.".into());
+    }
+    let stream = if major == "9" { "9-stream" } else { "10-stream" };
+    let url = format!(
+        "https://mirror.stream.centos.org/{stream}/BaseOS/x86_64/iso/{file_name}.SHA256SUM"
+    );
+    Ok((url, "mirror.stream.centos.org".to_owned()))
+}
+
+fn lookup_centos_stream_release_checksum(file_name: &str) -> Result<OfficialReleaseChecksum, String> {
+    let (manifest_url, host) = centos_stream_checksum_url_for_iso(file_name)?;
+    lookup_pinned_checksum_manifest(
+        "centos-stream",
+        "CentOS Stream · SHA256SUM oficial x86_64",
+        file_name,
+        &manifest_url,
+        &host,
+    )
+}
+
 fn parse_antix_sha256_html(html: &str, file_name: &str) -> Result<String, String> {
     if !safe_iso_name(file_name) || !file_name.starts_with("antiX-") {
         return Err("Indica el nombre exacto de una ISO antiX.".into());
@@ -376,6 +427,10 @@ pub fn lookup_official_release_checksum(
 
     if distribution_id == "oracle-linux" {
         return lookup_oracle_linux_release_checksum(file_name);
+    }
+
+    if distribution_id == "centos-stream" {
+        return lookup_centos_stream_release_checksum(file_name);
     }
 
     if distribution_id == "antix" {
@@ -3251,7 +3306,7 @@ mod tests {
         assert_eq!(gate.required_systems, 40);
         for id in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
-            "oracle-linux",
+            "oracle-linux", "centos-stream",
         ] {
             assert!(gate
                 .enabled_distribution_ids
@@ -3404,6 +3459,23 @@ mod tests {
     }
 
     #[test]
+    fn centos_stream_checksum_adapter_builds_only_supported_sidecar_paths() {
+        assert_eq!(
+            centos_stream_checksum_url_for_iso("CentOS-Stream-10-latest-x86_64-boot.iso").unwrap().0,
+            "https://mirror.stream.centos.org/10-stream/BaseOS/x86_64/iso/CentOS-Stream-10-latest-x86_64-boot.iso.SHA256SUM"
+        );
+        assert_eq!(
+            centos_stream_checksum_url_for_iso("CentOS-Stream-9-20261118.0-x86_64-dvd1.iso").unwrap().0,
+            "https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/iso/CentOS-Stream-9-20261118.0-x86_64-dvd1.iso.SHA256SUM"
+        );
+        assert!(centos_stream_checksum_url_for_iso("../CentOS-Stream-10-latest-x86_64-boot.iso").is_err());
+        assert!(centos_stream_checksum_url_for_iso("CentOS-Stream-8-latest-x86_64-boot.iso").is_err());
+        assert!(centos_stream_checksum_url_for_iso("CentOS-Stream-10-latest-aarch64-boot.iso").is_err());
+        assert!(centos_stream_checksum_url_for_iso("CentOS-Stream-10-latest-x86_64-other.iso").is_err());
+        assert!(centos_stream_checksum_url_for_iso("CentOS-Stream-10-2026-x86_64-boot.iso").is_err());
+    }
+
+    #[test]
     fn antix_sha256_parser_accepts_exact_publisher_hash_and_rejects_conflicts() {
         let html = r#"
             <section>
@@ -3431,7 +3503,7 @@ mod tests {
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 12);
+        assert_eq!(sources.len(), 13);
         for expected in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
         ] {
