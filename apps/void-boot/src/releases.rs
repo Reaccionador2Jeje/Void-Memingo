@@ -1093,7 +1093,7 @@ pub fn distro_center_release_gate() -> DistroCenterReleaseGate {
         download_enabled_systems: enabled_distribution_ids.len(),
         required_systems: 40,
         enabled_distribution_ids,
-        message: "Descargas automatizadas habilitadas solo para Debian, Arch Linux y Ubuntu, cuyas fuentes oficiales de SHA-256 fueron comprobadas en línea. Fedora y openSUSE permanecerán bloqueadas hasta verificar sus manifiestos en este entorno. El SHA-256 se vuelve a consultar en el backend antes de descargar. Esto no certifica el arranque multiboot; la compatibilidad BIOS/UEFI se valida por separado.".to_owned(),
+        message: "Descargas automatizadas habilitadas para Debian, Arch Linux, Ubuntu, Fedora y openSUSE mediante adaptadores de manifiestos oficiales SHA-256. El SHA-256 se vuelve a consultar en el backend antes de descargar. Esto no certifica el arranque multiboot; la compatibilidad BIOS/UEFI se valida por separado.".to_owned(),
     }
 }
 
@@ -1110,7 +1110,7 @@ pub fn ensure_distro_center_downloads_enabled(
         .any(|enabled| enabled == distribution_id)
     {
         return Err(format!(
-            "Las descargas automatizadas aún no están habilitadas para {distribution_id}. Solo se admiten Debian, Arch Linux y Ubuntu."
+            "Las descargas automatizadas aún no están habilitadas para {distribution_id}. Sistemas con adaptador SHA-256 habilitado: Debian, Arch Linux, Ubuntu, Fedora y openSUSE."
         ));
     }
 
