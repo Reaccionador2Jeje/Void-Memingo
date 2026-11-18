@@ -56,6 +56,7 @@ fn main() {
             commands::void_boot::list_void_boot_debian_official_download_candidates,
             commands::void_boot::list_void_boot_fedora_official_download_candidates,
             commands::void_boot::list_void_boot_ubuntu_official_download_candidates,
+            commands::void_boot::list_void_boot_opensuse_official_download_candidates,
             commands::void_boot::read_void_boot_expected_sha256,
             commands::void_boot::load_void_boot_profile_catalog,
             commands::void_boot::save_void_boot_profile_catalog,
