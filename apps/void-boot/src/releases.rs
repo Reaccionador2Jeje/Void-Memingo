@@ -512,8 +512,6 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 mod tests {
     use super::*;
 
-
-
     #[test]
     fn mirror_support_is_defined_for_linux_bsd_and_windows_catalogue_entries() {
         for id in [
