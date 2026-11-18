@@ -12,6 +12,11 @@ pub fn scan_void_boot_iso_directory(directory: String) -> Result<Vec<IsoEntry>, 
 }
 
 #[tauri::command]
+pub fn get_void_boot_release_gate() -> ::void_boot::releases::DistroCenterReleaseGate {
+    ::void_boot::releases::distro_center_release_gate()
+}
+
+#[tauri::command]
 pub fn get_void_boot_mirror_support(distribution_id: String) -> Result<::void_boot::releases::MirrorSupport, String> {
     ::void_boot::releases::mirror_support_for_distribution(&distribution_id)
 }
@@ -117,6 +122,7 @@ pub fn start_void_boot_download(
     directory: String,
     expected_sha256: Option<String>,
 ) -> Result<String, String> {
+    ::void_boot::releases::ensure_distro_center_downloads_enabled()?;
     manager.start(url, file_name, directory, expected_sha256)
 }
 
