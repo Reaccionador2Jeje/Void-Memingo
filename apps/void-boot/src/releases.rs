@@ -760,6 +760,26 @@ fn fetch_official_mirror_page(
     Ok(html)
 }
 
+/// Build a FreeBSD ISO URL on the project's official GeoDNS/CDN service.
+pub fn list_freebsd_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) {
+        return Err("Indica una ruta relativa válida de ISO FreeBSD.".into());
+    }
+    let url = format!("https://download.freebsd.org/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de FreeBSD es inválida: {error}"))?;
+    if parsed.scheme() != "https" || parsed.host_str() != Some("download.freebsd.org") {
+        return Err("La URL no pertenece al servidor HTTPS oficial de FreeBSD.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "FreeBSD GeoDNS / CDN".to_owned(),
+        region: "Mirror oficial automático".to_owned(),
+    }])
+}
+
 /// Resolve an exact OpenBSD ISO path against the project's published HTTPS mirror list.
 pub fn list_openbsd_official_download_candidates(
     artifact_path: &str,
@@ -1217,6 +1237,18 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn freebsd_resolver_uses_official_geodns_host_and_rejects_unsafe_paths() {
+        let candidates = list_freebsd_official_download_candidates(
+            "releases/ISO-IMAGES/15.1/FreeBSD-15.1-RELEASE-amd64-disc1.iso",
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].provider, "FreeBSD GeoDNS / CDN");
+        assert!(candidates[0].url.starts_with("https://download.freebsd.org/releases/"));
+        assert!(list_freebsd_official_download_candidates("../private.iso").is_err());
+        assert!(list_freebsd_official_download_candidates("/absolute.iso").is_err());
+    }
 
     #[test]
     fn publisher_mirror_directory_parser_filters_bsd_roots_and_exact_iso_paths() {
