@@ -508,7 +508,9 @@ pub fn list_fedora_official_download_candidates(
         .map_err(|error| format!("No se pudo resolver el redirector oficial de Fedora: {error}"))?
         .collect::<Vec<_>>();
     if addresses.is_empty()
-        || addresses.iter().any(|address| !crate::download::is_safe_ip(address.ip()))
+        || addresses
+            .iter()
+            .any(|address| !crate::download::is_safe_ip(address.ip()))
     {
         return Err("El redirector oficial de Fedora resolvió a una dirección no pública.".into());
     }
@@ -525,7 +527,9 @@ pub fn list_fedora_official_download_candidates(
         .get(&url)
         .header(reqwest::header::RANGE, "bytes=0-0")
         .send()
-        .map_err(|error| format!("No se pudo consultar el redirector oficial de Fedora: {error}"))?;
+        .map_err(|error| {
+            format!("No se pudo consultar el redirector oficial de Fedora: {error}")
+        })?;
     if !response.status().is_redirection() || response.url().as_str() != url {
         return Err(format!(
             "El redirector oficial de Fedora respondió con {}; no se siguieron redirecciones.",
@@ -548,7 +552,9 @@ pub fn list_fedora_official_download_candidates(
         || candidate.fragment().is_some()
         || !candidate.path().ends_with(&artifact_path)
     {
-        return Err("El destino anunciado por Fedora no es HTTPS o no coincide con la ISO exacta.".into());
+        return Err(
+            "El destino anunciado por Fedora no es HTTPS o no coincide con la ISO exacta.".into(),
+        );
     }
 
     Ok(vec![OfficialPathDownloadCandidate {
@@ -586,7 +592,11 @@ pub fn list_ubuntu_official_download_candidates(
         "lubuntu" | "kubuntu" | "xubuntu" => {
             format!("https://cdimage.ubuntu.com/{distribution_id}/releases/{release}/release/{file_name}")
         }
-        _ => return Err("Esta distribución no pertenece a los canales oficiales Ubuntu admitidos.".into()),
+        _ => {
+            return Err(
+                "Esta distribución no pertenece a los canales oficiales Ubuntu admitidos.".into(),
+            )
+        }
     };
     let parsed = reqwest::Url::parse(&url)
         .map_err(|error| format!("La URL oficial de Ubuntu es inválida: {error}"))?;
@@ -875,25 +885,58 @@ mod tests {
     #[test]
     fn ubuntu_official_iso_resolver_uses_publisher_hosts_and_rejects_unknown_projects() {
         let ubuntu = list_ubuntu_official_download_candidates(
-            "ubuntu", "24.04.3", "ubuntu-24.04.3-desktop-amd64.iso",
-        ).unwrap();
-        assert_eq!(ubuntu[0].url, "https://releases.ubuntu.com/24.04.3/ubuntu-24.04.3-desktop-amd64.iso");
+            "ubuntu",
+            "24.04.3",
+            "ubuntu-24.04.3-desktop-amd64.iso",
+        )
+        .unwrap();
+        assert_eq!(
+            ubuntu[0].url,
+            "https://releases.ubuntu.com/24.04.3/ubuntu-24.04.3-desktop-amd64.iso"
+        );
 
         let lubuntu = list_ubuntu_official_download_candidates(
-            "lubuntu", "24.04.3", "lubuntu-24.04.3-desktop-amd64.iso",
-        ).unwrap();
-        assert!(lubuntu[0].url.starts_with("https://cdimage.ubuntu.com/lubuntu/releases/24.04.3/release/"));
+            "lubuntu",
+            "24.04.3",
+            "lubuntu-24.04.3-desktop-amd64.iso",
+        )
+        .unwrap();
+        assert!(lubuntu[0]
+            .url
+            .starts_with("https://cdimage.ubuntu.com/lubuntu/releases/24.04.3/release/"));
         assert!(list_ubuntu_official_download_candidates("mint", "24.04", "mint.iso").is_err());
-        assert!(list_ubuntu_official_download_candidates("ubuntu", "../24.04", "ubuntu.iso").is_err());
-        assert!(list_ubuntu_official_download_candidates("ubuntu", "24.04", "../ubuntu.iso").is_err());
+        assert!(
+            list_ubuntu_official_download_candidates("ubuntu", "../24.04", "ubuntu.iso").is_err()
+        );
+        assert!(
+            list_ubuntu_official_download_candidates("ubuntu", "24.04", "../ubuntu.iso").is_err()
+        );
     }
 
     #[test]
     fn fedora_path_inputs_reject_traversal_and_unsupported_architectures() {
         // Input validation is performed before any DNS or network access.
-        assert!(list_fedora_official_download_candidates("..", "Workstation", "x86_64", "fedora.iso").is_err());
-        assert!(list_fedora_official_download_candidates("45", "Workstation", "i686", "fedora.iso").is_err());
-        assert!(list_fedora_official_download_candidates("45", "Workstation", "x86_64", "../fedora.iso").is_err());
+        assert!(list_fedora_official_download_candidates(
+            "..",
+            "Workstation",
+            "x86_64",
+            "fedora.iso"
+        )
+        .is_err());
+        assert!(list_fedora_official_download_candidates(
+            "45",
+            "Workstation",
+            "i686",
+            "fedora.iso"
+        )
+        .is_err());
+        assert!(list_fedora_official_download_candidates(
+            "45",
+            "Workstation",
+            "x86_64",
+            "../fedora.iso"
+        )
+        .is_err());
     }
 
     #[test]
