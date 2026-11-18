@@ -641,7 +641,11 @@ fn parse_publisher_mirror_directory(
             break;
         };
         let mut position = cursor + relative_index + 4;
-        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+        while html
+            .as_bytes()
+            .get(position)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
             position += 1;
         }
         if html.as_bytes().get(position) != Some(&b'=') {
@@ -649,7 +653,11 @@ fn parse_publisher_mirror_directory(
             continue;
         }
         position += 1;
-        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+        while html
+            .as_bytes()
+            .get(position)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
             position += 1;
         }
         let Some(&quote) = html.as_bytes().get(position) else {
@@ -678,7 +686,9 @@ fn parse_publisher_mirror_directory(
             || base.query().is_some()
             || base.fragment().is_some()
             || !base.path().ends_with('/')
-            || !root_markers.iter().any(|marker| base_path.ends_with(&marker.to_ascii_lowercase()))
+            || !root_markers
+                .iter()
+                .any(|marker| base_path.ends_with(&marker.to_ascii_lowercase()))
         {
             continue;
         }
@@ -704,7 +714,9 @@ fn parse_publisher_mirror_directory(
     }
 
     if candidates.is_empty() {
-        return Err(format!("{provider} no anunció mirrors HTTPS válidos para esa ruta."));
+        return Err(format!(
+            "{provider} no anunció mirrors HTTPS válidos para esa ruta."
+        ));
     }
     Ok(candidates)
 }
@@ -747,7 +759,9 @@ fn fetch_official_mirror_page(
         .content_length()
         .is_some_and(|length| length > MAX_BSD_MIRROR_PAGE_BYTES)
     {
-        return Err(format!("La página de mirrors de {host} supera el límite permitido."));
+        return Err(format!(
+            "La página de mirrors de {host} supera el límite permitido."
+        ));
     }
     let mut html = String::new();
     response
@@ -755,7 +769,9 @@ fn fetch_official_mirror_page(
         .read_to_string(&mut html)
         .map_err(|error| format!("No se pudo leer la página de mirrors de {host}: {error}"))?;
     if html.len() as u64 > MAX_BSD_MIRROR_PAGE_BYTES {
-        return Err(format!("La página de mirrors de {host} supera el límite permitido."));
+        return Err(format!(
+            "La página de mirrors de {host} supera el límite permitido."
+        ));
     }
     Ok(html)
 }
@@ -874,7 +890,11 @@ fn parse_opensuse_mirrorlist(
             break;
         };
         let mut position = cursor + relative_index + 4;
-        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+        while html
+            .as_bytes()
+            .get(position)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
             position += 1;
         }
         if html.as_bytes().get(position) != Some(&b'=') {
@@ -882,7 +902,11 @@ fn parse_opensuse_mirrorlist(
             continue;
         }
         position += 1;
-        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+        while html
+            .as_bytes()
+            .get(position)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
             position += 1;
         }
         let Some(&quote) = html.as_bytes().get(position) else {
@@ -1273,19 +1297,25 @@ mod tests {
             "stable/22.3/linuxmint-22.3-cinnamon-64bit.iso",
             &["/iso/"],
             "Linux Mint",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(candidates.len(), 1);
-        assert!(candidates[0].url.ends_with("/linuxmint/iso/stable/22.3/linuxmint-22.3-cinnamon-64bit.iso"));
+        assert!(candidates[0]
+            .url
+            .ends_with("/linuxmint/iso/stable/22.3/linuxmint-22.3-cinnamon-64bit.iso"));
     }
 
     #[test]
     fn freebsd_resolver_uses_official_geodns_host_and_rejects_unsafe_paths() {
         let candidates = list_freebsd_official_download_candidates(
             "releases/ISO-IMAGES/15.1/FreeBSD-15.1-RELEASE-amd64-disc1.iso",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].provider, "FreeBSD GeoDNS / CDN");
-        assert!(candidates[0].url.starts_with("https://download.freebsd.org/releases/"));
+        assert!(candidates[0]
+            .url
+            .starts_with("https://download.freebsd.org/releases/"));
         assert!(list_freebsd_official_download_candidates("../private.iso").is_err());
         assert!(list_freebsd_official_download_candidates("/absolute.iso").is_err());
     }
@@ -1304,7 +1334,8 @@ mod tests {
             "7.9/amd64/install79.iso",
             &["/pub/openbsd/"],
             "OpenBSD",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(openbsd.len(), 1);
         assert_eq!(
             openbsd[0].url,
@@ -1316,9 +1347,12 @@ mod tests {
             "images/10.1/amd64/NetBSD-10.1-amd64.iso",
             &["/pub/netbsd/"],
             "NetBSD",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(netbsd.len(), 1);
-        assert!(netbsd[0].url.ends_with("/pub/NetBSD/images/10.1/amd64/NetBSD-10.1-amd64.iso"));
+        assert!(netbsd[0]
+            .url
+            .ends_with("/pub/NetBSD/images/10.1/amd64/NetBSD-10.1-amd64.iso"));
     }
 
     #[test]
@@ -1333,8 +1367,15 @@ mod tests {
         let candidates = parse_opensuse_mirrorlist(html, "tumbleweed/iso/example.iso").unwrap();
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].provider, "openSUSE MirrorCache");
-        assert_eq!(candidates[0].url, "https://mirror.example/tumbleweed/iso/example.iso");
-        assert!(parse_opensuse_mirrorlist("<a href='http://plain.example/file.iso'>x</a>", "file.iso").is_err());
+        assert_eq!(
+            candidates[0].url,
+            "https://mirror.example/tumbleweed/iso/example.iso"
+        );
+        assert!(parse_opensuse_mirrorlist(
+            "<a href='http://plain.example/file.iso'>x</a>",
+            "file.iso"
+        )
+        .is_err());
     }
 
     #[test]
@@ -1510,7 +1551,8 @@ mod tests {
             Some("https://redirect.example/kali-images/kali-2026.3/kali-linux-2026.3-installer-amd64.iso"),
             &links,
             path,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(candidates.len(), 3);
         assert_eq!(candidates[0].priority, 0);
         assert_eq!(candidates[1].priority, 1);
