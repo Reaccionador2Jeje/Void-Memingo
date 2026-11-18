@@ -622,6 +622,200 @@ pub fn list_ubuntu_official_download_candidates(
 
 const MAX_OPENSUSE_MIRRORLIST_BYTES: u64 = 2 * 1024 * 1024;
 
+const MAX_BSD_MIRROR_PAGE_BYTES: u64 = 2 * 1024 * 1024;
+
+fn parse_publisher_mirror_directory(
+    html: &str,
+    page_url: &str,
+    artifact_path: &str,
+    root_markers: &[&str],
+    provider: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    let page = reqwest::Url::parse(page_url)
+        .map_err(|error| format!("Página oficial de mirrors inválida: {error}"))?;
+    let mut candidates: Vec<OfficialPathDownloadCandidate> = Vec::new();
+    let mut cursor = 0;
+
+    while cursor < html.len() {
+        let Some(relative_index) = html[cursor..].to_ascii_lowercase().find("href") else {
+            break;
+        };
+        let mut position = cursor + relative_index + 4;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+            position += 1;
+        }
+        if html.as_bytes().get(position) != Some(&b'=') {
+            cursor = position;
+            continue;
+        }
+        position += 1;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+            position += 1;
+        }
+        let Some(&quote) = html.as_bytes().get(position) else {
+            break;
+        };
+        if quote != b'"' && quote != b'\\'' {
+            cursor = position + 1;
+            continue;
+        }
+        let value_start = position + 1;
+        let Some(relative_end) = html[value_start..].find(quote as char) else {
+            break;
+        };
+        let value_end = value_start + relative_end;
+        let raw = html[value_start..value_end].replace("&amp;", "&");
+        cursor = value_end + 1;
+
+        let Ok(base) = page.join(&raw) else {
+            continue;
+        };
+        let base_path = base.path().to_ascii_lowercase();
+        if base.scheme() != "https"
+            || base.host_str().is_none()
+            || !base.username().is_empty()
+            || base.password().is_some()
+            || base.query().is_some()
+            || base.fragment().is_some()
+            || !base.path().ends_with('/')
+            || !root_markers.iter().any(|marker| base_path.ends_with(&marker.to_ascii_lowercase()))
+        {
+            continue;
+        }
+
+        let Ok(url) = base.join(artifact_path) else {
+            continue;
+        };
+        if url.scheme() != "https" || !url.path().ends_with(artifact_path) {
+            continue;
+        }
+        let candidate_url = url.to_string();
+        if candidates.iter().any(|item| item.url == candidate_url) {
+            continue;
+        }
+        candidates.push(OfficialPathDownloadCandidate {
+            url: candidate_url,
+            provider: provider.to_owned(),
+            region: base.host_str().unwrap_or("mirror").to_owned(),
+        });
+        if candidates.len() == 30 {
+            break;
+        }
+    }
+
+    if candidates.is_empty() {
+        return Err(format!("{provider} no anunció mirrors HTTPS válidos para esa ruta."));
+    }
+    Ok(candidates)
+}
+
+fn fetch_official_mirror_page(
+    page_url: &str,
+    host: &str,
+    user_agent: &str,
+) -> Result<String, String> {
+    let addresses = (host, 443)
+        .to_socket_addrs()
+        .map_err(|error| format!("No se pudo resolver {host}: {error}"))?
+        .collect::<Vec<_>>();
+    if addresses.is_empty()
+        || addresses
+            .iter()
+            .any(|address| !crate::download::is_safe_ip(address.ip()))
+    {
+        return Err(format!("{host} resolvió a una dirección no pública."));
+    }
+    let client = reqwest::blocking::Client::builder()
+        .resolve_to_addrs(host, &addresses)
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(15))
+        .user_agent(user_agent)
+        .build()
+        .map_err(|error| format!("No se pudo preparar la consulta a {host}: {error}"))?;
+    let response = client
+        .get(page_url)
+        .send()
+        .map_err(|error| format!("No se pudo consultar {host}: {error}"))?;
+    if !response.status().is_success() || response.url().as_str() != page_url {
+        return Err(format!(
+            "{host} respondió con {}; no se siguieron redirecciones.",
+            response.status()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_BSD_MIRROR_PAGE_BYTES)
+    {
+        return Err(format!("La página de mirrors de {host} supera el límite permitido."));
+    }
+    let mut html = String::new();
+    response
+        .take(MAX_BSD_MIRROR_PAGE_BYTES + 1)
+        .read_to_string(&mut html)
+        .map_err(|error| format!("No se pudo leer la página de mirrors de {host}: {error}"))?;
+    if html.len() as u64 > MAX_BSD_MIRROR_PAGE_BYTES {
+        return Err(format!("La página de mirrors de {host} supera el límite permitido."));
+    }
+    Ok(html)
+}
+
+/// Resolve an exact OpenBSD ISO path against the project's published HTTPS mirror list.
+pub fn list_openbsd_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) {
+        return Err("Indica una ruta relativa válida de ISO OpenBSD.".into());
+    }
+    let page_url = "https://www.openbsd.org/ftp.html";
+    let html = fetch_official_mirror_page(
+        page_url,
+        "www.openbsd.org",
+        "VoidBoot-OpenBSDMirrorResolver/0.1",
+    )?;
+    parse_publisher_mirror_directory(
+        &html,
+        page_url,
+        artifact_path,
+        &["/pub/openbsd/", "/openbsd/"],
+        "OpenBSD official mirror",
+    )
+}
+
+/// Resolve an exact NetBSD ISO path against the project's published HTTPS mirror list.
+pub fn list_netbsd_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) {
+        return Err("Indica una ruta relativa válida de ISO NetBSD.".into());
+    }
+    let page_url = "https://www.netbsd.org/mirrors/";
+    let html = fetch_official_mirror_page(
+        page_url,
+        "www.netbsd.org",
+        "VoidBoot-NetBSDMirrorResolver/0.1",
+    )?;
+    parse_publisher_mirror_directory(
+        &html,
+        page_url,
+        artifact_path,
+        &["/pub/netbsd/", "/netbsd/"],
+        "NetBSD official mirror",
+    )
+}
+
+/// Validate a safe relative path ending in an ISO filename.
+fn safe_relative_iso_path(artifact_path: &str) -> bool {
+    !artifact_path.is_empty()
+        && !artifact_path.starts_with('/')
+        && !artifact_path.contains("..")
+        && !artifact_path.contains('\\')
+        && artifact_path
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/._-".contains(&byte))
+        && artifact_path.to_ascii_lowercase().ends_with(".iso")
+}
+
 /// Extract only HTTPS mirror links that serve the exact requested openSUSE artifact.
 fn parse_opensuse_mirrorlist(
     html: &str,
@@ -1023,6 +1217,37 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn publisher_mirror_directory_parser_filters_bsd_roots_and_exact_iso_paths() {
+        let html = r#"
+            <a href="https://mirror.example/pub/OpenBSD/">OpenBSD good</a>
+            <a href="http://plain.example/pub/OpenBSD/">OpenBSD plain</a>
+            <a href="https://mirror.example/pub/NetBSD/">NetBSD good</a>
+            <a href="https://mirror.example/pub/pkgsrc/">wrong tree</a>
+        "#;
+        let openbsd = parse_publisher_mirror_directory(
+            html,
+            "https://www.openbsd.org/ftp.html",
+            "7.9/amd64/install79.iso",
+            &["/pub/openbsd/"],
+            "OpenBSD",
+        ).unwrap();
+        assert_eq!(openbsd.len(), 1);
+        assert_eq!(
+            openbsd[0].url,
+            "https://mirror.example/pub/OpenBSD/7.9/amd64/install79.iso"
+        );
+        let netbsd = parse_publisher_mirror_directory(
+            html,
+            "https://www.netbsd.org/mirrors/",
+            "images/10.1/amd64/NetBSD-10.1-amd64.iso",
+            &["/pub/netbsd/"],
+            "NetBSD",
+        ).unwrap();
+        assert_eq!(netbsd.len(), 1);
+        assert!(netbsd[0].url.ends_with("/pub/NetBSD/images/10.1/amd64/NetBSD-10.1-amd64.iso"));
+    }
 
     #[test]
     fn opensuse_mirrorlist_parser_keeps_only_exact_https_iso_mirrors() {
