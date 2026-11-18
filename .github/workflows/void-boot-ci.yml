@@ -7,23 +7,8 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  push:
-    branches: [feature/void-boot-foundation]
-    paths:
-      - "scripts/test-void-boot-qemu.sh"
-      - "scripts/test-debian-live-qemu.sh"
-      - "apps/void-boot/**"
-      - "apps/desktop/**"
-      - "docs/VOID_BOOT_ARCHITECTURE.md"
-      - "docs/VOID_BOOT_RELEASE_GATES.md"
-      - "README.md"
-      - "scripts/build-void-boot-demo-iso.sh"
-      - "scripts/build-void-boot-media.sh"
-      - "scripts/test-void-boot-media-uefi.sh"
-      - "scripts/package-void-boot.sh"
-      - "scripts/install-void-boot.sh"
-      - "scripts/install-void-boot.ps1"
-      - ".github/workflows/void-boot-ci.yml"
+  # Pull requests are the single source of CI for this feature branch.
+  # Avoid running the same expensive matrix once for push and again for PR.
   pull_request:
     paths:
       - "scripts/test-void-boot-qemu.sh"
