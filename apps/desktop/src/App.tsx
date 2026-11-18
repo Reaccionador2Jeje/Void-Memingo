@@ -34,7 +34,7 @@ type BootKaliCandidate = { url: string; priority: number; geo: string };
 type BootDebianCandidate = { url: string; provider: string; region: string };
 type BootOfficialPathCandidate = { url: string; provider: string; region: string };
 type BootMirrorSupport = { distribution_id: string; mode: string; label: string; description: string; source_url: string; selectable: boolean };
-type BootReleaseGate = { downloads_enabled: boolean; validated_systems: number; required_systems: number; message: string };
+type BootReleaseGate = { downloads_enabled: boolean; download_enabled_systems: number; required_systems: number; enabled_distribution_ids: string[]; message: string };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean; reused_from_library: boolean };
 type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
@@ -678,8 +678,9 @@ function App() {
         if (!cancelled) {
           setVoidBootReleaseGate({
             downloads_enabled: false,
-            validated_systems: 0,
+            download_enabled_systems: 0,
             required_systems: 40,
+            enabled_distribution_ids: [],
             message: 'No se pudo comprobar el estado de lanzamiento. Las descargas permanecen bloqueadas por seguridad.'
           });
           addLog('No se pudo consultar la barrera de lanzamiento de Distro Center: ' + String(error));
@@ -926,15 +927,25 @@ function App() {
   }, [addLog, voidBootDownloadName, voidBootSelectedDistro]);
 
   const startVoidBootDownload = useCallback(async () => {
-    if (!voidBootReleaseGate?.downloads_enabled) { addLog('Distro Center: descargas bloqueadas hasta completar el soporte validado de todos los sistemas.'); return; }
+    const distributionId = voidBootSelectedDistro?.id;
+    const checksum = voidBootExpectedSha256.trim();
+    if (!distributionId || !voidBootReleaseGate?.enabled_distribution_ids.includes(distributionId)) {
+      addLog('Distro Center: esta distribución todavía no tiene descarga automatizada habilitada.');
+      return;
+    }
+    if (!/^[a-fA-F0-9]{64}$/.test(checksum)) {
+      addLog('Distro Center: consulta el SHA-256 oficial en línea antes de descargar.');
+      return;
+    }
     if (!voidBootDownloadUrl.trim() || !voidBootDownloadDirectory || !voidBootDownloadName.trim()) return;
     setVoidBootDownloadBusy(true);
     try {
       const id = await invoke<string>('start_void_boot_download', {
+        distributionId,
         url: voidBootDownloadUrl.trim(),
         fileName: voidBootDownloadName.trim(),
         directory: voidBootDownloadDirectory,
-        expectedSha256: voidBootExpectedSha256.trim() || null
+        expectedSha256: checksum
       });
       const tasks = await invoke<BootDownload[]>('list_void_boot_downloads');
       setVoidBootDownloads(tasks);
@@ -947,7 +958,7 @@ function App() {
     } finally {
       setVoidBootDownloadBusy(false);
     }
-  }, [addLog, voidBootDownloadDirectory, voidBootDownloadName, voidBootDownloadUrl, voidBootExpectedSha256]);
+  }, [addLog, voidBootDownloadDirectory, voidBootDownloadName, voidBootDownloadUrl, voidBootExpectedSha256, voidBootReleaseGate, voidBootSelectedDistro]);
 
   const pauseVoidBootDownload = useCallback(async (id: string) => {
     try {
@@ -1832,10 +1843,10 @@ directory = ${quote(osOutputDir)}
                       {voidBootSelectedDistro.id === 'opensuse' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>OPENSUSE MIRRORCACHE OFICIAL</strong><span>Introduce la ruta relativa exacta de la ISO que aparece en download.opensuse.org. Void Boot consulta la página oficial .mirrorlist y conserva solo enlaces HTTPS que coincidan con el mismo artefacto.</span></div><input aria-label="Ruta relativa de ISO openSUSE" placeholder="tumbleweed/iso/nombre-exacto.iso" value={voidBootOpenSuseArtifactPath} onChange={(event) => { setVoidBootOpenSuseArtifactPath(event.target.value); setVoidBootOpenSuseCandidates([]); setVoidBootOpenSuseCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootOpenSuseCandidates()} disabled={voidBootOpenSuseBusy || !voidBootOpenSuseArtifactPath.trim()}>{voidBootOpenSuseBusy ? 'Consultando MirrorCache…' : 'Buscar mirrors oficiales openSUSE'}</button>{voidBootOpenSuseCandidates.length > 0 && <select aria-label="Seleccionar mirror openSUSE" value={voidBootOpenSuseCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootOpenSuseCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'opensuse.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar mirror…</option>{voidBootOpenSuseCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region} · {new URL(candidate.url).host}</option>)}</select>}</div>}
                       {['freebsd', 'openbsd', 'netbsd', 'linux-mint'].includes(voidBootSelectedDistro.id) && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>{voidBootSelectedDistro.id === 'linux-mint' ? 'MIRRORS OFICIALES DE ISO LINUX MINT' : voidBootSelectedDistro.id === 'freebsd' ? 'FREEBSD GEODNS / CDN OFICIAL' : voidBootSelectedDistro.id === 'openbsd' ? 'MIRRORS HTTPS OFICIALES DE OPENBSD' : 'MIRRORS HTTPS OFICIALES DE NETBSD'}</strong><span>{voidBootSelectedDistro.id === 'linux-mint' ? 'Introduce la ruta relativa exacta de la ISO. Void Boot usa solo mirrors que la página oficial identifica como fuentes de imágenes ISO, no los mirrors de paquetes.' : voidBootSelectedDistro.id === 'freebsd' ? 'Introduce la ruta relativa exacta publicada por FreeBSD. El servidor oficial usa GeoDNS/CDN para elegir la ruta de descarga.' : 'Introduce la ruta relativa exacta de la ISO publicada por el proyecto. Void Boot lee el directorio oficial de mirrors y conserva solo bases HTTPS reconocidas con la misma ruta de artefacto.'}</span></div><input aria-label="Ruta relativa de ISO BSD" placeholder={voidBootSelectedDistro.id === 'linux-mint' ? 'stable/22.3/linuxmint-22.3-cinnamon-64bit.iso' : voidBootSelectedDistro.id === 'freebsd' ? 'releases/ISO-IMAGES/15.1/FreeBSD-15.1-RELEASE-amd64-disc1.iso' : voidBootSelectedDistro.id === 'openbsd' ? '7.9/amd64/install79.iso' : 'images/10.1/amd64/NetBSD-10.1-amd64.iso'} value={voidBootBsdArtifactPath} onChange={(event) => { setVoidBootBsdArtifactPath(event.target.value); setVoidBootBsdCandidates([]); setVoidBootBsdCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootBsdCandidates()} disabled={voidBootBsdBusy || !voidBootBsdArtifactPath.trim()}>{voidBootBsdBusy ? 'Consultando fuentes…' : 'Buscar fuente oficial'}</button>{voidBootBsdCandidates.length > 0 && <select aria-label="Seleccionar fuente BSD" value={voidBootBsdCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootBsdCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'bsd.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar fuente…</option>{voidBootBsdCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region}</option>)}</select>}</div>}
                       {voidBootSelectedDistro.id === 'debian' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>CDN OFICIAL DE IMÁGENES DEBIAN</strong><span>Usa el prefijo de ruta publicado por Debian. Ejemplo: current/amd64/iso-cd/debian-stable-amd64-netinst.iso. El destino se sirve por HTTPS desde el CDN global documentado por Debian.</span></div><input aria-label="Ruta relativa de ISO Debian" placeholder="current/amd64/iso-cd/nombre-exacto.iso" value={voidBootDebianArtifactPath} onChange={(event) => { setVoidBootDebianArtifactPath(event.target.value); setVoidBootDebianCandidates([]); setVoidBootDebianCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootDebianCandidates()} disabled={voidBootDebianBusy || !voidBootDebianArtifactPath.trim()}>{voidBootDebianBusy ? 'Preparando destino…' : 'Preparar descarga oficial Debian'}</button>{voidBootDebianCandidates.length > 0 && <select aria-label="Seleccionar CDN oficial Debian" value={voidBootDebianCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootDebianCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'debian.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar destino…</option>{voidBootDebianCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region}</option>)}</select>}</div>}
-                      {!voidBootReleaseGate?.downloads_enabled ? (
+                      {!voidBootReleaseGate?.enabled_distribution_ids.includes(voidBootSelectedDistro.id) ? (
                         <div className="distro-download-panel distro-download-gate" role="status">
                           <AlertCircle size={18} />
-                          <div><strong>DESCARGAS BLOQUEADAS · DESARROLLO GLOBAL EN CURSO</strong><span>{voidBootReleaseGate?.message ?? 'Comprobando la barrera global de lanzamiento…'}</span><small>Sistemas validados: {voidBootReleaseGate?.validated_systems ?? 0} / {voidBootReleaseGate?.required_systems ?? 40}. No se permite iniciar descargas desde ninguna ficha del catálogo.</small></div>
+                          <div><strong>DESCARGA AUTOMATIZADA NO HABILITADA PARA ESTE SISTEMA</strong><span>{voidBootReleaseGate?.message ?? 'Comprobando la barrera global de lanzamiento…'}</span><small>Distribuciones con SHA-256 oficial habilitadas: {voidBootReleaseGate?.download_enabled_systems ?? 0} / {voidBootReleaseGate?.required_systems ?? 40}. Las demás conservan su enlace oficial externo.</small></div>
                         </div>
                       ) : (
                       (voidBootSelectedDistro.kind ?? 'linux_distribution') === 'linux_distribution' && voidBootSelectedDistro.installation.delivery === 'direct_iso_to_void_data_partition' ? (
@@ -1844,14 +1855,14 @@ directory = ${quote(osOutputDir)}
                           {voidBootSelectedDistro.id === 'arch' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>MIRRORS OFICIALES DE ARCH LINUX</strong><span>Lista en vivo de la API oficial. Solo HTTPS activos, con sincronización reciente y estado de completitud alto; Chile aparece primero cuando hay mirrors aptos.</span></div><button className="secondary-button" onClick={() => void loadVoidBootArchMirrors()} disabled={voidBootMirrorBusy}>{voidBootMirrorBusy ? 'Consultando mirrors…' : 'Buscar mirrors oficiales'}</button>{voidBootArchMirrors.length > 0 && <select aria-label="Seleccionar mirror oficial de Arch Linux" value={voidBootArchMirrorBase} onChange={(event) => selectVoidBootArchMirror(event.target.value)}><option value="">Seleccionar mirror…</option>{voidBootArchMirrors.map((mirror) => <option key={mirror.base_url} value={mirror.base_url}>{mirror.country} · {Math.round(mirror.delay_seconds / 60)} min de retraso · {mirror.base_url}</option>)}</select>}</div>}
                           <input aria-label="URL directa de ISO" placeholder="https://servidor-oficial/archivo.iso" value={voidBootDownloadUrl} onChange={(event) => { setVoidBootArchMirrorBase(''); setVoidBootDownloadUrl(event.target.value); }} />
                           <input aria-label="Nombre de archivo ISO" value={voidBootDownloadName} onChange={(event) => { const name = event.target.value; setVoidBootDownloadName(name); setVoidBootExpectedSha256(''); if (voidBootArchMirrorBase) setVoidBootDownloadUrl(voidBootArchMirrorBase + 'iso/latest/' + name.trim()); }} placeholder="distribution.iso" />
-                          <input aria-label="SHA-256 oficial esperado (opcional)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres, opcional)" spellCheck={false} />
+                          <input aria-label="SHA-256 oficial esperado (obligatorio)" value={voidBootExpectedSha256} onChange={(event) => setVoidBootExpectedSha256(event.target.value)} placeholder="SHA-256 oficial (64 caracteres, obligatorio)" spellCheck={false} />
                           <button className="secondary-button" onClick={() => void loadVoidBootPublisherChecksum()} disabled={!voidBootDownloadName.trim()}>Cargar SHA-256 desde manifiesto local</button>
                           {['debian', 'arch', 'ubuntu', 'fedora', 'opensuse'].includes(voidBootSelectedDistro.id) && (
                             <button className="secondary-button" onClick={() => void loadVoidBootOfficialReleaseChecksum()} disabled={!voidBootDownloadName.trim()}>Consultar checksum oficial en línea</button>
                           )}
-                          <small className="distro-checksum-hint">Puedes pegar el SHA-256, cargar un manifiesto GNU/BSD local o consultar fuentes oficiales compatibles (Debian amd64, Arch x86_64, Ubuntu 24.04 LTS amd64, Fedora Workstation 45 x86_64 y openSUSE Tumbleweed DVD x86_64). Se busca el nombre exacto de la ISO; si no hay una única coincidencia válida, se rechaza. Si proporcionas un hash esperado, debe coincidir antes de finalizar; si lo dejas vacío, se calcula un SHA-256 local sin verificar la publicación del editor. El checksum no sustituye la verificación de firma del editor.</small>
+                          <small className="distro-checksum-hint">Puedes pegar el SHA-256, cargar un manifiesto GNU/BSD local o consultar fuentes oficiales compatibles (Debian amd64, Arch x86_64, Ubuntu 24.04 LTS amd64, Fedora Workstation 45 x86_64 y openSUSE Tumbleweed DVD x86_64). Se busca el nombre exacto de la ISO; si no hay una única coincidencia válida, se rechaza. El SHA-256 oficial es obligatorio y se vuelve a consultar en el backend antes de iniciar la descarga; la descarga se cancela si no coincide. El checksum no sustituye la verificación de firma del editor.</small>
                           <button className="secondary-button" onClick={() => void chooseVoidBootDownloadDirectory()}><FolderOpen size={14} /> {voidBootDownloadDirectory ? voidBootDownloadDirectory.split(/[\\/]/).filter(Boolean).pop() : 'Elegir carpeta de biblioteca'}</button>
-                          <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory}>{voidBootDownloadBusy ? 'Iniciando descarga…' : 'Descargar ISO'}</button>
+                          <button className="primary-button" onClick={() => void startVoidBootDownload()} disabled={voidBootDownloadBusy || !voidBootDownloadUrl.trim() || !voidBootDownloadDirectory || !/^[a-fA-F0-9]{64}$/.test(voidBootExpectedSha256.trim())}>{voidBootDownloadBusy ? 'Iniciando descarga…' : 'Descargar ISO'}</button>
                         </div>
                       ) : (
                         <div className="distro-download-panel distro-external-only"><AlertCircle size={16} /><span>Solo catálogo y enlace oficial. No se ofrece descarga automatizada ni se afirma compatibilidad multiboot para este sistema.</span></div>
