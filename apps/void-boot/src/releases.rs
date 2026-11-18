@@ -212,7 +212,10 @@ pub fn list_arch_official_mirrors() -> Result<Vec<OfficialMirror>, String> {
         .send()
         .map_err(|error| format!("No se pudo consultar el estado oficial de mirrors: {error}"))?;
     if !response.status().is_success() || response.url().as_str() != ARCH_MIRROR_STATUS_URL {
-        return Err(format!("La API de mirrors respondió con {}; no se siguieron redirecciones.", response.status()));
+        return Err(format!(
+            "La API de mirrors respondió con {}; no se siguieron redirecciones.",
+            response.status()
+        ));
     }
     if response
         .content_length()
