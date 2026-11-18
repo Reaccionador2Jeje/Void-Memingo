@@ -321,6 +321,16 @@ mod tests {
     }
 
     #[test]
+    fn renders_openSUSE_source_mode_for_embedded_recipe() {
+        let mut catalog = sample();
+        catalog.profiles[0].loopback_config = Some("boot/grub2/loopback.cfg".into());
+        catalog.profiles[0].loopback_config_source = true;
+        let rendered = catalog.render_grub_config();
+        assert!(rendered.contains("source /boot/grub2/loopback.cfg"));
+        assert!(!rendered.contains("configfile /boot/grub2/loopback.cfg"));
+    }
+
+    #[test]
     fn rejects_unsafe_embedded_loopback_recipe_path() {
         let mut catalog = sample();
         catalog.profiles[0].loopback_config = Some("../outside.cfg".into());
