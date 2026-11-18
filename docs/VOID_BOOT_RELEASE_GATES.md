@@ -35,14 +35,14 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Give each Windows catalogue entry its correct Microsoft download page handoff, including separate x64 and ARM64 pages and the distinct Windows 10 LTSC Evaluation page.
 - [x] Expose the official source page as a clickable Distro Center link and add the ReactOS nightly ISO path picker to the desktop UI.
 - [x] Register mirror/download-source capabilities for every catalogue entry: Arch live API, Debian official image CDN, Kali image redirector, Fedora MirrorManager, openSUSE Metalink, FreeBSD GeoDNS, OpenBSD/NetBSD mirror directories, and project-specific official download sources for remaining Linux, BSD and Windows entries. Capability labels distinguish selectable lists from documentation/CDN/direct-download sources.
-- [x] Enforce a global Distro Center download release gate in both the UI and Tauri backend; no distribution can start a download or open its download-source link until every catalogue system passes release validation.
+- [x] Enforce a per-distribution download allowlist in the Tauri backend: only systems with an implemented official SHA-256 adapter and an explicit enablement entry can start automated downloads. Official source-page handoffs are a separate capability and do not imply direct-download or checksum coverage.
 
 ## Required before a stable release
 
 ### 0. Global Distro Center download gate
-- [ ] Complete and validate every system in the 40-entry catalogue before enabling any download.
-- [ ] For each system, provide an official artifact resolver, authenticated integrity verification, a tested boot/install profile where applicable, and BIOS/UEFI evidence or an explicit documented platform exception.
-- [ ] Update the release-gate implementation from locked to enabled only after all evidence is reviewed. The current backend intentionally reports 0/40 validated and rejects every download.
+- [ ] Complete SHA-256 adapter coverage for all 40 catalogue entries. Automated downloads are currently enabled only for 8/40 systems; the other entries remain blocked until their official integrity source is implemented and reviewed.
+- [ ] For each system, provide an official artifact resolver, an official integrity source, a tested boot/install profile where applicable, and BIOS/UEFI evidence or an explicit documented platform exception.
+- [ ] Expand the backend allowlist only after the corresponding publisher checksum adapter and its tests are reviewed. The antiX adapter is implemented but intentionally not enabled yet.
 
 ### 1. Boot compatibility
 - [ ] Run and pass the Debian Live 13.7.0 QEMU full-boot workflow.
