@@ -1801,7 +1801,21 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://reactos.org/download/",
             false,
         ),
-        "endeavouros" | "manjaro" | "nixos" | "void-linux" | "rocky-linux" | "almalinux" | "alpine" | "mageia" | "centos-stream" | "gentoo" | "slackware" | "solus" | "oracle-linux" => (
+        "alpine" => (
+            "official_iso_cdn",
+            "CDN oficial de Alpine Linux",
+            "Void Boot construye rutas ISO dentro del árbol latest-stable/releases del CDN oficial y valida arquitectura y nombre de archivo.",
+            "https://www.alpinelinux.org/downloads/",
+            false,
+        ),
+        "nixos" => (
+            "official_channel_alias",
+            "Canales oficiales de NixOS",
+            "Void Boot construye alias oficiales de channels.nixos.org para ISOs graphical/minimal de canales estables o unstable en x86_64 y aarch64.",
+            "https://nixos.org/download/",
+            false,
+        ),
+        "endeavouros" | "manjaro" | "void-linux" | "rocky-linux" | "almalinux" | "mageia" | "centos-stream" | "gentoo" | "slackware" | "solus" | "oracle-linux" => (
             "official_download_page",
             "Descarga oficial del proyecto",
             "Este proyecto mantiene su propia infraestructura de distribución. Void Boot todavía no dispone de un índice de mirrors ISO verificable para esta distribución; usa su página oficial.",
