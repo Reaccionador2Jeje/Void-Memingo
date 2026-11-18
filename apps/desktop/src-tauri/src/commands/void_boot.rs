@@ -85,6 +85,20 @@ pub fn list_void_boot_freebsd_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_rocky_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_rocky_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
+pub fn list_void_boot_almalinux_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_almalinux_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
 pub fn list_void_boot_openbsd_official_download_candidates(
     artifact_path: String,
 ) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
