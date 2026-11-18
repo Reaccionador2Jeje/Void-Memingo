@@ -1073,24 +1073,64 @@ pub fn list_debian_official_download_candidates(
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct DistroCenterReleaseGate {
     pub downloads_enabled: bool,
-    pub validated_systems: usize,
+    pub download_enabled_systems: usize,
     pub required_systems: usize,
+    pub enabled_distribution_ids: Vec<String>,
     pub message: String,
 }
 
+// Only distributions with a built-in publisher-hosted SHA-256 manifest adapter are
+// eligible for automated downloads. Boot-profile validation is a separate release gate.
+const DOWNLOAD_ENABLED_DISTRIBUTIONS: &[&str] =
+    &["debian", "arch", "ubuntu", "fedora", "opensuse"];
+
 pub fn distro_center_release_gate() -> DistroCenterReleaseGate {
+    let enabled_distribution_ids = DOWNLOAD_ENABLED_DISTRIBUTIONS
+        .iter()
+        .map(|id| (*id).to_owned())
+        .collect::<Vec<_>>();
     DistroCenterReleaseGate {
-        downloads_enabled: false,
-        validated_systems: 0,
+        downloads_enabled: !enabled_distribution_ids.is_empty(),
+        download_enabled_systems: enabled_distribution_ids.len(),
         required_systems: 40,
-        message: "Las descargas están bloqueadas hasta completar y validar el soporte de los 40 sistemas del catálogo: descarga oficial, integridad, perfil de arranque y pruebas BIOS/UEFI cuando corresponda.".to_owned(),
+        enabled_distribution_ids,
+        message: "Descargas automatizadas habilitadas solo para Debian, Arch Linux, Ubuntu, Fedora y openSUSE, y únicamente cuando el SHA-256 coincide con el manifiesto oficial consultado en línea. Esto no certifica que la ISO arranque con Void Boot; la compatibilidad BIOS/UEFI se valida por separado.".to_owned(),
     }
 }
 
-pub fn ensure_distro_center_downloads_enabled() -> Result<(), String> {
+/// Require an official, live publisher checksum for the exact ISO before any bytes are downloaded.
+pub fn ensure_distro_center_downloads_enabled(
+    distribution_id: &str,
+    file_name: &str,
+    expected_sha256: Option<&str>,
+) -> Result<(), String> {
     let gate = distro_center_release_gate();
-    if !gate.downloads_enabled || gate.validated_systems < gate.required_systems {
-        return Err(gate.message);
+    if !gate
+        .enabled_distribution_ids
+        .iter()
+        .any(|enabled| enabled == distribution_id)
+    {
+        return Err(format!(
+            "Las descargas automatizadas aún no están habilitadas para {distribution_id}. Solo se admiten Debian, Arch Linux, Ubuntu, Fedora y openSUSE."
+        ));
+    }
+
+    let expected = expected_sha256
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            "Consulta el SHA-256 oficial en línea antes de descargar esta ISO.".to_string()
+        })?;
+    if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("El SHA-256 oficial esperado debe contener 64 caracteres hexadecimales.".into());
+    }
+
+    let official = lookup_official_release_checksum(distribution_id, file_name)?;
+    if !expected.eq_ignore_ascii_case(&official.sha256) {
+        return Err(
+            "El SHA-256 indicado no coincide con el manifiesto oficial actual. Se bloqueó la descarga."
+                .into(),
+        );
     }
     Ok(())
 }
@@ -1459,12 +1499,16 @@ mod tests {
     }
 
     #[test]
-    fn distro_center_downloads_stay_locked_until_every_system_is_validated() {
+    fn distro_center_downloads_are_limited_to_official_checksum_adapters() {
         let gate = distro_center_release_gate();
-        assert!(!gate.downloads_enabled);
-        assert_eq!(gate.validated_systems, 0);
+        assert!(gate.downloads_enabled);
+        assert_eq!(gate.download_enabled_systems, 5);
         assert_eq!(gate.required_systems, 40);
-        assert!(ensure_distro_center_downloads_enabled().is_err());
+        for id in ["debian", "arch", "ubuntu", "fedora", "opensuse"] {
+            assert!(gate.enabled_distribution_ids.iter().any(|enabled| enabled == id));
+        }
+        assert!(ensure_distro_center_downloads_enabled("kali", "kali.iso", None).is_err());
+        assert!(ensure_distro_center_downloads_enabled("debian", "debian.iso", None).is_err());
     }
 
     #[test]
