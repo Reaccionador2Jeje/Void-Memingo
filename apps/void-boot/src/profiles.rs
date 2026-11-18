@@ -20,6 +20,12 @@ pub struct BootProfile {
     /// Kernel parameter key that receives the ISO path, e.g. iso-scan/filename.
     #[serde(default)]
     pub iso_path_argument: Option<String>,
+    /// Load a distribution-provided GRUB loopback recipe from inside the ISO.
+    #[serde(default)]
+    pub loopback_config: Option<String>,
+    /// Use GRUB source instead of configfile for the embedded recipe.
+    #[serde(default)]
+    pub loopback_config_source: bool,
 }
 
 fn safe_relative_path(value: &str) -> bool {
@@ -109,6 +115,12 @@ impl ProfileCatalog {
             }) {
                 return Err(io::Error::new(io::ErrorKind::InvalidInput, "unsafe ISO path kernel parameter"));
             }
+            if profile.loopback_config.as_ref().is_some_and(|value| !safe_relative_path(value)) {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "unsafe embedded loopback config path"));
+            }
+            if profile.loopback_config_source && profile.loopback_config.is_none() {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "loopback_config_source requires loopback_config"));
+            }
             if profile.findiso && profile.iso_path_argument.is_some() {
                 return Err(io::Error::new(io::ErrorKind::InvalidInput, "choose either findiso or iso_path_argument, not both"));
             }
@@ -154,21 +166,42 @@ set theme=$prefix/themes/void-boot/theme.txt
         );
 
         for profile in &self.profiles {
-            let mut kernel_args = profile.linux_args.clone();
-            if profile.findiso {
-                kernel_args.push("findiso=$isofile".to_string());
-            }
-            if let Some(argument) = &profile.iso_path_argument {
-                kernel_args.push(format!("{argument}=$isofile"));
-            }
-            let args = kernel_args.join(" ");
-            let linux_command = if args.is_empty() {
-                format!("linux (loop)/{}", profile.kernel)
+            if let Some(config_path) = &profile.loopback_config {
+                let load_config = if profile.loopback_config_source { "source" } else { "configfile" };
+                output.push_str(&format!(
+                    r#"
+menuentry "{}" --class atdev-linux {{
+  set iso_path="/{}"
+  export iso_path
+  if search --no-floppy --file --set=root "$iso_path"; then
+    loopback loop "$iso_path"
+    set root=(loop)
+    {} /{}
+    loopback --delete loop
+  else
+    echo "ISO not found: $iso_path"
+    sleep 5
+  fi
+}}
+"#,
+                    profile.name, profile.iso, load_config, config_path
+                ));
             } else {
-                format!("linux (loop)/{} {}", profile.kernel, args)
-            };
-            output.push_str(&format!(
-                r#"
+                let mut kernel_args = profile.linux_args.clone();
+                if profile.findiso {
+                    kernel_args.push("findiso=$isofile".to_string());
+                }
+                if let Some(argument) = &profile.iso_path_argument {
+                    kernel_args.push(format!("{argument}=$isofile"));
+                }
+                let args = kernel_args.join(" ");
+                let linux_command = if args.is_empty() {
+                    format!("linux (loop)/{}", profile.kernel)
+                } else {
+                    format!("linux (loop)/{} {}", profile.kernel, args)
+                };
+                output.push_str(&format!(
+                    r#"
 menuentry "{}" --class atdev-linux {{
   set isofile="/{}"
   if search --no-floppy --file --set=root "$isofile"; then
@@ -181,8 +214,9 @@ menuentry "{}" --class atdev-linux {{
   fi
 }}
 "#,
-                profile.name, profile.iso, linux_command, profile.initrd
-            ));
+                    profile.name, profile.iso, linux_command, profile.initrd
+                ));
+            }
         }
 
         output.push_str(
@@ -214,6 +248,8 @@ mod tests {
                 linux_args: vec!["boot=live".into(), "components".into()],
                 findiso: true,
                 iso_path_argument: None,
+                loopback_config: None,
+                loopback_config_source: false,
             }],
         }
     }
@@ -270,6 +306,31 @@ mod tests {
         let mut catalog = sample();
         catalog.profiles[0].findiso = false;
         catalog.profiles[0].iso_path_argument = Some("iso-scan/filename;reboot".into());
+        assert!(catalog.validate().is_err());
+    }
+
+    #[test]
+    fn renders_distribution_provided_arch_loopback_recipe() {
+        let mut catalog = sample();
+        catalog.profiles[0].loopback_config = Some("boot/grub/loopback.cfg".into());
+        let rendered = catalog.render_grub_config();
+        assert!(rendered.contains("export iso_path"));
+        assert!(rendered.contains("set root=(loop)"));
+        assert!(rendered.contains("configfile /boot/grub/loopback.cfg"));
+        assert!(!rendered.contains("linux (loop)/live/vmlinuz"));
+    }
+
+    #[test]
+    fn rejects_unsafe_embedded_loopback_recipe_path() {
+        let mut catalog = sample();
+        catalog.profiles[0].loopback_config = Some("../outside.cfg".into());
+        assert!(catalog.validate().is_err());
+    }
+
+    #[test]
+    fn requires_recipe_path_when_source_mode_is_enabled() {
+        let mut catalog = sample();
+        catalog.profiles[0].loopback_config_source = true;
         assert!(catalog.validate().is_err());
     }
 
