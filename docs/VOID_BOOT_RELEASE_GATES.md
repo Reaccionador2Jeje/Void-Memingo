@@ -9,6 +9,7 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Declarative profile parsing and input validation.
 - [x] Per-distribution ISO-path kernel parameter support (`findiso` or a validated parameter key), preserving compatibility with existing Debian profiles.
 - [x] Optional hand-off to a distribution-provided GRUB loopback recipe, with validated relative paths and `configfile`/`source` selection; Arch Linux profile added against the ISO's `boot/grub/loopback.cfg` convention.
+- [x] Experimental openSUSE Tumbleweed profile using the documented KIWI `boot/grub2/loopback.cfg` hand-off (`source` mode).
 - [x] Experimental GRUB loopback recipes for Ubuntu, Lubuntu, Kubuntu and Xubuntu using the Casper layout; these are recipes only and remain unverified on real BIOS/UEFI hardware.
 - [x] GRUB graphical menu generation and Atdev theme.
 - [x] Void Memingo integration for ISO inspection and profile preview.
