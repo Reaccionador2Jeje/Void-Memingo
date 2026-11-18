@@ -326,6 +326,32 @@ fn parse_arch_mirror_status(document: &serde_json::Value) -> Result<Vec<Official
 /// "directory" means the publisher documents mirrors, but Void Boot does not yet
 /// resolve a release-specific ISO URL automatically.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+/// Global release gate for Distro Center downloads.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DistroCenterReleaseGate {
+    pub downloads_enabled: bool,
+    pub validated_systems: usize,
+    pub required_systems: usize,
+    pub message: String,
+}
+
+pub fn distro_center_release_gate() -> DistroCenterReleaseGate {
+    DistroCenterReleaseGate {
+        downloads_enabled: false,
+        validated_systems: 0,
+        required_systems: 40,
+        message: "Las descargas están bloqueadas hasta completar y validar el soporte de los 40 sistemas del catálogo: descarga oficial, integridad, perfil de arranque y pruebas BIOS/UEFI cuando corresponda.".to_owned(),
+    }
+}
+
+pub fn ensure_distro_center_downloads_enabled() -> Result<(), String> {
+    let gate = distro_center_release_gate();
+    if !gate.downloads_enabled || gate.validated_systems < gate.required_systems {
+        return Err(gate.message);
+    }
+    Ok(())
+}
+
 pub struct MirrorSupport {
     pub distribution_id: String,
     pub mode: String,
