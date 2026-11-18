@@ -996,6 +996,149 @@ pub fn list_oracle_linux_official_download_candidates(
     }])
 }
 
+/// Build a Manjaro x86_64 edition ISO URL on the official download host.
+pub fn list_manjaro_official_download_candidates(
+    edition: &str,
+    release: &str,
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    fn safe_segment(value: &str) -> bool {
+        !value.is_empty()
+            && value.len() <= 100
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+            && !value.contains("..")
+    }
+
+    if !["gnome", "kde", "xfce"].contains(&edition) {
+        return Err("La edición Manjaro debe ser gnome, kde o xfce.".into());
+    }
+    if !safe_segment(release)
+        || !safe_segment(file_name)
+        || !file_name.to_ascii_lowercase().ends_with(".iso")
+    {
+        return Err("Indica una versión y un nombre de ISO Manjaro válidos.".into());
+    }
+    let url = format!("https://download.manjaro.org/{edition}/{release}/{file_name}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Manjaro es inválida: {error}"))?;
+    if parsed.scheme() != "https" || parsed.host_str() != Some("download.manjaro.org") {
+        return Err("La URL no pertenece al host HTTPS oficial de Manjaro.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Manjaro official download".to_owned(),
+        region: "Servidor oficial".to_owned(),
+    }])
+}
+
+/// Parse the exact ISO filename from the mirror links published by EndeavourOS.
+fn parse_endeavouros_mirror_links(
+    html: &str,
+    page_url: &str,
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    let page = reqwest::Url::parse(page_url)
+        .map_err(|error| format!("Página oficial de EndeavourOS inválida: {error}"))?;
+    let mut candidates = Vec::new();
+    let mut cursor = 0;
+
+    while cursor < html.len() {
+        let Some(relative_index) = html[cursor..].to_ascii_lowercase().find("href") else {
+            break;
+        };
+        let mut position = cursor + relative_index + 4;
+        while html
+            .as_bytes()
+            .get(position)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
+            position += 1;
+        }
+        if html.as_bytes().get(position) != Some(&b'=') {
+            cursor = position;
+            continue;
+        }
+        position += 1;
+        while html
+            .as_bytes()
+            .get(position)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
+            position += 1;
+        }
+        let Some(&quote) = html.as_bytes().get(position) else {
+            break;
+        };
+        if quote != b'"' && quote != b'\\'' {
+            cursor = position + 1;
+            continue;
+        }
+        let value_start = position + 1;
+        let Some(relative_end) = html[value_start..].find(quote as char) else {
+            break;
+        };
+        let value_end = value_start + relative_end;
+        let raw = html[value_start..value_end].replace("&amp;", "&");
+        cursor = value_end + 1;
+
+        let Ok(url) = page.join(&raw) else {
+            continue;
+        };
+        if url.scheme() != "https"
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || url.path().rsplit('/').next() != Some(file_name)
+        {
+            continue;
+        }
+        let candidate_url = url.to_string();
+        if candidates.iter().any(|item: &OfficialPathDownloadCandidate| item.url == candidate_url) {
+            continue;
+        }
+        candidates.push(OfficialPathDownloadCandidate {
+            url: candidate_url,
+            provider: "EndeavourOS official download mirror".to_owned(),
+            region: url.host_str().unwrap_or("mirror").to_owned(),
+        });
+        if candidates.len() == 30 {
+            break;
+        }
+    }
+
+    if candidates.is_empty() {
+        return Err("La página oficial de EndeavourOS no anunció mirrors HTTPS para ese nombre de ISO.".into());
+    }
+    Ok(candidates)
+}
+
+/// Resolve EndeavourOS ISO mirrors from the publisher's current download page.
+pub fn list_endeavouros_official_download_candidates(
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if file_name.is_empty()
+        || file_name.len() > 160
+        || !file_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+        || file_name.contains("..")
+        || !file_name.to_ascii_lowercase().ends_with(".iso")
+    {
+        return Err("Indica únicamente el nombre válido de una ISO EndeavourOS.".into());
+    }
+    const PAGE_URL: &str = "https://endeavouros.com/download/";
+    let html = fetch_official_mirror_page(
+        PAGE_URL,
+        "endeavouros.com",
+        "VoidBoot-EndeavourOSMirrorResolver/0.1",
+    )?;
+    parse_endeavouros_mirror_links(&html, PAGE_URL, file_name)
+}
+
 /// Validate a safe relative path ending in an ISO filename.
 fn safe_relative_iso_path(artifact_path: &str) -> bool {
     !artifact_path.is_empty()
@@ -1374,6 +1517,20 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://neon.kde.org/download",
             false,
         ),
+        "manjaro" => (
+            "official_download_host",
+            "Servidor oficial de descargas Manjaro",
+            "Void Boot construye rutas de ISO para las ediciones oficiales GNOME, KDE y Xfce en download.manjaro.org, sin utilizar mirrors de repositorios como si fueran mirrors de instalación.",
+            "https://download.manjaro.org/",
+            false,
+        ),
+        "endeavouros" => (
+            "publisher_mirror_directory",
+            "Mirrors publicados por EndeavourOS",
+            "Void Boot consulta la página oficial de descargas y extrae únicamente enlaces HTTPS que coinciden exactamente con el nombre de ISO solicitado.",
+            "https://endeavouros.com/download/",
+            false,
+        ),
         "centos-stream" => (
             "official_mirror_host",
             "Mirror oficial CentOS Stream",
@@ -1537,6 +1694,49 @@ mod tests {
         );
         assert!(list_almalinux_official_download_candidates("../private.iso").is_err());
         assert!(list_almalinux_official_download_candidates("8/isos/x86_64/old.iso").is_err());
+    }
+
+    #[test]
+    fn manjaro_resolver_builds_only_official_edition_iso_urls() {
+        let candidates = list_manjaro_official_download_candidates(
+            "gnome",
+            "26.1.3",
+            "manjaro-gnome-26.1.3-261028-linux72.iso",
+        )
+        .unwrap();
+        assert_eq!(
+            candidates[0].url,
+            "https://download.manjaro.org/gnome/26.1.3/manjaro-gnome-26.1.3-261028-linux72.iso"
+        );
+        assert!(list_manjaro_official_download_candidates(
+            "../private", "26.1.3", "installer.iso"
+        )
+        .is_err());
+        assert!(list_manjaro_official_download_candidates(
+            "sway", "26.1.3", "installer.iso"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn endeavouros_parser_accepts_only_exact_https_iso_links() {
+        let html = r#"
+            <a href="https://mirror.example/endeavouros/EndeavourOS.iso">ISO</a>
+            <a href="https://mirror.example/endeavouros/EndeavourOS.iso.sha512sum">Checksum</a>
+            <a href="http://insecure.example/EndeavourOS.iso">Insecure</a>
+            <a href="https://other.example/Other.iso">Other image</a>
+        "#;
+        let candidates = parse_endeavouros_mirror_links(
+            html,
+            "https://endeavouros.com/download/",
+            "EndeavourOS.iso",
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://mirror.example/endeavouros/EndeavourOS.iso"
+        );
     }
 
     #[test]
