@@ -630,27 +630,38 @@ fn parse_opensuse_mirrorlist(
     let base = reqwest::Url::parse("https://download.opensuse.org/")
         .expect("static openSUSE base URL is valid");
     let mut candidates: Vec<OfficialPathDownloadCandidate> = Vec::new();
-    let mut remaining = html;
+    let mut cursor = 0;
 
-    while let Some(index) = remaining.to_ascii_lowercase().find("href") {
-        remaining = &remaining[index + 4..];
-        let trimmed = remaining.trim_start();
-        let Some(after_equals) = trimmed.strip_prefix('=') else {
-            continue;
-        };
-        let value = after_equals.trim_start();
-        let Some(quote) = value.chars().next() else {
+    while cursor < html.len() {
+        let Some(relative_index) = html[cursor..].to_ascii_lowercase().find("href") else {
             break;
         };
-        if quote != '"' && quote != '\'' {
+        let mut position = cursor + relative_index + 4;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+            position += 1;
+        }
+        if html.as_bytes().get(position) != Some(&b'=') {
+            cursor = position;
             continue;
         }
-        let content = &value[1..];
-        let Some(end) = content.find(quote) else {
+        position += 1;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+            position += 1;
+        }
+        let Some(&quote) = html.as_bytes().get(position) else {
             break;
         };
-        let raw = content[..end].replace("&amp;", "&");
-        remaining = &content[end + 1..];
+        if quote != b'"' && quote != b'\\'' {
+            cursor = position + 1;
+            continue;
+        }
+        let value_start = position + 1;
+        let Some(relative_end) = html[value_start..].find(quote as char) else {
+            break;
+        };
+        let value_end = value_start + relative_end;
+        let raw = html[value_start..value_end].replace("&amp;", "&");
+        cursor = value_end + 1;
 
         let Ok(url) = base.join(&raw) else {
             continue;
