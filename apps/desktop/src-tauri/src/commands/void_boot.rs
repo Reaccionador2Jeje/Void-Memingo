@@ -98,12 +98,32 @@ pub fn list_void_boot_manjaro_official_download_candidates(
 }
 
 #[tauri::command]
-#[tauri::command]
 pub fn list_void_boot_zorin_official_download_candidates(
     release: String,
     file_name: String,
 ) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
     ::void_boot::releases::list_zorin_official_download_candidates(&release, &file_name)
+}
+
+#[tauri::command]
+#[tauri::command]
+pub fn list_void_boot_popos_official_download_candidates(
+    release: String,
+    architecture: String,
+    channel: String,
+    build: String,
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_popos_official_download_candidates(
+        &release, &architecture, &channel, &build, &file_name,
+    )
+}
+
+#[tauri::command]
+pub fn list_void_boot_elementary_official_download_candidates(
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_elementary_official_download_candidates(&file_name)
 }
 
 pub fn list_void_boot_endeavouros_official_download_candidates(
