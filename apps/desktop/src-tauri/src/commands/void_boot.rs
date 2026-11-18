@@ -171,6 +171,13 @@ pub fn list_void_boot_mageia_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_kde_neon_official_download_candidates(
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_kde_neon_official_download_candidates(&file_name)
+}
+
+#[tauri::command]
 pub fn list_void_boot_deepin_official_download_candidates(
     release: String,
     architecture: String,
