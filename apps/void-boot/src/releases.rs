@@ -1393,7 +1393,7 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "Servidor oficial de Rocky Linux",
             "Void Boot construye rutas ISO relativas en download.rockylinux.org y restringe las rutas admitidas a los árboles de versiones 9 y 10.",
             "https://download.rockylinux.org/pub/rocky/",
-            true,
+            false,
         ),
         "almalinux" => (
             "official_cdn",
