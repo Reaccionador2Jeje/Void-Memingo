@@ -1111,7 +1111,7 @@ pub fn ensure_distro_center_downloads_enabled(
         .any(|enabled| enabled == distribution_id)
     {
         return Err(format!(
-            "Las descargas automatizadas aún no están habilitadas para {distribution_id}. Solo se admiten Debian, Arch Linux, Ubuntu, Fedora y openSUSE."
+            "Las descargas automatizadas aún no están habilitadas para {distribution_id}. Solo se admiten Debian, Arch Linux y Ubuntu."
         ));
     }
 
