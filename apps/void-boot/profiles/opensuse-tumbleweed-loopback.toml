@@ -1,0 +1,13 @@
+# Experimental openSUSE Tumbleweed loopback entry.
+# SUSE KIWI documentation describes loading the ISO's embedded
+# /boot/grub2/loopback.cfg with GRUB source after loopback mounting.
+# Verify the exact ISO contains this file before using this profile.
+[[profiles]]
+id = "opensuse-tumbleweed-x86_64-loopback-experimental"
+name = "openSUSE Tumbleweed (x86_64, experimental)"
+iso = "iso/opensuse-tumbleweed.iso"
+kernel = "unused"
+initrd = "unused"
+linux_args = []
+loopback_config = "boot/grub2/loopback.cfg"
+loopback_config_source = true
