@@ -1910,6 +1910,13 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://nixos.org/download/",
             false,
         ),
+        "deepin" => (
+            "official_release_iso_repository",
+            "Repositorio oficial de ISOs Deepin",
+            "Void Boot construye la ruta exacta en cdimage.deepin.com/releases y valida versión, arquitectura y nombre de archivo; admite amd64, arm64, loong64 y riscv64.",
+            "https://www.deepin.org/en/mirrors/",
+            false,
+        ),
         "gentoo" => (
             "official_live_build_index",
             "Índice oficial de ISOs Gentoo",
