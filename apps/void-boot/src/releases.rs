@@ -480,6 +480,8 @@ pub struct DebianDownloadCandidate {
 pub fn list_debian_official_download_candidates(
     artifact_path: &str,
 ) -> Result<Vec<DebianDownloadCandidate>, String> {
+    const HOST: &str = "cloudfront.debian.net";
+
     if artifact_path.is_empty()
         || artifact_path.starts_with('/')
         || artifact_path.contains("..")
