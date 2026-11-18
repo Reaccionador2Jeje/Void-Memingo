@@ -888,9 +888,7 @@ pub fn list_rocky_official_download_candidates(
     if !safe_relative_iso_path(artifact_path) {
         return Err("Indica una ruta relativa válida de ISO Rocky Linux.".into());
     }
-    if !artifact_path.starts_with("10/isos/")
-        && !artifact_path.starts_with("9/isos/")
-    {
+    if !artifact_path.starts_with("10/isos/") && !artifact_path.starts_with("9/isos/") {
         return Err("La ruta Rocky debe comenzar por 9/isos/ o 10/isos/.".into());
     }
     let url = format!("https://download.rockylinux.org/pub/rocky/{artifact_path}");
@@ -1468,10 +1466,9 @@ mod tests {
 
     #[test]
     fn rocky_resolver_builds_only_official_versioned_iso_paths() {
-        let candidates = list_rocky_official_download_candidates(
-            "10/isos/x86_64/Rocky-10.1-x86_64-minimal.iso",
-        )
-        .unwrap();
+        let candidates =
+            list_rocky_official_download_candidates("10/isos/x86_64/Rocky-10.1-x86_64-minimal.iso")
+                .unwrap();
         assert_eq!(candidates.len(), 1);
         assert_eq!(
             candidates[0].url,
