@@ -752,6 +752,37 @@ mod tests {
     }
 
     #[test]
+    fn kali_redirect_parser_uses_only_https_candidates_advertised_for_exact_iso() {
+        let path = "kali-2026.3/kali-linux-2026.3-installer-amd64.iso";
+        let links = vec![
+            "<https://mirror.example/kali-images/kali-2026.3/kali-linux-2026.3-installer-amd64.iso>; rel=duplicate; pri=2; geo=gb, <http://plain.example/kali-images/kali-2026.3/kali-linux-2026.3-installer-amd64.iso>; rel=duplicate; pri=1; geo=cl".to_owned(),
+            "<https://kali.download/base-images/kali-2026.3/kali-linux-2026.3-installer-amd64.iso>; rel=duplicate; pri=1; geo=global".to_owned(),
+        ];
+        let candidates = parse_kali_redirect_candidates(
+            Some("https://redirect.example/kali-images/kali-2026.3/kali-linux-2026.3-installer-amd64.iso"),
+            &links,
+            path,
+        ).unwrap();
+        assert_eq!(candidates.len(), 3);
+        assert_eq!(candidates[0].priority, 0);
+        assert_eq!(candidates[1].priority, 1);
+        assert!(candidates.iter().all(|candidate| candidate.url.starts_with("https://")));
+        assert!(!candidates.iter().any(|candidate| candidate.url.contains("plain.example")));
+    }
+
+    #[test]
+    fn kali_redirect_parser_rejects_wrong_artifact_and_untrusted_protocols() {
+        let path = "kali-2026.3/kali-linux-2026.3-installer-amd64.iso";
+        let links = vec![
+            "<https://mirror.example/other.iso>; rel=duplicate; pri=1".to_owned(),
+            "<http://mirror.example/kali-2026.3/kali-linux-2026.3-installer-amd64.iso>; rel=duplicate; pri=2".to_owned(),
+        ];
+        assert!(parse_kali_redirect_candidates(None, &links, path).is_err());
+        assert!(list_kali_official_download_candidates("../private.iso").is_err());
+        assert!(list_kali_official_download_candidates("/absolute.iso").is_err());
+    }
+
+    #[test]
     fn arch_mirror_parser_rejects_missing_or_empty_lists() {
         assert!(parse_arch_mirror_status(&serde_json::json!({})).is_err());
         assert!(parse_arch_mirror_status(&serde_json::json!({"urls": []})).is_err());
