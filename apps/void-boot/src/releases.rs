@@ -1214,6 +1214,37 @@ pub fn list_nixos_official_download_candidates(
     }])
 }
 
+/// Resolve Void Linux live installer ISOs from the official current image tree.
+pub fn list_void_linux_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) || !artifact_path.starts_with("live/current/") {
+        return Err("La ruta Void Linux debe estar dentro de live/current/.".into());
+    }
+    let file_name = artifact_path.rsplit('/').next().unwrap_or_default();
+    if !safe_iso_name(file_name)
+        || !file_name.starts_with("void-live-")
+        || !["x86_64", "i686", "aarch64"].iter().any(|arch| file_name.contains(&format!("-{arch}-")))
+        || !(file_name.ends_with("-base.iso") || file_name.ends_with("-xfce.iso"))
+    {
+        return Err("La ruta debe señalar una ISO live oficial Void (base o xfce) con arquitectura admitida.".into());
+    }
+    let url = format!("https://repo-default.voidlinux.org/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Void Linux es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("repo-default.voidlinux.org")
+        || !parsed.path().ends_with(file_name)
+    {
+        return Err("La URL no pertenece al repositorio HTTPS oficial de Void Linux.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Void Linux official image repository".to_owned(),
+        region: "Árbol oficial live/current; endpoint único, no selector de mirrors".to_owned(),
+    }])
+}
+
 /// Build a Deepin ISO URL on the publisher's official release repository.
 pub fn list_deepin_official_download_candidates(
     release: &str,
@@ -1742,6 +1773,13 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://cdimage.kali.org/",
             true,
         ),
+        "void-linux" => (
+            "official_current_image_tree",
+            "Repositorio oficial de imágenes Void Linux",
+            "Void Boot construye rutas exactas únicamente dentro de live/current/ en repo-default.voidlinux.org. El proyecto publica mirrors adicionales, pero este resolver usa el endpoint oficial predeterminado y no los presenta como selector.",
+            "https://voidlinux.org/download/",
+            false,
+        ),
         "mx-linux" => (
             "official_download_page",
             "Descarga oficial de MX Linux",
@@ -1961,6 +1999,25 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn void_linux_resolver_accepts_only_official_current_live_iso_paths() {
+        let candidates = list_void_linux_official_download_candidates(
+            "live/current/void-live-x86_64-20250202-base.iso",
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://repo-default.voidlinux.org/live/current/void-live-x86_64-20250202-base.iso"
+        );
+        assert!(list_void_linux_official_download_candidates("../private.iso").is_err());
+        assert!(list_void_linux_official_download_candidates(
+            "live/current/void-live-x86_64-20250202-unofficial.iso"
+        ).is_err());
+        assert!(list_void_linux_official_download_candidates(
+            "live/20250202/void-live-x86_64-20250202-base.iso"
+        ).is_err());
+    }
 
     #[test]
     fn linux_mint_mirror_parser_excludes_repository_mirrors() {
