@@ -909,7 +909,7 @@ pub fn list_rocky_official_download_candidates(
     }])
 }
 
-/// Resolve AlmaLinux ISO paths using the publisher's own maintained mirror directory.
+/// Resolve AlmaLinux ISO paths on the Foundation's official CDN-backed master host.
 pub fn list_almalinux_official_download_candidates(
     artifact_path: &str,
 ) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
@@ -921,19 +921,20 @@ pub fn list_almalinux_official_download_candidates(
     {
         return Err("La ruta AlmaLinux debe comenzar por 9/isos/ o 10/isos/.".into());
     }
-    let page_url = "https://mirrors.almalinux.org/";
-    let html = fetch_official_mirror_page(
-        page_url,
-        "mirrors.almalinux.org",
-        "VoidBoot-AlmaLinuxMirrorResolver/0.1",
-    )?;
-    parse_publisher_mirror_directory(
-        &html,
-        page_url,
-        artifact_path,
-        &["/almalinux/"],
-        "AlmaLinux official mirror",
-    )
+    let url = format!("https://repo.almalinux.org/almalinux/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de AlmaLinux es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("repo.almalinux.org")
+        || !parsed.path().ends_with(".iso")
+    {
+        return Err("La URL no pertenece al servidor HTTPS oficial de AlmaLinux.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "AlmaLinux official CDN".to_owned(),
+        region: "Servidor maestro oficial".to_owned(),
+    }])
 }
 
 /// Validate a safe relative path ending in an ISO filename.
@@ -1322,11 +1323,11 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             true,
         ),
         "almalinux" => (
-            "official_mirror_directory",
-            "Directorio oficial de mirrors AlmaLinux",
-            "Void Boot consulta el directorio oficial de mirrors de AlmaLinux y acepta únicamente enlaces HTTPS que correspondan a la ruta ISO solicitada.",
-            "https://mirrors.almalinux.org/",
-            true,
+            "official_cdn",
+            "CDN oficial de AlmaLinux",
+            "Void Boot construye la ruta exacta en repo.almalinux.org, servidor maestro oficial de AlmaLinux respaldado por CDN; no mezcla mirrors comunitarios ni estados caducados.",
+            "https://repo.almalinux.org/almalinux/",
+            false,
         ),
         "fedora" => (
             "official_mirrormanager",
@@ -1451,25 +1452,18 @@ mod tests {
     }
 
     #[test]
-    fn almalinux_mirror_parser_accepts_only_official_tree_and_exact_iso() {
-        let html = r#"
-            <a href="https://mirror.example/almalinux/">AlmaLinux official tree</a>
-            <a href="https://mirror.example/other/">Unrelated tree</a>
-            <a href="http://plain.example/almalinux/">Insecure tree</a>
-        "#;
-        let candidates = parse_publisher_mirror_directory(
-            html,
-            "https://mirrors.almalinux.org/",
+    fn almalinux_resolver_uses_only_official_cdn_and_versioned_iso_paths() {
+        let candidates = list_almalinux_official_download_candidates(
             "10/isos/x86_64/AlmaLinux-10-x86_64-dvd.iso",
-            &["/almalinux/"],
-            "AlmaLinux official mirror",
         )
         .unwrap();
         assert_eq!(candidates.len(), 1);
         assert_eq!(
             candidates[0].url,
-            "https://mirror.example/almalinux/10/isos/x86_64/AlmaLinux-10-x86_64-dvd.iso"
+            "https://repo.almalinux.org/almalinux/10/isos/x86_64/AlmaLinux-10-x86_64-dvd.iso"
         );
+        assert!(list_almalinux_official_download_candidates("../private.iso").is_err());
+        assert!(list_almalinux_official_download_candidates("8/isos/x86_64/old.iso").is_err());
     }
 
     #[test]
