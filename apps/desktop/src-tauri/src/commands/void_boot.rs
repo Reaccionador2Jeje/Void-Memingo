@@ -27,6 +27,13 @@ pub fn list_void_boot_arch_official_mirrors() -> Result<Vec<::void_boot::release
 }
 
 #[tauri::command]
+pub fn list_void_boot_kali_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::KaliDownloadCandidate>, String> {
+    ::void_boot::releases::list_kali_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
 pub fn lookup_void_boot_official_release_checksum(
     distribution_id: String,
     file_name: String,
