@@ -1356,6 +1356,75 @@ pub fn list_mageia_official_download_candidates(
     parse_mageia_official_mirrors(&html, artifact_path)
 }
 
+/// Extract exact KDE neon ISO links from the official live-image page.
+pub fn parse_kde_neon_official_download_links(
+    html: &str,
+    page_url: &str,
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if file_name.is_empty()
+        || file_name.len() > 180
+        || !file_name.starts_with("neon-")
+        || !file_name.to_ascii_lowercase().ends_with(".iso")
+        || !file_name.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+    {
+        return Err("Indica el nombre exacto de una ISO KDE neon.".into());
+    }
+    let page = reqwest::Url::parse(page_url)
+        .map_err(|error| format!("Página oficial KDE neon inválida: {error}"))?;
+    let mut candidates = Vec::new();
+    let mut cursor = 0;
+    while cursor < html.len() {
+        let Some(relative_index) = html[cursor..].to_ascii_lowercase().find("href") else { break; };
+        let mut position = cursor + relative_index + 4;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) { position += 1; }
+        if html.as_bytes().get(position) != Some(&b'=') { cursor = position; continue; }
+        position += 1;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) { position += 1; }
+        let Some(&quote) = html.as_bytes().get(position) else { break; };
+        if quote != b'"' && quote != b'\\'' { cursor = position + 1; continue; }
+        let value_start = position + 1;
+        let Some(relative_end) = html[value_start..].find(quote as char) else { break; };
+        let value_end = value_start + relative_end;
+        let raw = html[value_start..value_end].replace("&amp;", "&");
+        cursor = value_end + 1;
+        let Ok(url) = page.join(&raw) else { continue; };
+        if url.scheme() != "https"
+            || url.host_str() != Some("files.kde.org")
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || url.path().rsplit('/').next() != Some(file_name)
+        { continue; }
+        let candidate_url = url.to_string();
+        if candidates.iter().any(|item: &OfficialPathDownloadCandidate| item.url == candidate_url) { continue; }
+        candidates.push(OfficialPathDownloadCandidate {
+            url: candidate_url,
+            provider: "KDE neon official image host".to_owned(),
+            region: "files.kde.org; publisher endpoint may redirect to a mirror".to_owned(),
+        });
+        if candidates.len() == 10 { break; }
+    }
+    if candidates.is_empty() {
+        return Err("La página oficial KDE neon no publicó un enlace files.kde.org para ese nombre exacto.".into());
+    }
+    Ok(candidates)
+}
+
+/// Resolve KDE neon live images from the publisher's current download page.
+pub fn list_kde_neon_official_download_candidates(
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    const PAGE_URL: &str = "https://neon.kde.org/download";
+    let html = fetch_official_mirror_page(
+        PAGE_URL,
+        "neon.kde.org",
+        "VoidBoot-KDENeonResolver/0.1",
+    )?;
+    parse_kde_neon_official_download_links(&html, PAGE_URL, file_name)
+}
+
 /// Build a Deepin ISO URL on the publisher's official release repository.
 pub fn list_deepin_official_download_candidates(
     release: &str,
@@ -1968,6 +2037,13 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://neon.kde.org/download",
             false,
         ),
+        "kde-neon" => (
+            "publisher_live_image_links",
+            "Imágenes live oficiales KDE neon",
+            "Void Boot lee la página oficial y acepta únicamente enlaces HTTPS files.kde.org cuyo nombre coincide exactamente con la ISO solicitada; el endpoint puede redirigir a un mirror externo del proyecto.",
+            "https://neon.kde.org/download",
+            false,
+        ),
         "manjaro" => (
             "official_download_host",
             "Servidor oficial de descargas Manjaro",
@@ -2124,6 +2200,27 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kde_neon_parser_accepts_only_exact_publisher_iso_links() {
+        let html = r#"
+            <a href="https://files.kde.org/neon/images/desk/user/neon-user-desk.iso">ISO</a>
+            <a href="https://files.kde.org/neon/images/desk/user/neon-user-desk.iso.sig">Signature</a>
+            <a href="http://files.kde.org/neon/images/desk/user/neon-user-desk.iso">Insecure</a>
+            <a href="https://evil.example/neon-user-desk.iso">Other host</a>
+        "#;
+        let candidates = parse_kde_neon_official_download_links(
+            html,
+            "https://neon.kde.org/download",
+            "neon-user-desk.iso",
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].url,
+            "https://files.kde.org/neon/images/desk/user/neon-user-desk.iso");
+        assert!(parse_kde_neon_official_download_links(
+            html, "https://neon.kde.org/download", "../neon.iso"
+        ).is_err());
+    }
 
     #[test]
     fn mageia_parser_accepts_only_officially_listed_https_mirror_roots() {
