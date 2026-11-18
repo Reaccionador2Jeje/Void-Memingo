@@ -2135,18 +2135,39 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://getsol.us/download/",
             false,
         ),
-        "windows-11-x64" | "windows-11-arm64" | "windows-10-home" | "windows-10-pro" | "windows-10-ltsc" => (
+        "windows-11-x64" => (
             "official_single_source",
-            "Descarga oficial de Microsoft",
-            "Se utiliza la fuente oficial de Microsoft. No se ofrecen mirrors de terceros ni selección de servidores no autorizados.",
-            "https://www.microsoft.com/software-download/",
+            "Windows 11 x64 · ISO multi-edición oficial",
+            "Acceso directo a la página oficial de Microsoft para Windows 11 x64. Microsoft genera enlaces de ISO firmados y temporales tras seleccionar edición e idioma; Void Boot no los almacena como destinos permanentes.",
+            "https://www.microsoft.com/software-download/windows11",
+            false,
+        ),
+        "windows-11-arm64" => (
+            "official_single_source",
+            "Windows 11 ARM64 · ISO oficial",
+            "Acceso directo a la página oficial específica de Windows 11 ARM64. No se reutiliza la ISO x64 ni se ofrecen mirrors de terceros; los enlaces de descarga son temporales.",
+            "https://www.microsoft.com/software-download/windows11arm64",
+            false,
+        ),
+        "windows-10-home" | "windows-10-pro" => (
+            "official_single_source",
+            "Windows 10 Home/Pro · ISO multi-edición",
+            "Home y Pro comparten el medio multi-edición oficial de Windows 10. La edición instalada depende de la licencia; Microsoft genera enlaces temporales después de seleccionar idioma.",
+            "https://www.microsoft.com/en-us/software-download/windows10ISO",
+            false,
+        ),
+        "windows-10-ltsc" => (
+            "official_single_source",
+            "Windows 10 Enterprise LTSC · Evaluación oficial",
+            "Acceso al Centro de evaluación oficial de Microsoft para ISO Enterprise LTSC. La evaluación tiene condiciones y duración propias; el uso permanente requiere licencia válida.",
+            "https://www.microsoft.com/en-us/evalcenter/download-windows-10-enterprise",
             false,
         ),
         "reactos" => (
-            "official_download_page",
-            "Descarga oficial del proyecto",
-            "Se conserva la página oficial de descarga; no hay un selector de mirrors verificado integrado.",
-            "https://reactos.org/download/",
+            "official_nightly_iso_archive",
+            "ReactOS · Archivo oficial BuildBot",
+            "Void Boot puede resolver una ruta ISO exacta del archivo oficial iso.reactos.org/bootcd/ o /livecd/. Son builds nocturnos de prueba, no el lanzamiento estable; pueden contener regresiones.",
+            "https://reactos.org/getbuilds/index.php?lang=en",
             false,
         ),
         "alpine" => (
@@ -2298,6 +2319,45 @@ fn parse_publisher_iso_links(
     }
     candidates.truncate(20);
     Ok(candidates)
+}
+
+
+/// Resolve an exact ReactOS nightly BootCD or LiveCD ISO from the official BuildBot archive.
+/// This is explicitly a nightly channel, not a stable-release ISO.
+pub fn list_reactos_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path)
+        || artifact_path.matches('/').count() != 1
+        || !(artifact_path.starts_with("bootcd/") || artifact_path.starts_with("livecd/"))
+    {
+        return Err(
+            "ReactOS acepta únicamente una ruta ISO exacta dentro de bootcd/ o livecd/ del archivo oficial."
+                .into(),
+        );
+    }
+    let file_name = artifact_path.rsplit('/').next().unwrap_or_default();
+    if !safe_iso_name(file_name) {
+        return Err("El archivo ReactOS debe ser una ISO con nombre válido.".into());
+    }
+    let url = format!("https://iso.reactos.org/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de ReactOS es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("iso.reactos.org")
+        || parsed.path() != format!("/{artifact_path}")
+    {
+        return Err("La ruta no pertenece al archivo HTTPS oficial de ReactOS.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "ReactOS official BuildBot ISO archive".to_owned(),
+        region: if artifact_path.starts_with("bootcd/") {
+            "Build nocturno BootCD; puede contener regresiones".to_owned()
+        } else {
+            "Build nocturno LiveCD; puede contener regresiones".to_owned()
+        },
+    }])
 }
 
 /// Resolve Slackware 15.0 installer DVDs from the project's official ISO index.
@@ -3093,5 +3153,29 @@ mod tests {
         )
         .is_err());
     }
+
+    #[test]
+    fn reactos_resolver_is_pinned_to_official_nightly_iso_archive() {
+        let candidates = list_reactos_official_download_candidates(
+            "bootcd/reactos-bootcd-20261118-r12345-gabc1234.iso",
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://iso.reactos.org/bootcd/reactos-bootcd-20261118-r12345-gabc1234.iso"
+        );
+        assert!(candidates[0].region.contains("nocturno"));
+        assert!(list_reactos_official_download_candidates("../bootcd/image.iso").is_err());
+        assert!(list_reactos_official_download_candidates(
+            "other/image.iso"
+        )
+        .is_err());
+        assert!(list_reactos_official_download_candidates(
+            "bootcd/subdir/image.iso"
+        )
+        .is_err());
+    }
+
 
 }
