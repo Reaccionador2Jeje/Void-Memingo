@@ -2201,6 +2201,7 @@ pub struct DistroCenterReleaseGate {
 // eligible for automated downloads. Boot-profile validation is a separate release gate.
 const DOWNLOAD_ENABLED_DISTRIBUTIONS: &[&str] = &[
     "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
+    "antix", "rocky-linux", "almalinux", "centos-stream",
 ];
 
 pub fn distro_center_release_gate() -> DistroCenterReleaseGate {
@@ -2213,7 +2214,7 @@ pub fn distro_center_release_gate() -> DistroCenterReleaseGate {
         download_enabled_systems: enabled_distribution_ids.len(),
         required_systems: 40,
         enabled_distribution_ids,
-        message: "Descargas automatizadas habilitadas para Debian, Arch Linux, Ubuntu, Lubuntu, Kubuntu, Xubuntu, Fedora y openSUSE mediante adaptadores de manifiestos oficiales SHA-256. El SHA-256 se vuelve a consultar en el backend antes de descargar. Esto no certifica el arranque multiboot; la compatibilidad BIOS/UEFI se valida por separado.".to_owned(),
+        message: "Descargas automatizadas habilitadas para 12 distribuciones con adaptadores SHA-256 oficiales: Debian, Arch, Ubuntu y sabores, Fedora, openSUSE, antiX, Rocky Linux, AlmaLinux y CentOS Stream. Oracle Linux permanece bloqueado hasta verificar criptográficamente su firma OpenPGP. Esto no certifica el arranque multiboot; BIOS/UEFI se valida por separado.".to_owned(),
     }
 }
 
@@ -2230,7 +2231,7 @@ pub fn ensure_distro_center_downloads_enabled(
         .any(|enabled| enabled == distribution_id)
     {
         return Err(format!(
-            "Las descargas automatizadas aún no están habilitadas para {distribution_id}. Sistemas con adaptador SHA-256 habilitado: Debian, Arch Linux, Ubuntu, Lubuntu, Kubuntu, Xubuntu, Fedora y openSUSE."
+            "Las descargas automatizadas aún no están habilitadas para {distribution_id}. Solo se permiten sistemas incluidos en la lista de adaptadores SHA-256 oficiales revisados."
         ));
     }
 
@@ -3302,18 +3303,18 @@ mod tests {
     fn distro_center_downloads_are_limited_to_official_checksum_adapters() {
         let gate = distro_center_release_gate();
         assert!(gate.downloads_enabled);
-        assert_eq!(gate.download_enabled_systems, 8);
+        assert_eq!(gate.download_enabled_systems, 12);
         assert_eq!(gate.required_systems, 40);
         for id in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
-            "oracle-linux", "centos-stream",
+            "centos-stream", "antix", "rocky-linux", "almalinux",
         ] {
             assert!(gate
                 .enabled_distribution_ids
                 .iter()
                 .any(|enabled| enabled == id));
         }
-        assert!(!gate.enabled_distribution_ids.iter().any(|enabled| enabled == "antix"));
+        assert!(!gate.enabled_distribution_ids.iter().any(|enabled| enabled == "oracle-linux"));
         assert!(ensure_distro_center_downloads_enabled("kali", "kali.iso", None).is_err());
         assert!(ensure_distro_center_downloads_enabled("fedora", "fedora.iso", None).is_err());
         assert!(ensure_distro_center_downloads_enabled("opensuse", "opensuse.iso", None).is_err());
