@@ -75,7 +75,9 @@ Void Boot is not considered production-ready until every required gate below has
 Until the media builder has passed the safeguards and test gates, Void Boot only inventories removable devices and generates boot menus. It does not partition, format, install a bootloader to, or write to physical drives. Use disposable virtual disks for development and QEMU testing.
 
 
-## Smart Download
+## Download engine foundations (Smart Download deferred)
+
+The checked items below are existing low-level download and source-resolution capabilities. They do not represent the finished Smart Download product. Per the project roadmap, the real Smart Download orchestration—automatic release/architecture selection, mirror scoring and fallback, unified progress/retry/resume policy, integrity verification and library deduplication—must not be implemented or presented as complete until source integration for the full 40-system catalogue is finished.
 
 - [x] Descarga paralela de hasta 8 rangos cuando el servidor admite HTTP Range.
 - [x] Reanudación de partes descargadas en mirrors compatibles con rangos.
