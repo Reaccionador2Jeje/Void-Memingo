@@ -407,7 +407,6 @@ fn parse_kali_redirect_candidates(
 pub fn list_kali_official_download_candidates(
     artifact_path: &str,
 ) -> Result<Vec<KaliDownloadCandidate>, String> {
-    const HOST: &str = "cloudfront.debian.net";
     if artifact_path.is_empty()
         || artifact_path.starts_with('/')
         || artifact_path.contains("..")
@@ -466,6 +465,149 @@ pub fn list_kali_official_download_candidates(
         .filter_map(|value| value.to_str().ok().map(str::to_owned))
         .collect::<Vec<_>>();
     parse_kali_redirect_candidates(location, &links, artifact_path)
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct OfficialPathDownloadCandidate {
+    pub url: String,
+    pub provider: String,
+    pub region: String,
+}
+
+/// Resolve Fedora's official download redirector for one exact ISO path.
+/// MirrorManager chooses the mirror; only HTTPS redirects for the exact artifact are accepted.
+pub fn list_fedora_official_download_candidates(
+    release: &str,
+    edition: &str,
+    architecture: &str,
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    fn safe_segment(value: &str) -> bool {
+        !value.is_empty()
+            && value.len() <= 80
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+            && !value.contains("..")
+    }
+
+    if !safe_segment(release)
+        || !safe_segment(edition)
+        || !matches!(architecture, "x86_64" | "aarch64")
+        || !safe_segment(file_name)
+        || !file_name.to_ascii_lowercase().ends_with(".iso")
+    {
+        return Err("Indica versión, edición, arquitectura y nombre de ISO Fedora válidos.".into());
+    }
+
+    let artifact_path = format!("{release}/{edition}/{architecture}/iso/{file_name}");
+    let redirector = "download.fedoraproject.org";
+    let url = format!("https://{redirector}/pub/fedora/linux/releases/{artifact_path}");
+    let addresses = (redirector, 443)
+        .to_socket_addrs()
+        .map_err(|error| format!("No se pudo resolver el redirector oficial de Fedora: {error}"))?
+        .collect::<Vec<_>>();
+    if addresses.is_empty()
+        || addresses.iter().any(|address| !crate::download::is_safe_ip(address.ip()))
+    {
+        return Err("El redirector oficial de Fedora resolvió a una dirección no pública.".into());
+    }
+
+    let client = reqwest::blocking::Client::builder()
+        .resolve_to_addrs(redirector, &addresses)
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(15))
+        .user_agent("VoidBoot-FedoraMirrorResolver/0.1")
+        .build()
+        .map_err(|error| format!("No se pudo preparar la consulta a Fedora: {error}"))?;
+    let response = client
+        .get(&url)
+        .header(reqwest::header::RANGE, "bytes=0-0")
+        .send()
+        .map_err(|error| format!("No se pudo consultar el redirector oficial de Fedora: {error}"))?;
+    if !response.status().is_redirection() || response.url().as_str() != url {
+        return Err(format!(
+            "El redirector oficial de Fedora respondió con {}; no se siguieron redirecciones.",
+            response.status()
+        ));
+    }
+
+    let location = response
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| "Fedora no anunció un destino de mirror en la respuesta.".to_string())?;
+    let candidate = reqwest::Url::parse(location)
+        .map_err(|error| format!("Fedora anunció una URL de mirror inválida: {error}"))?;
+    if candidate.scheme() != "https"
+        || candidate.host_str().is_none()
+        || !candidate.username().is_empty()
+        || candidate.password().is_some()
+        || candidate.query().is_some()
+        || candidate.fragment().is_some()
+        || !candidate.path().ends_with(&artifact_path)
+    {
+        return Err("El destino anunciado por Fedora no es HTTPS o no coincide con la ISO exacta.".into());
+    }
+
+    Ok(vec![OfficialPathDownloadCandidate {
+        url: candidate.to_string(),
+        provider: "Fedora MirrorManager".to_owned(),
+        region: "Mirror oficial asignado".to_owned(),
+    }])
+}
+
+/// Resolve official Ubuntu and flavour ISO locations. This is a publisher endpoint,
+/// not a claim that every image has a selectable mirror list.
+pub fn list_ubuntu_official_download_candidates(
+    distribution_id: &str,
+    release: &str,
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    fn safe_segment(value: &str) -> bool {
+        !value.is_empty()
+            && value.len() <= 80
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+            && !value.contains("..")
+    }
+
+    if !safe_segment(release)
+        || !safe_segment(file_name)
+        || !file_name.to_ascii_lowercase().ends_with(".iso")
+    {
+        return Err("Indica una versión y un nombre de ISO válidos.".into());
+    }
+
+    let url = match distribution_id {
+        "ubuntu" => format!("https://releases.ubuntu.com/{release}/{file_name}"),
+        "lubuntu" | "kubuntu" | "xubuntu" => {
+            format!("https://cdimage.ubuntu.com/{distribution_id}/releases/{release}/release/{file_name}")
+        }
+        _ => return Err("Esta distribución no pertenece a los canales oficiales Ubuntu admitidos.".into()),
+    };
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Ubuntu es inválida: {error}"))?;
+    let expected_host = if distribution_id == "ubuntu" {
+        "releases.ubuntu.com"
+    } else {
+        "cdimage.ubuntu.com"
+    };
+    if parsed.scheme() != "https" || parsed.host_str() != Some(expected_host) {
+        return Err("La URL no pertenece al servidor HTTPS oficial esperado de Ubuntu.".into());
+    }
+
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: if distribution_id == "ubuntu" {
+            "Ubuntu Releases".to_owned()
+        } else {
+            "Ubuntu CD Image".to_owned()
+        },
+        region: "Servidor oficial".to_owned(),
+    }])
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -729,6 +871,30 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ubuntu_official_iso_resolver_uses_publisher_hosts_and_rejects_unknown_projects() {
+        let ubuntu = list_ubuntu_official_download_candidates(
+            "ubuntu", "24.04.3", "ubuntu-24.04.3-desktop-amd64.iso",
+        ).unwrap();
+        assert_eq!(ubuntu[0].url, "https://releases.ubuntu.com/24.04.3/ubuntu-24.04.3-desktop-amd64.iso");
+
+        let lubuntu = list_ubuntu_official_download_candidates(
+            "lubuntu", "24.04.3", "lubuntu-24.04.3-desktop-amd64.iso",
+        ).unwrap();
+        assert!(lubuntu[0].url.starts_with("https://cdimage.ubuntu.com/lubuntu/releases/24.04.3/release/"));
+        assert!(list_ubuntu_official_download_candidates("mint", "24.04", "mint.iso").is_err());
+        assert!(list_ubuntu_official_download_candidates("ubuntu", "../24.04", "ubuntu.iso").is_err());
+        assert!(list_ubuntu_official_download_candidates("ubuntu", "24.04", "../ubuntu.iso").is_err());
+    }
+
+    #[test]
+    fn fedora_path_inputs_reject_traversal_and_unsupported_architectures() {
+        // Input validation is performed before any DNS or network access.
+        assert!(list_fedora_official_download_candidates("..", "Workstation", "x86_64", "fedora.iso").is_err());
+        assert!(list_fedora_official_download_candidates("45", "Workstation", "i686", "fedora.iso").is_err());
+        assert!(list_fedora_official_download_candidates("45", "Workstation", "x86_64", "../fedora.iso").is_err());
+    }
 
     #[test]
     fn debian_candidate_uses_only_the_official_cdn_and_safe_relative_paths() {
