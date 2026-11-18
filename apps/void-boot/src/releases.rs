@@ -105,6 +105,10 @@ pub fn supported_release_sources() -> Vec<(String, String)> {
         "rocky-linux".to_owned(),
         "Rocky Linux 9/10 · CHECKSUM oficial x86_64".to_owned(),
     ));
+    sources.push((
+        "almalinux".to_owned(),
+        "AlmaLinux 9/10 · CHECKSUM oficial x86_64".to_owned(),
+    ));
     sources
 }
 
@@ -145,52 +149,119 @@ fn rocky_checksum_url_for_iso(file_name: &str) -> Result<(String, String), Strin
     ))
 }
 
-fn lookup_rocky_release_checksum(file_name: &str) -> Result<OfficialReleaseChecksum, String> {
-    let (manifest_url, host) = rocky_checksum_url_for_iso(file_name)?;
-    let url = reqwest::Url::parse(&manifest_url)
-        .map_err(|error| format!("URL del checksum Rocky inválida: {error}"))?;
+fn lookup_pinned_checksum_manifest(
+    distribution_id: &str,
+    release_label: &str,
+    file_name: &str,
+    manifest_url: &str,
+    host: &str,
+) -> Result<OfficialReleaseChecksum, String> {
+    let url = reqwest::Url::parse(manifest_url)
+        .map_err(|error| format!("URL del checksum oficial inválida: {error}"))?;
+    if url.scheme() != "https" || url.host_str() != Some(host) {
+        return Err("La fuente de checksum no supera la validación HTTPS del editor.".into());
+    }
     let port = url.port_or_known_default()
-        .ok_or_else(|| "No se pudo determinar el puerto HTTPS de Rocky Linux.".to_string())?;
-    let addresses = (host.as_str(), port)
+        .ok_or_else(|| "No se pudo determinar el puerto HTTPS de la fuente.".to_string())?;
+    let addresses = (host, port)
         .to_socket_addrs()
         .map_err(|error| format!("No se pudo resolver {host}: {error}"))?
         .collect::<Vec<_>>();
     if addresses.is_empty()
         || addresses.iter().any(|address| !crate::download::is_safe_ip(address.ip()))
     {
-        return Err("La fuente oficial Rocky Linux resolvió a una dirección no pública.".into());
+        return Err(format!("La fuente oficial {host} resolvió a una dirección no pública."));
     }
     let client = reqwest::blocking::Client::builder()
-        .resolve_to_addrs(&host, &addresses)
+        .resolve_to_addrs(host, &addresses)
         .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(Duration::from_secs(8))
         .timeout(Duration::from_secs(15))
-        .user_agent("VoidBoot-RockyChecksum/0.1")
+        .user_agent("VoidBoot-OfficialChecksum/0.1")
         .build()
-        .map_err(|error| format!("No se pudo preparar la consulta Rocky Linux: {error}"))?;
-    let response = client.get(&manifest_url).send()
-        .map_err(|error| format!("No se pudo consultar el CHECKSUM oficial de Rocky Linux: {error}"))?;
+        .map_err(|error| format!("No se pudo preparar la consulta a {host}: {error}"))?;
+    let response = client.get(manifest_url).send()
+        .map_err(|error| format!("No se pudo consultar el checksum oficial: {error}"))?;
     if !response.status().is_success() || response.url().as_str() != manifest_url {
-        return Err(format!("Rocky Linux respondió con {} o intentó redirigir; no se siguieron redirecciones.", response.status()));
+        return Err(format!("{host} respondió con {} o intentó redirigir; no se siguieron redirecciones.", response.status()));
     }
     if response.content_length().is_some_and(|length| length > MAX_MANIFEST_BYTES) {
-        return Err("El CHECKSUM oficial de Rocky Linux supera el límite permitido.".into());
+        return Err("El manifiesto oficial supera el límite de tamaño permitido.".into());
     }
     let mut manifest = String::new();
     response.take(MAX_MANIFEST_BYTES + 1).read_to_string(&mut manifest)
-        .map_err(|error| format!("No se pudo leer el CHECKSUM de Rocky Linux: {error}"))?;
+        .map_err(|error| format!("No se pudo leer el manifiesto oficial: {error}"))?;
     if manifest.len() as u64 > MAX_MANIFEST_BYTES {
-        return Err("El CHECKSUM oficial de Rocky Linux supera el límite permitido.".into());
+        return Err("El manifiesto oficial supera el límite de tamaño permitido.".into());
     }
     let sha256 = crate::parse_manifest_sha256(&manifest, file_name)
         .map_err(|error| format!("No se encontró un SHA-256 único para {file_name}: {error}"))?;
     Ok(OfficialReleaseChecksum {
-        distribution_id: "rocky-linux".to_owned(),
-        release_label: "Rocky Linux · CHECKSUM oficial x86_64".to_owned(),
-        manifest_url,
+        distribution_id: distribution_id.to_owned(),
+        release_label: release_label.to_owned(),
+        manifest_url: manifest_url.to_owned(),
         file_name: file_name.to_owned(),
         sha256,
     })
+}
+
+fn lookup_rocky_release_checksum(file_name: &str) -> Result<OfficialReleaseChecksum, String> {
+    let (manifest_url, host) = rocky_checksum_url_for_iso(file_name)?;
+    lookup_pinned_checksum_manifest(
+        "rocky-linux",
+        "Rocky Linux · CHECKSUM oficial x86_64",
+        file_name,
+        &manifest_url,
+        &host,
+    )
+}
+
+fn almalinux_checksum_url_for_iso(file_name: &str) -> Result<(String, String), String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("AlmaLinux-") {
+        return Err("Indica el nombre exacto de una ISO AlmaLinux.".into());
+    }
+    let stem = file_name.strip_suffix(".iso").unwrap_or_default();
+    let parts = stem.split('-').collect::<Vec<_>>();
+    if parts.len() < 4 || parts[0] != "AlmaLinux" {
+        return Err("El nombre de ISO AlmaLinux no tiene el formato oficial esperado.".into());
+    }
+    let release = parts[1];
+    if release.is_empty()
+        || !release.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.')
+        || release.starts_with('.')
+        || release.ends_with('.')
+        || release.contains("..")
+    {
+        return Err("La versión de AlmaLinux no es válida.".into());
+    }
+    let major = release.split('.').next().unwrap_or_default();
+    if !matches!(major, "9" | "10") {
+        return Err("El adaptador AlmaLinux cubre únicamente las ramas 9 y 10.".into());
+    }
+    let architecture_index = parts.iter().position(|part| *part == "x86_64");
+    let Some(architecture_index) = architecture_index else {
+        return Err("El adaptador AlmaLinux cubre únicamente x86_64.".into());
+    };
+    if architecture_index + 1 != parts.len() - 1
+        || !matches!(parts.last().copied(), Some("boot" | "dvd" | "minimal"))
+    {
+        return Err("El tipo de ISO AlmaLinux no está admitido por este adaptador.".into());
+    }
+    Ok((
+        format!("https://repo.almalinux.org/almalinux/{major}/isos/x86_64/CHECKSUM"),
+        "repo.almalinux.org".to_owned(),
+    ))
+}
+
+fn lookup_almalinux_release_checksum(file_name: &str) -> Result<OfficialReleaseChecksum, String> {
+    let (manifest_url, host) = almalinux_checksum_url_for_iso(file_name)?;
+    lookup_pinned_checksum_manifest(
+        "almalinux",
+        "AlmaLinux · CHECKSUM oficial x86_64",
+        file_name,
+        &manifest_url,
+        &host,
+    )
 }
 
 fn parse_antix_sha256_html(html: &str, file_name: &str) -> Result<String, String> {
@@ -251,6 +322,10 @@ pub fn lookup_official_release_checksum(
 
     if distribution_id == "rocky-linux" {
         return lookup_rocky_release_checksum(file_name);
+    }
+
+    if distribution_id == "almalinux" {
+        return lookup_almalinux_release_checksum(file_name);
     }
 
     if distribution_id == "antix" {
@@ -3243,6 +3318,22 @@ mod tests {
     }
 
     #[test]
+    fn almalinux_checksum_adapter_builds_only_supported_official_manifest_paths() {
+        assert_eq!(
+            almalinux_checksum_url_for_iso("AlmaLinux-10.2-x86_64-dvd.iso").unwrap().0,
+            "https://repo.almalinux.org/almalinux/10/isos/x86_64/CHECKSUM"
+        );
+        assert_eq!(
+            almalinux_checksum_url_for_iso("AlmaLinux-9.6-x86_64-minimal.iso").unwrap().0,
+            "https://repo.almalinux.org/almalinux/9/isos/x86_64/CHECKSUM"
+        );
+        assert!(almalinux_checksum_url_for_iso("../AlmaLinux-10-x86_64-dvd.iso").is_err());
+        assert!(almalinux_checksum_url_for_iso("AlmaLinux-8.10-x86_64-dvd.iso").is_err());
+        assert!(almalinux_checksum_url_for_iso("AlmaLinux-10.2-aarch64-dvd.iso").is_err());
+        assert!(almalinux_checksum_url_for_iso("AlmaLinux-10.2-x86_64-other.iso").is_err());
+    }
+
+    #[test]
     fn antix_sha256_parser_accepts_exact_publisher_hash_and_rejects_conflicts() {
         let html = r#"
             <section>
@@ -3270,7 +3361,7 @@ mod tests {
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 10);
+        assert_eq!(sources.len(), 11);
         for expected in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
         ] {
