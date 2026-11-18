@@ -1081,8 +1081,7 @@ pub struct DistroCenterReleaseGate {
 
 // Only distributions with a built-in publisher-hosted SHA-256 manifest adapter are
 // eligible for automated downloads. Boot-profile validation is a separate release gate.
-const DOWNLOAD_ENABLED_DISTRIBUTIONS: &[&str] =
-    &["debian", "arch", "ubuntu"];
+const DOWNLOAD_ENABLED_DISTRIBUTIONS: &[&str] = &["debian", "arch", "ubuntu"];
 
 pub fn distro_center_release_gate() -> DistroCenterReleaseGate {
     let enabled_distribution_ids = DOWNLOAD_ENABLED_DISTRIBUTIONS
@@ -1122,7 +1121,9 @@ pub fn ensure_distro_center_downloads_enabled(
             "Consulta el SHA-256 oficial en línea antes de descargar esta ISO.".to_string()
         })?;
     if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err("El SHA-256 oficial esperado debe contener 64 caracteres hexadecimales.".into());
+        return Err(
+            "El SHA-256 oficial esperado debe contener 64 caracteres hexadecimales.".into(),
+        );
     }
 
     let official = lookup_official_release_checksum(distribution_id, file_name)?;
@@ -1502,10 +1503,13 @@ mod tests {
     fn distro_center_downloads_are_limited_to_official_checksum_adapters() {
         let gate = distro_center_release_gate();
         assert!(gate.downloads_enabled);
-        assert_eq!(gate.download_enabled_systems, 5);
+        assert_eq!(gate.download_enabled_systems, 3);
         assert_eq!(gate.required_systems, 40);
         for id in ["debian", "arch", "ubuntu"] {
-            assert!(gate.enabled_distribution_ids.iter().any(|enabled| enabled == id));
+            assert!(gate
+                .enabled_distribution_ids
+                .iter()
+                .any(|enabled| enabled == id));
         }
         assert!(ensure_distro_center_downloads_enabled("kali", "kali.iso", None).is_err());
         assert!(ensure_distro_center_downloads_enabled("fedora", "fedora.iso", None).is_err());
