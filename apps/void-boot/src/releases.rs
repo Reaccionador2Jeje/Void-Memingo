@@ -109,6 +109,10 @@ pub fn supported_release_sources() -> Vec<(String, String)> {
         "almalinux".to_owned(),
         "AlmaLinux 9/10 · CHECKSUM oficial x86_64".to_owned(),
     ));
+    sources.push((
+        "oracle-linux".to_owned(),
+        "Oracle Linux 9/10 · checksum oficial x86_64".to_owned(),
+    ));
     sources
 }
 
@@ -266,6 +270,46 @@ fn lookup_almalinux_release_checksum(file_name: &str) -> Result<OfficialReleaseC
     )
 }
 
+fn oracle_linux_checksum_url_for_iso(file_name: &str) -> Result<(String, String), String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("OracleLinux-") {
+        return Err("Indica el nombre exacto de una ISO Oracle Linux.".into());
+    }
+    let stem = file_name.strip_suffix(".iso").unwrap_or_default();
+    let parts = stem.split('-').collect::<Vec<_>>();
+    if parts.len() != 5 || parts[0] != "OracleLinux" {
+        return Err("El nombre de ISO Oracle Linux no tiene el formato oficial esperado.".into());
+    }
+    let release = parts[1];
+    let major = release.strip_prefix('R').unwrap_or_default();
+    if !matches!(major, "9" | "10") {
+        return Err("El adaptador Oracle Linux cubre únicamente las ramas 9 y 10.".into());
+    }
+    let update = parts[2];
+    let update_number = update.strip_prefix('U').unwrap_or_default();
+    if update_number.is_empty() || !update_number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err("La actualización Oracle Linux debe usar el formato U<n>.".into());
+    }
+    if parts[3] != "x86_64" || !matches!(parts[4], "dvd" | "boot" | "boot-uek") {
+        return Err("El adaptador Oracle Linux cubre ISO x86_64 DVD/boot/boot-uek.".into());
+    }
+    let checksum_name = format!("OracleLinux-{release}-{update}-Server-x86_64.checksum");
+    Ok((
+        format!("https://linux.oracle.com/security/gpg/checksum/{checksum_name}"),
+        "linux.oracle.com".to_owned(),
+    ))
+}
+
+fn lookup_oracle_linux_release_checksum(file_name: &str) -> Result<OfficialReleaseChecksum, String> {
+    let (manifest_url, host) = oracle_linux_checksum_url_for_iso(file_name)?;
+    lookup_pinned_checksum_manifest(
+        "oracle-linux",
+        "Oracle Linux · checksum oficial x86_64 (firma OpenPGP no verificada)",
+        file_name,
+        &manifest_url,
+        &host,
+    )
+}
+
 fn parse_antix_sha256_html(html: &str, file_name: &str) -> Result<String, String> {
     if !safe_iso_name(file_name) || !file_name.starts_with("antiX-") {
         return Err("Indica el nombre exacto de una ISO antiX.".into());
@@ -328,6 +372,10 @@ pub fn lookup_official_release_checksum(
 
     if distribution_id == "almalinux" {
         return lookup_almalinux_release_checksum(file_name);
+    }
+
+    if distribution_id == "oracle-linux" {
+        return lookup_oracle_linux_release_checksum(file_name);
     }
 
     if distribution_id == "antix" {
@@ -3203,6 +3251,7 @@ mod tests {
         assert_eq!(gate.required_systems, 40);
         for id in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
+            "oracle-linux",
         ] {
             assert!(gate
                 .enabled_distribution_ids
@@ -3338,6 +3387,23 @@ mod tests {
     }
 
     #[test]
+    fn oracle_linux_checksum_adapter_builds_only_supported_signed_manifest_paths() {
+        assert_eq!(
+            oracle_linux_checksum_url_for_iso("OracleLinux-R10-U2-x86_64-dvd.iso").unwrap().0,
+            "https://linux.oracle.com/security/gpg/checksum/OracleLinux-R10-U2-Server-x86_64.checksum"
+        );
+        assert_eq!(
+            oracle_linux_checksum_url_for_iso("OracleLinux-R9-U9-x86_64-boot-uek.iso").unwrap().0,
+            "https://linux.oracle.com/security/gpg/checksum/OracleLinux-R9-U9-Server-x86_64.checksum"
+        );
+        assert!(oracle_linux_checksum_url_for_iso("../OracleLinux-R10-U2-x86_64-dvd.iso").is_err());
+        assert!(oracle_linux_checksum_url_for_iso("OracleLinux-R8-U10-x86_64-dvd.iso").is_err());
+        assert!(oracle_linux_checksum_url_for_iso("OracleLinux-R10-U2-aarch64-dvd.iso").is_err());
+        assert!(oracle_linux_checksum_url_for_iso("OracleLinux-R10-U2-x86_64-src.iso").is_err());
+        assert!(oracle_linux_checksum_url_for_iso("OracleLinux-R10-2-x86_64-dvd.iso").is_err());
+    }
+
+    #[test]
     fn antix_sha256_parser_accepts_exact_publisher_hash_and_rejects_conflicts() {
         let html = r#"
             <section>
@@ -3365,7 +3431,7 @@ mod tests {
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 11);
+        assert_eq!(sources.len(), 12);
         for expected in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
         ] {
