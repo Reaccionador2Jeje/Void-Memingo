@@ -3178,4 +3178,47 @@ mod tests {
     }
 
 
+    #[test]
+    fn windows_distribution_ids_use_the_correct_microsoft_download_pages() {
+        let expected = [
+            (
+                "windows-11-x64",
+                "https://www.microsoft.com/software-download/windows11",
+            ),
+            (
+                "windows-11-arm64",
+                "https://www.microsoft.com/software-download/windows11arm64",
+            ),
+            (
+                "windows-10-home",
+                "https://www.microsoft.com/en-us/software-download/windows10ISO",
+            ),
+            (
+                "windows-10-pro",
+                "https://www.microsoft.com/en-us/software-download/windows10ISO",
+            ),
+            (
+                "windows-10-ltsc",
+                "https://www.microsoft.com/en-us/evalcenter/download-windows-10-enterprise",
+            ),
+        ];
+        for (distribution_id, expected_url) in expected {
+            let support = mirror_support_for_distribution(distribution_id).unwrap();
+            assert_eq!(support.source_url, expected_url, "{distribution_id}");
+            assert!(!support.selectable);
+        }
+    }
+
+    #[test]
+    fn reactos_policy_marks_the_buildbot_channel_as_nightly() {
+        let support = mirror_support_for_distribution("reactos").unwrap();
+        assert_eq!(support.mode, "official_nightly_iso_archive");
+        assert_eq!(
+            support.source_url,
+            "https://reactos.org/getbuilds/index.php?lang=en"
+        );
+        assert!(support.description.contains("nocturnos"));
+    }
+
+
 }
