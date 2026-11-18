@@ -64,6 +64,13 @@ pub fn list_void_boot_ubuntu_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_opensuse_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_opensuse_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
 pub fn lookup_void_boot_official_release_checksum(
     distribution_id: String,
     file_name: String,
