@@ -40,7 +40,7 @@ type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_s
 type BottomView = 'problems' | 'output' | 'terminal';
 
 function normalizeDistroArchitecture(value: string): string {
-  const architecture = value.trim().toLocaleLowerCase().replace(/\\s+/g, '');
+  const architecture = value.trim().toLocaleLowerCase().replace(/\s+/g, '');
   if (['amd64', 'x64', 'x86-64', 'x86_64'].includes(architecture)) return 'x86_64';
   if (['arm64', 'aarch64', 'armv8', 'armv8l'].includes(architecture)) return 'aarch64';
   if (['armhf', 'armv7', 'armv7l'].includes(architecture)) return 'armhf';
