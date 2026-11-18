@@ -1099,7 +1099,9 @@ pub struct DistroCenterReleaseGate {
 
 // Only distributions with a built-in publisher-hosted SHA-256 manifest adapter are
 // eligible for automated downloads. Boot-profile validation is a separate release gate.
-const DOWNLOAD_ENABLED_DISTRIBUTIONS: &[&str] = &["debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse"];
+const DOWNLOAD_ENABLED_DISTRIBUTIONS: &[&str] = &[
+    "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
+];
 
 pub fn distro_center_release_gate() -> DistroCenterReleaseGate {
     let enabled_distribution_ids = DOWNLOAD_ENABLED_DISTRIBUTIONS
@@ -1523,7 +1525,9 @@ mod tests {
         assert!(gate.downloads_enabled);
         assert_eq!(gate.download_enabled_systems, 8);
         assert_eq!(gate.required_systems, 40);
-        for id in ["debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse"] {
+        for id in [
+            "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
+        ] {
             assert!(gate
                 .enabled_distribution_ids
                 .iter()
