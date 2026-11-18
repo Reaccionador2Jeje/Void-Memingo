@@ -1872,7 +1872,14 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://nixos.org/download/",
             false,
         ),
-        "endeavouros" | "manjaro" | "void-linux" | "rocky-linux" | "almalinux" | "mageia" | "centos-stream" | "gentoo" | "slackware" | "solus" | "oracle-linux" => (
+        "gentoo" => (
+            "official_live_build_index",
+            "Índice oficial de ISOs Gentoo",
+            "Void Boot consulta el índice latest firmado por Gentoo y obtiene el nombre exacto de la ISO amd64 minimal actual desde su CDN oficial.",
+            "https://distfiles-cdn.gentoo.org/releases/amd64/autobuilds/current-install-amd64-minimal/",
+            false,
+        ),
+        "endeavouros" | "manjaro" | "void-linux" | "rocky-linux" | "almalinux" | "mageia" | "centos-stream" | "slackware" | "solus" | "oracle-linux" => (
             "official_download_page",
             "Descarga oficial del proyecto",
             "Este proyecto mantiene su propia infraestructura de distribución. Void Boot todavía no dispone de un índice de mirrors ISO verificable para esta distribución; usa su página oficial.",
