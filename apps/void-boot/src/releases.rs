@@ -1899,6 +1899,13 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://nixos.org/download/",
             false,
         ),
+        "mx-linux" => (
+            "official_project_download_gateway",
+            "Gateway oficial de descargas MX Linux",
+            "Void Boot construye el enlace HTTPS de la carpeta Final del proyecto MX Linux en SourceForge, usando el nombre exacto de ISO solicitado.",
+            "https://sourceforge.net/projects/mx-linux/files/Final/",
+            false,
+        ),
         "gentoo" => (
             "official_live_build_index",
             "Índice oficial de ISOs Gentoo",
