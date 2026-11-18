@@ -1187,10 +1187,10 @@ pub fn list_nixos_official_download_candidates(
 ) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
     let valid_channel = channel == "nixos-unstable"
         || (channel.starts_with("nixos-")
-            && channel.len() == 10
+            && channel.len() == 11
             && channel.as_bytes()[6..8].iter().all(u8::is_ascii_digit)
             && channel.as_bytes()[8] == b'.'
-            && channel.as_bytes()[9..10].iter().all(u8::is_ascii_digit));
+            && channel.as_bytes()[9..11].iter().all(u8::is_ascii_digit));
     if !valid_channel {
         return Err("El canal NixOS debe ser nixos-unstable o un canal estable como nixos-26.05.".into());
     }
