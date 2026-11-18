@@ -1033,6 +1033,44 @@ pub fn list_manjaro_official_download_candidates(
     }])
 }
 
+/// Resolve Zorin OS images from the Kernel.org mirror explicitly listed by Zorin.
+pub fn list_zorin_official_download_candidates(
+    release: &str,
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    let safe_release = !release.is_empty()
+        && release.len() <= 8
+        && release.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.')
+        && !release.starts_with('.')
+        && !release.ends_with('.')
+        && !release.contains("..");
+    let safe_file = !file_name.is_empty()
+        && file_name.len() <= 160
+        && file_name.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+        && !file_name.contains("..")
+        && file_name.to_ascii_lowercase().ends_with(".iso")
+        && file_name.starts_with(&format!("Zorin-OS-{release}"));
+    if !safe_release || !safe_file {
+        return Err("Indica una versión y un nombre de ISO Zorin OS válidos.".into());
+    }
+
+    // Kernel.org is listed in Zorin's official mirror directory.
+    let url = format!("https://mirrors.edge.kernel.org/zorinos-isos/{release}/{file_name}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Zorin es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("mirrors.edge.kernel.org")
+        || !parsed.path().starts_with("/zorinos-isos/")
+    {
+        return Err("La URL no pertenece al mirror HTTPS publicado por Zorin.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Zorin OS official-listed Kernel.org mirror".to_owned(),
+        region: "Kernel.org · mirror global".to_owned(),
+    }])
+}
+
 /// Parse the exact ISO filename from the mirror links published by EndeavourOS.
 fn parse_endeavouros_mirror_links(
     html: &str,
@@ -1716,6 +1754,32 @@ mod tests {
             "sway", "26.1.3", "installer.iso"
         )
         .is_err());
+    }
+
+    #[test]
+    fn zorin_resolver_uses_only_the_official_listed_kernel_mirror() {
+        let candidates = list_zorin_official_download_candidates(
+            "18",
+            "Zorin-OS-18.1-Core-64-bit.iso",
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://mirrors.edge.kernel.org/zorinos-isos/18/Zorin-OS-18.1-Core-64-bit.iso"
+        );
+        assert!(list_zorin_official_download_candidates(
+            "../18",
+            "Zorin-OS-18-Core-64-bit.iso"
+        ).is_err());
+        assert!(list_zorin_official_download_candidates(
+            "18",
+            "../private.iso"
+        ).is_err());
+        assert!(list_zorin_official_download_candidates(
+            "18",
+            "Ubuntu-18.iso"
+        ).is_err());
     }
 
     #[test]
