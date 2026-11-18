@@ -468,7 +468,6 @@ pub fn list_kali_official_download_candidates(
     parse_kali_redirect_candidates(location, &links, artifact_path)
 }
 
-
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct DebianDownloadCandidate {
     pub url: String,
@@ -737,9 +736,9 @@ mod tests {
         .unwrap();
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].provider, "Debian CloudFront");
-        assert!(candidates[0].url.starts_with(
-            "https://cloudfront.debian.net/debian-cd/current/amd64/iso-cd/"
-        ));
+        assert!(candidates[0]
+            .url
+            .starts_with("https://cloudfront.debian.net/debian-cd/current/amd64/iso-cd/"));
         assert!(list_debian_official_download_candidates("../private.iso").is_err());
         assert!(list_debian_official_download_candidates("/absolute.iso").is_err());
         assert!(list_debian_official_download_candidates("folder\\\\image.iso").is_err());
