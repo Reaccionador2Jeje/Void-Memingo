@@ -1542,7 +1542,11 @@ mod tests {
     #[test]
     fn every_catalogue_entry_has_an_explicit_official_source_policy() {
         let catalogue = crate::catalog::load_distributions().expect("catalogue should load");
-        assert_eq!(catalogue.len(), 40, "Distro Center must cover all 40 entries");
+        assert_eq!(
+            catalogue.len(),
+            40,
+            "Distro Center must cover all 40 entries"
+        );
 
         for distribution in &catalogue {
             let support = mirror_support_for_distribution(&distribution.id)
