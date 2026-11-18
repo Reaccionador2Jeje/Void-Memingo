@@ -1071,6 +1071,92 @@ pub fn list_zorin_official_download_candidates(
     }])
 }
 
+/// Build Pop!_OS ISO URLs on System76's official image host.
+pub fn list_popos_official_download_candidates(
+    release: &str,
+    architecture: &str,
+    channel: &str,
+    build: &str,
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    let safe_release = !release.is_empty()
+        && release.len() <= 8
+        && release.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.')
+        && !release.starts_with('.')
+        && !release.ends_with('.')
+        && !release.contains("..");
+    let safe_build = !build.is_empty()
+        && build.len() <= 6
+        && build.bytes().all(|byte| byte.is_ascii_digit());
+    let expected_name = format!("pop-os_{release}_{architecture}_{channel}_{build}.iso");
+    if !safe_release || !safe_build || architecture != "amd64"
+        || !["generic", "nvidia"].contains(&channel) || file_name != expected_name {
+        return Err("Indica una versión, build, canal y nombre de ISO Pop!_OS válidos (amd64: generic o nvidia).".into());
+    }
+    let url = format!("https://iso.pop-os.org/{release}/{architecture}/{channel}/{build}/{file_name}");
+    let parsed = reqwest::Url::parse(&url).map_err(|error| format!("La URL oficial de Pop!_OS es inválida: {error}"))?;
+    if parsed.scheme() != "https" || parsed.host_str() != Some("iso.pop-os.org") {
+        return Err("La URL no pertenece al host HTTPS oficial de Pop!_OS.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url, provider: "System76 official Pop!_OS ISO host".to_owned(),
+        region: "CDN oficial de System76".to_owned(),
+    }])
+}
+
+/// Parse direct elementary OS download links published on the official website.
+fn parse_elementary_official_download_links(
+    html: &str, page_url: &str, file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    let page = reqwest::Url::parse(page_url)
+        .map_err(|error| format!("Página oficial de elementary OS inválida: {error}"))?;
+    let mut candidates = Vec::new();
+    let mut cursor = 0;
+    while cursor < html.len() {
+        let Some(relative_index) = html[cursor..].to_ascii_lowercase().find("href") else { break; };
+        let mut position = cursor + relative_index + 4;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) { position += 1; }
+        if html.as_bytes().get(position) != Some(&b'=') { cursor = position; continue; }
+        position += 1;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) { position += 1; }
+        let Some(&quote) = html.as_bytes().get(position) else { break; };
+        if quote != b'"' && quote != b'\\'' { cursor = position + 1; continue; }
+        let value_start = position + 1;
+        let Some(relative_end) = html[value_start..].find(quote as char) else { break; };
+        let value_end = value_start + relative_end;
+        let raw = html[value_start..value_end].replace("&amp;", "&");
+        cursor = value_end + 1;
+        let Ok(url) = page.join(&raw) else { continue; };
+        if url.scheme() != "https" || url.host_str() != Some("dl.elementaryos.org")
+            || !url.username().is_empty() || url.password().is_some()
+            || url.query().is_some() || url.fragment().is_some()
+            || url.path().rsplit('/').next() != Some(file_name) { continue; }
+        let candidate_url = url.to_string();
+        if candidates.iter().any(|item: &OfficialPathDownloadCandidate| item.url == candidate_url) { continue; }
+        candidates.push(OfficialPathDownloadCandidate {
+            url: candidate_url, provider: "elementary OS official download gateway".to_owned(),
+            region: "Descarga oficial dinámica".to_owned(),
+        });
+        if candidates.len() == 10 { break; }
+    }
+    if candidates.is_empty() {
+        return Err("La página oficial de elementary OS no anunció un enlace directo para ese nombre exacto de ISO.".into());
+    }
+    Ok(candidates)
+}
+
+/// Resolve elementary OS ISO links from the publisher's live download page.
+pub fn list_elementary_official_download_candidates(file_name: &str)
+    -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("elementaryos-")
+        || !(file_name.contains("-amd64.") || file_name.contains("-arm64.")) {
+        return Err("Indica únicamente el nombre válido de una ISO elementary OS (amd64 o arm64).".into());
+    }
+    const PAGE_URL: &str = "https://elementary.io/en/";
+    let html = fetch_official_mirror_page(PAGE_URL, "elementary.io", "VoidBoot-elementaryOSResolver/0.1")?;
+    parse_elementary_official_download_links(&html, PAGE_URL, file_name)
+}
+
 /// Parse the exact ISO filename from the mirror links published by EndeavourOS.
 fn parse_endeavouros_mirror_links(
     html: &str,
@@ -1780,6 +1866,47 @@ mod tests {
             "18",
             "Ubuntu-18.iso"
         ).is_err());
+    }
+
+    #[test]
+    fn popos_resolver_builds_only_official_system76_iso_paths() {
+        let candidates = list_popos_official_download_candidates(
+            "24.04", "amd64", "generic", "22", "pop-os_24.04_amd64_generic_22.iso"
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].url,
+            "https://iso.pop-os.org/24.04/amd64/generic/22/pop-os_24.04_amd64_generic_22.iso");
+        assert!(list_popos_official_download_candidates(
+            "24.04", "amd64", "unknown", "22", "pop-os_24.04_amd64_unknown_22.iso"
+        ).is_err());
+        assert!(list_popos_official_download_candidates(
+            "../24.04", "amd64", "generic", "22", "pop-os_24.04_amd64_generic_22.iso"
+        ).is_err());
+        assert!(list_popos_official_download_candidates(
+            "24.04", "amd64", "generic", "22", "another.iso"
+        ).is_err());
+    }
+
+    #[test]
+    fn elementary_parser_accepts_only_exact_publisher_download_links() {
+        let html = r#"
+            <a href="https://dl.elementaryos.org/token/elementaryos-8.1-stable-amd64.20260219.iso">x86</a>
+            <a href="http://dl.elementaryos.org/token/elementaryos-8.1-stable-amd64.20260219.iso">insecure</a>
+            <a href="https://evil.example/elementaryos-8.1-stable-amd64.20260219.iso">foreign</a>
+            <a href="https://dl.elementaryos.org/token/other.iso">wrong file</a>
+            <a href="https://dl.elementaryos.org/token/elementaryos-8.1-stable-amd64.20260219.iso?download=1">query</a>
+        "#;
+        let candidates = parse_elementary_official_download_links(
+            html, "https://elementary.io/en/", "elementaryos-8.1-stable-amd64.20260219.iso"
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].url,
+            "https://dl.elementaryos.org/token/elementaryos-8.1-stable-amd64.20260219.iso");
+        assert!(parse_elementary_official_download_links(
+            "<a href='https://evil.example/other.iso'>x</a>",
+            "https://elementary.io/en/", "elementaryos-8.1-stable-amd64.20260219.iso"
+        ).is_err());
+        assert!(list_elementary_official_download_candidates("../private.iso").is_err());
     }
 
     #[test]
