@@ -1168,9 +1168,9 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
         "freebsd" => (
             "official_geodns",
             "GeoDNS / CDN oficial",
-            "La descarga oficial usa infraestructura GeoDNS/CDN; el servidor oficial selecciona una ruta cercana sin exponer una lista para elegir manualmente.",
+            "Void Boot construye la ruta HTTPS del artefacto en download.freebsd.org; la infraestructura oficial GeoDNS/CDN dirige la descarga sin simular un selector manual de mirrors.",
             "https://download.freebsd.org/",
-            false,
+            true,
         ),
         "openbsd" => (
             "official_mirror_directory",
