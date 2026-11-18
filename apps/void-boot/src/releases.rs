@@ -542,6 +542,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn distro_center_downloads_stay_locked_until_every_system_is_validated() {
+        let gate = distro_center_release_gate();
+        assert!(!gate.downloads_enabled);
+        assert_eq!(gate.validated_systems, 0);
+        assert_eq!(gate.required_systems, 40);
+        assert!(ensure_distro_center_downloads_enabled().is_err());
+    }
+
+    #[test]
     fn mirror_support_is_defined_for_linux_bsd_and_windows_catalogue_entries() {
         for id in [
             "debian",
