@@ -1214,6 +1214,44 @@ pub fn list_nixos_official_download_candidates(
     }])
 }
 
+/// Build a Deepin ISO URL on the publisher's official release repository.
+pub fn list_deepin_official_download_candidates(
+    release: &str,
+    architecture: &str,
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    let valid_release = !release.is_empty()
+        && release.len() <= 20
+        && release.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.')
+        && !release.starts_with('.')
+        && !release.ends_with('.')
+        && !release.contains("..");
+    if !valid_release {
+        return Err("Indica una versión Deepin válida.".into());
+    }
+    if !["amd64", "arm64", "loong64", "riscv64"].contains(&architecture) {
+        return Err("La arquitectura Deepin debe ser amd64, arm64, loong64 o riscv64.".into());
+    }
+    let expected_name = format!("deepin-desktop-community-{release}-{architecture}.iso");
+    if !safe_iso_name(file_name) || file_name != expected_name {
+        return Err("El nombre de ISO no coincide con la versión y arquitectura Deepin solicitadas.".into());
+    }
+    let url = format!("https://cdimage.deepin.com/releases/{release}/{architecture}/{file_name}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Deepin es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("cdimage.deepin.com")
+        || !parsed.path().ends_with(&format!("/{file_name}"))
+    {
+        return Err("La URL no pertenece al repositorio HTTPS oficial de Deepin.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Deepin official ISO repository".to_owned(),
+        region: "Repositorio oficial de imágenes".to_owned(),
+    }])
+}
+
 /// Parse Gentoo's signed latest-build pointer for the amd64 minimal installer.
 fn parse_gentoo_latest_iso_pointer(text: &str) -> Result<String, String> {
     if !text.contains("-----BEGIN PGP SIGNED MESSAGE-----")
@@ -2063,6 +2101,24 @@ mod tests {
         ).is_err());
         assert!(list_nixos_official_download_candidates(
             "nixos-26.05", "minimal", "i686"
+        ).is_err());
+    }
+
+    #[test]
+    fn deepin_resolver_builds_only_exact_official_release_iso_paths() {
+        let candidates = list_deepin_official_download_candidates(
+            "25.3.0", "amd64", "deepin-desktop-community-25.3.0-amd64.iso",
+        ).unwrap();
+        assert_eq!(candidates[0].url,
+            "https://cdimage.deepin.com/releases/25.3.0/amd64/deepin-desktop-community-25.3.0-amd64.iso");
+        assert!(list_deepin_official_download_candidates(
+            "../25.3", "amd64", "deepin-desktop-community-25.3-amd64.iso"
+        ).is_err());
+        assert!(list_deepin_official_download_candidates(
+            "25.3.0", "amd64", "other.iso"
+        ).is_err());
+        assert!(list_deepin_official_download_candidates(
+            "25.3.0", "i686", "deepin-desktop-community-25.3.0-i686.iso"
         ).is_err());
     }
 
