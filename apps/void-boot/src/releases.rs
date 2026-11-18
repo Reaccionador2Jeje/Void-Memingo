@@ -489,20 +489,11 @@ pub fn list_debian_official_download_candidates(
             .all(|byte| byte.is_ascii_alphanumeric() || b"/._-".contains(&byte))
         || !artifact_path.to_ascii_lowercase().ends_with(".iso")
     {
-        return Err("Indica una ruta relativa válida de ISO Debian, sin rutas absolutas ni segmentos '..'.".into());
-    }
-
-    const HOST: &str = "cloudfront.debian.net";
-    let addresses = (HOST, 443)
-        .to_socket_addrs()
-        .map_err(|error| format!("No se pudo resolver el CDN oficial de Debian: {error}"))?
-        .collect::<Vec<_>>();
-    if addresses.is_empty()
-        || addresses
-            .iter()
-            .any(|address| !crate::download::is_safe_ip(address.ip()))
-    {
-        return Err("El CDN oficial de Debian resolvió a una dirección no pública.".into());
+        return Err(
+            "Indica una ruta relativa válida de ISO Debian, sin rutas absolutas ni segmentos '..'.\n"
+                .trim_end()
+                .into(),
+        );
     }
 
     let url = format!("https://{HOST}/debian-cd/{artifact_path}");
