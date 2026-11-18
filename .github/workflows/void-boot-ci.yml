@@ -25,7 +25,6 @@ on:
       - "scripts/package-void-boot.sh"
       - "scripts/install-void-boot.sh"
       - "scripts/install-void-boot.ps1"
-      - ".github/workflows/void-boot-ci.yml"
   workflow_dispatch:
     inputs:
       run_debian_live:
