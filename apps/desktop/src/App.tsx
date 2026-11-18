@@ -30,6 +30,7 @@ type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean };
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootMirror = { base_url: string; country: string; delay_seconds: number; score: number };
+type BootMirrorSupport = { distribution_id: string; mode: string; label: string; description: string; source_url: string; selectable: boolean };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean; reused_from_library: boolean };
 type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
@@ -182,6 +183,7 @@ function App() {
   const [distroCategory, setDistroCategory] = useState('all');
   const [voidBootDownloadUrl, setVoidBootDownloadUrl] = useState('');
   const [voidBootArchMirrors, setVoidBootArchMirrors] = useState<BootMirror[]>([]);
+  const [voidBootMirrorSupport, setVoidBootMirrorSupport] = useState<BootMirrorSupport | null>(null);
   const [voidBootArchMirrorBase, setVoidBootArchMirrorBase] = useState('');
   const [voidBootMirrorBusy, setVoidBootMirrorBusy] = useState(false);
   const [voidBootDownloadName, setVoidBootDownloadName] = useState('distribution.iso');
@@ -637,6 +639,22 @@ function App() {
       addLog('No se pudo consultar el gestor de descargas: ' + String(error));
     }
   }, [addLog]);
+
+  useEffect(() => {
+    const distributionId = voidBootSelectedDistro?.id;
+    if (!distributionId) {
+      setVoidBootMirrorSupport(null);
+      return;
+    }
+    let cancelled = false;
+    setVoidBootMirrorSupport(null);
+    void invoke<BootMirrorSupport>('get_void_boot_mirror_support', { distributionId })
+      .then((support) => { if (!cancelled) setVoidBootMirrorSupport(support); })
+      .catch((error) => {
+        if (!cancelled) addLog('No se pudo consultar la política de mirrors: ' + String(error));
+      });
+    return () => { cancelled = true; };
+  }, [addLog, voidBootSelectedDistro?.id]);
 
   useEffect(() => {
     const active = voidBootDownloads.some((task) => task.status === 'downloading' || task.status === 'queued');
@@ -1613,6 +1631,7 @@ directory = ${quote(osOutputDir)}
                       <div className="distro-detail-section"><strong>COMPATIBILIDAD Y ENTREGA</strong><span>{voidBootSelectedDistro.installation.note}</span></div>
                       <a className="distro-official-link" href={voidBootSelectedDistro.download_page} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Abrir página oficial de descarga</a>
                       <a className="distro-project-link" href={voidBootSelectedDistro.project_url} target="_blank" rel="noreferrer">Sitio oficial del proyecto ↗</a>
+                      {voidBootMirrorSupport && <div className="distro-detail-section"><strong>FUENTE DE DESCARGA · {voidBootMirrorSupport.label.toLocaleUpperCase()}</strong><span>{voidBootMirrorSupport.description}</span><a className="distro-official-link" href={voidBootMirrorSupport.source_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Consultar fuente oficial</a>{voidBootMirrorSupport.selectable && <small>Selector automático disponible para esta distribución.</small>}</div>}
                       {(voidBootSelectedDistro.kind ?? 'linux_distribution') === 'linux_distribution' && voidBootSelectedDistro.installation.delivery === 'direct_iso_to_void_data_partition' ? (
                         <div className="distro-download-panel">
                           <div className="distro-detail-section"><strong>DESCARGA A BIBLIOTECA</strong><span>Smart Download detecta si el mirror admite HTTP Range: usa hasta 8 conexiones paralelas con reanudación por partes o cambia a una conexión simple. El destino se elige explícitamente.</span></div>
