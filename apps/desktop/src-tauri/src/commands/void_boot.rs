@@ -85,6 +85,26 @@ pub fn list_void_boot_freebsd_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_manjaro_official_download_candidates(
+    edition: String,
+    release: String,
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_manjaro_official_download_candidates(
+        &edition,
+        &release,
+        &file_name,
+    )
+}
+
+#[tauri::command]
+pub fn list_void_boot_endeavouros_official_download_candidates(
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_endeavouros_official_download_candidates(&file_name)
+}
+
+#[tauri::command]
 pub fn list_void_boot_centos_stream_official_download_candidates(
     artifact_path: String,
 ) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
