@@ -126,6 +126,14 @@ jobs:
         run: bash scripts/build-void-boot-demo-iso.sh apps/void-boot/profiles/example-profiles.toml "$RUNNER_TEMP/void-boot-demo.iso"
       - name: Verify ISO artifact exists
         run: test -s "$RUNNER_TEMP/void-boot-demo.iso"
+      # Publish a clearly labelled candidate before firmware smoke tests so a later
+      # QEMU failure does not discard the already-built menu ISO.
+      - name: Upload bootable Void Boot menu ISO candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-boot-graphical-menu-iso-candidate
+          path: ${{ runner.temp }}/void-boot-demo.iso
+          if-no-files-found: error
       - name: Build and inspect a disposable UEFI media image
         env:
           VOID_BOOT_IMAGE_SIZE_MIB: "512"
@@ -183,11 +191,6 @@ jobs:
           name: void-boot-qemu-logs
           path: ${{ runner.temp }}/void-boot-qemu-logs/
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        with:
-          name: void-boot-graphical-menu-iso
-          path: ${{ runner.temp }}/void-boot-demo.iso
-          if-no-files-found: error
 
   debian-live-integration:
     name: Full Debian Live ISO handoff (manual)
