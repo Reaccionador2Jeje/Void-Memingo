@@ -57,6 +57,7 @@ fn main() {
             commands::void_boot::list_void_boot_fedora_official_download_candidates,
             commands::void_boot::list_void_boot_ubuntu_official_download_candidates,
             commands::void_boot::list_void_boot_opensuse_official_download_candidates,
+            commands::void_boot::list_void_boot_linux_mint_official_download_candidates,
             commands::void_boot::list_void_boot_freebsd_official_download_candidates,
             commands::void_boot::list_void_boot_openbsd_official_download_candidates,
             commands::void_boot::list_void_boot_netbsd_official_download_candidates,
