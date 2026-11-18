@@ -3270,7 +3270,7 @@ mod tests {
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 9);
+        assert_eq!(sources.len(), 10);
         for expected in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
         ] {
