@@ -272,10 +272,153 @@ fn parse_arch_mirror_status(document: &serde_json::Value) -> Result<Vec<Official
     Ok(mirrors)
 }
 
+
+/// How a distribution obtains ISO download mirrors or an official download source.
+/// "directory" means the publisher documents mirrors, but Void Boot does not yet
+/// resolve a release-specific ISO URL automatically.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct MirrorSupport {
+    pub distribution_id: String,
+    pub mode: String,
+    pub label: String,
+    pub description: String,
+    pub source_url: String,
+    pub selectable: bool,
+}
+
+pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSupport, String> {
+    let (mode, label, description, source_url, selectable) = match distribution_id {
+        "arch" => (
+            "live_status_api",
+            "Selector oficial en vivo",
+            "La API de estado de Arch entrega mirrors HTTPS activos y sincronizados; Void Boot puede filtrarlos y seleccionarlos.",
+            "https://archlinux.org/mirrors/status/",
+            true,
+        ),
+        "debian" | "kali" | "mx-linux" | "deepin" | "antix" => (
+            "official_directory",
+            "Directorio oficial de mirrors",
+            "El proyecto publica información de mirrors. La selección automática de ISO requiere resolver la ruta exacta de la versión y edición; por ahora usa la página oficial.",
+            "https://www.debian.org/CD/http-ftp/",
+            false,
+        ),
+        "ubuntu" | "linux-mint" | "zorin-os" | "pop-os" | "elementary-os" | "lubuntu" | "kubuntu" | "xubuntu" | "linux-lite" | "kde-neon" => (
+            "official_directory",
+            "Índice oficial de mirrors",
+            "La familia publica índices de mirrors, pero no todos sirven imágenes ISO. Void Boot conserva la descarga directa hasta resolver un mirror compatible con el artefacto exacto.",
+            "https://launchpad.net/ubuntu/+archivemirrors",
+            false,
+        ),
+        "fedora" => (
+            "official_mirrormanager",
+            "Fedora MirrorManager",
+            "Fedora mantiene MirrorManager para localizar contenido. La selección de imágenes ISO por versión aún requiere integrar y validar la ruta exacta.",
+            "https://mirrormanager.fedoraproject.org/",
+            false,
+        ),
+        "opensuse" => (
+            "official_metalink",
+            "MirrorCache / Metalink oficial",
+            "openSUSE publica listas y Metalinks por artefacto. La selección automática se habilitará cuando Void Boot reciba la ruta exacta de la ISO.",
+            "https://download.opensuse.org/",
+            false,
+        ),
+        "freebsd" => (
+            "official_geodns",
+            "GeoDNS / CDN oficial",
+            "La descarga oficial usa infraestructura GeoDNS/CDN; el servidor oficial selecciona una ruta cercana sin exponer una lista para elegir manualmente.",
+            "https://download.freebsd.org/",
+            false,
+        ),
+        "openbsd" => (
+            "official_mirror_directory",
+            "Directorio oficial de mirrors",
+            "OpenBSD publica mirrors HTTPS oficiales. La selección por versión y arquitectura todavía se realiza desde la página del proyecto.",
+            "https://www.openbsd.org/ftp.html",
+            false,
+        ),
+        "netbsd" => (
+            "official_mirror_directory",
+            "Directorio oficial de mirrors",
+            "NetBSD documenta sus mirrors. La resolución automática de imágenes por versión y arquitectura aún no está integrada.",
+            "https://www.netbsd.org/mirrors/",
+            false,
+        ),
+        "windows-11-x64" | "windows-11-arm64" | "windows-10-home" | "windows-10-pro" | "windows-10-ltsc" => (
+            "official_single_source",
+            "Descarga oficial de Microsoft",
+            "Se utiliza la fuente oficial de Microsoft. No se ofrecen mirrors de terceros ni selección de servidores no autorizados.",
+            "https://www.microsoft.com/software-download/",
+            false,
+        ),
+        "reactos" => (
+            "official_download_page",
+            "Descarga oficial del proyecto",
+            "Se conserva la página oficial de descarga; no hay un selector de mirrors verificado integrado.",
+            "https://reactos.org/download/",
+            false,
+        ),
+        "endeavouros" | "manjaro" | "nixos" | "void-linux" | "rocky-linux" | "almalinux" | "alpine" | "mageia" | "centos-stream" | "gentoo" | "slackware" | "solus" | "oracle-linux" => (
+            "official_download_page",
+            "Descarga oficial del proyecto",
+            "Este proyecto mantiene su propia infraestructura de distribución. Void Boot todavía no dispone de un índice de mirrors ISO verificable para esta distribución; usa su página oficial.",
+            match distribution_id {
+                "endeavouros" => "https://endeavouros.com/download/",
+                "manjaro" => "https://manjaro.org/products/",
+                "nixos" => "https://nixos.org/download/",
+                "void-linux" => "https://voidlinux.org/download/",
+                "rocky-linux" => "https://rockylinux.org/download",
+                "almalinux" => "https://almalinux.org/get-almalinux/",
+                "alpine" => "https://alpinelinux.org/downloads/",
+                "mageia" => "https://www.mageia.org/downloads/",
+                "centos-stream" => "https://www.centos.org/download/",
+                "gentoo" => "https://www.gentoo.org/downloads/",
+                "slackware" => "https://www.slackware.com/getslack/",
+                "solus" => "https://getsol.us/download/",
+                _ => "https://www.oracle.com/linux/",
+            },
+            false,
+        ),
+        _ => return Err("La distribución no tiene una política de mirrors registrada.".into()),
+    };
+
+    Ok(MirrorSupport {
+        distribution_id: distribution_id.to_owned(),
+        mode: mode.to_owned(),
+        label: label.to_owned(),
+        description: description.to_owned(),
+        source_url: source_url.to_owned(),
+        selectable,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+
+
+    #[test]
+    fn mirror_support_is_defined_for_linux_bsd_and_windows_catalogue_entries() {
+        for id in [
+            "debian", "ubuntu", "fedora", "arch", "linux-mint", "zorin-os",
+            "opensuse", "pop-os", "elementary-os", "kali", "endeavouros",
+            "manjaro", "mx-linux", "nixos", "void-linux", "rocky-linux",
+            "almalinux", "alpine", "mageia", "windows-11-x64",
+            "windows-11-arm64", "freebsd", "openbsd", "netbsd", "reactos",
+            "centos-stream", "gentoo", "slackware", "lubuntu", "kubuntu",
+            "xubuntu", "linux-lite", "deepin", "solus", "kde-neon",
+            "oracle-linux", "antix", "windows-10-home", "windows-10-pro",
+            "windows-10-ltsc",
+        ] {
+            let support = mirror_support_for_distribution(id)
+                .unwrap_or_else(|_| panic!("missing mirror support for {id}"));
+            assert_eq!(support.distribution_id, id);
+            assert!(support.source_url.starts_with("https://"));
+        }
+        assert!(mirror_support_for_distribution("arch").unwrap().selectable);
+        assert!(!mirror_support_for_distribution("windows-11-x64").unwrap().selectable);
+    }
 
     #[test]
     fn arch_mirror_parser_keeps_only_healthy_https_and_prefers_chile() {
