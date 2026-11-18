@@ -1503,9 +1503,9 @@ mod tests {
     fn distro_center_downloads_are_limited_to_official_checksum_adapters() {
         let gate = distro_center_release_gate();
         assert!(gate.downloads_enabled);
-        assert_eq!(gate.download_enabled_systems, 3);
+        assert_eq!(gate.download_enabled_systems, 5);
         assert_eq!(gate.required_systems, 40);
-        for id in ["debian", "arch", "ubuntu"] {
+        for id in ["debian", "arch", "ubuntu", "fedora", "opensuse"] {
             assert!(gate
                 .enabled_distribution_ids
                 .iter()
