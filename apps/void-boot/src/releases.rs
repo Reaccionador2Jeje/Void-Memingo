@@ -760,6 +760,29 @@ fn fetch_official_mirror_page(
     Ok(html)
 }
 
+/// Resolve Linux Mint ISO mirrors from the project's official mirror directory.
+/// The mirror page links to ISO-specific roots; repository/package mirrors are excluded.
+pub fn list_linux_mint_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) {
+        return Err("Indica una ruta relativa válida de ISO Linux Mint.".into());
+    }
+    let page_url = "https://www.linuxmint.com/mirrors.php";
+    let html = fetch_official_mirror_page(
+        page_url,
+        "www.linuxmint.com",
+        "VoidBoot-LinuxMintMirrorResolver/0.1",
+    )?;
+    parse_publisher_mirror_directory(
+        &html,
+        page_url,
+        artifact_path,
+        &["/iso/"],
+        "Linux Mint official ISO mirror",
+    )
+}
+
 /// Build a FreeBSD ISO URL on the project's official GeoDNS/CDN service.
 pub fn list_freebsd_official_download_candidates(
     artifact_path: &str,
@@ -1110,11 +1133,11 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             false,
         ),
         "linux-mint" => (
-            "official_download_page",
-            "Descarga oficial de Linux Mint",
-            "Linux Mint mantiene su propio listado de mirrors de ISO; la selección automática aún no está integrada.",
-            "https://linuxmint.com/download.php",
-            false,
+            "official_mirror_directory",
+            "Mirrors oficiales de ISO Linux Mint",
+            "Void Boot lee el listado oficial de mirrors de Linux Mint y conserva únicamente enlaces HTTPS cuya base apunta al directorio /iso/, excluyendo mirrors de paquetes.",
+            "https://www.linuxmint.com/mirrors.php",
+            true,
         ),
         "zorin-os" => (
             "official_download_page",
@@ -1237,6 +1260,23 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn linux_mint_mirror_parser_excludes_repository_mirrors() {
+        let html = r#"
+            <a href="https://mirror.example/linuxmint/iso/">ISO images</a>
+            <a href="https://mirror.example/linuxmint/packages/">Repository packages</a>
+        "#;
+        let candidates = parse_publisher_mirror_directory(
+            html,
+            "https://www.linuxmint.com/mirrors.php",
+            "stable/22.3/linuxmint-22.3-cinnamon-64bit.iso",
+            &["/iso/"],
+            "Linux Mint",
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].url.ends_with("/linuxmint/iso/stable/22.3/linuxmint-22.3-cinnamon-64bit.iso"));
+    }
 
     #[test]
     fn freebsd_resolver_uses_official_geodns_host_and_rejects_unsafe_paths() {
