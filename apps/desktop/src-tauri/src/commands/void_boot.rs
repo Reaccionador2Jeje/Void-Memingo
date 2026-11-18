@@ -12,6 +12,11 @@ pub fn scan_void_boot_iso_directory(directory: String) -> Result<Vec<IsoEntry>, 
 }
 
 #[tauri::command]
+pub fn get_void_boot_mirror_support(distribution_id: String) -> Result<::void_boot::releases::MirrorSupport, String> {
+    ::void_boot::releases::mirror_support_for_distribution(&distribution_id)
+}
+
+#[tauri::command]
 pub fn list_void_boot_arch_official_mirrors() -> Result<Vec<::void_boot::releases::OfficialMirror>, String> {
     ::void_boot::releases::list_arch_official_mirrors()
 }
