@@ -157,6 +157,13 @@ pub fn list_void_boot_void_linux_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_mx_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_mx_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
 pub fn list_void_boot_deepin_official_download_candidates(
     release: String,
     architecture: String,
