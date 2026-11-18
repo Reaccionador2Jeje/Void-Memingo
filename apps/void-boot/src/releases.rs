@@ -935,6 +935,67 @@ pub fn list_almalinux_official_download_candidates(
     }])
 }
 
+/// Resolve CentOS Stream installer ISOs on the official CentOS mirror host.
+pub fn list_centos_stream_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) {
+        return Err("Indica una ruta relativa válida de ISO CentOS Stream.".into());
+    }
+    let supported_tree = ["9-stream/", "10-stream/"]
+        .iter()
+        .any(|prefix| artifact_path.starts_with(prefix));
+    let supported_layout = artifact_path.contains("/BaseOS/x86_64/iso/")
+        || artifact_path.contains("/BaseOS/aarch64/iso/");
+    if !supported_tree || !supported_layout {
+        return Err("La ruta CentOS Stream debe usar 9-stream o 10-stream y un árbol BaseOS ISO x86_64/aarch64.".into());
+    }
+    let url = format!("https://mirror.stream.centos.org/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de CentOS Stream es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("mirror.stream.centos.org")
+        || !parsed.path().ends_with(".iso")
+    {
+        return Err("La URL no pertenece al mirror HTTPS oficial de CentOS Stream.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "CentOS Stream official mirror".to_owned(),
+        region: "Mirror oficial del proyecto".to_owned(),
+    }])
+}
+
+/// Resolve Oracle Linux installer ISOs from Oracle's official ISO distribution host.
+pub fn list_oracle_linux_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) {
+        return Err("Indica una ruta relativa válida de ISO Oracle Linux.".into());
+    }
+    let supported_version = artifact_path.starts_with("OL9/")
+        || artifact_path.starts_with("OL10/");
+    let supported_architecture = artifact_path.contains("/x86_64/")
+        || artifact_path.contains("/aarch64/");
+    if !supported_version || !supported_architecture {
+        return Err("La ruta Oracle Linux debe usar OL9/OL10 y arquitectura x86_64/aarch64.".into());
+    }
+    let url = format!("https://yum.oracle.com/ISOS/OracleLinux/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Oracle Linux es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("yum.oracle.com")
+        || !parsed.path().ends_with(".iso")
+    {
+        return Err("La URL no pertenece al host HTTPS oficial de Oracle Linux.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Oracle Linux official ISO host".to_owned(),
+        region: "Servidor oficial de Oracle".to_owned(),
+    }])
+}
+
 /// Validate a safe relative path ending in an ISO filename.
 fn safe_relative_iso_path(artifact_path: &str) -> bool {
     !artifact_path.is_empty()
@@ -1313,6 +1374,20 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://neon.kde.org/download",
             false,
         ),
+        "centos-stream" => (
+            "official_mirror_host",
+            "Mirror oficial CentOS Stream",
+            "Void Boot construye la ruta ISO exacta en mirror.stream.centos.org, host enlazado por el sitio oficial del proyecto; admite los árboles BaseOS x86_64 y aarch64 de Stream 9 y 10.",
+            "https://mirror.stream.centos.org/",
+            false,
+        ),
+        "oracle-linux" => (
+            "official_iso_host",
+            "Servidor oficial Oracle Linux",
+            "Void Boot construye rutas ISO exactas en yum.oracle.com, host oficial de imágenes de Oracle Linux, y restringe las rutas a OL9/OL10 y arquitecturas x86_64/aarch64.",
+            "https://yum.oracle.com/ISOS/OracleLinux/",
+            false,
+        ),
         "rocky-linux" => (
             "official_download_host",
             "Servidor oficial de Rocky Linux",
@@ -1462,6 +1537,37 @@ mod tests {
         );
         assert!(list_almalinux_official_download_candidates("../private.iso").is_err());
         assert!(list_almalinux_official_download_candidates("8/isos/x86_64/old.iso").is_err());
+    }
+
+    #[test]
+    fn centos_stream_resolver_uses_only_official_iso_trees() {
+        let candidates = list_centos_stream_official_download_candidates(
+            "9-stream/BaseOS/x86_64/iso/CentOS-Stream-9-latest-x86_64-boot.iso",
+        )
+        .unwrap();
+        assert_eq!(
+            candidates[0].url,
+            "https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/iso/CentOS-Stream-9-latest-x86_64-boot.iso"
+        );
+        assert!(list_centos_stream_official_download_candidates("../private.iso").is_err());
+        assert!(list_centos_stream_official_download_candidates(
+            "9-stream/AppStream/x86_64/iso/unexpected.iso"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn oracle_linux_resolver_rejects_non_official_release_and_arch_paths() {
+        let candidates = list_oracle_linux_official_download_candidates(
+            "OL10/u7/x86_64/OracleLinux-R10-U7-x86_64-dvd.iso",
+        )
+        .unwrap();
+        assert_eq!(
+            candidates[0].url,
+            "https://yum.oracle.com/ISOS/OracleLinux/OL10/u7/x86_64/OracleLinux-R10-U7-x86_64-dvd.iso"
+        );
+        assert!(list_oracle_linux_official_download_candidates("../private.iso").is_err());
+        assert!(list_oracle_linux_official_download_candidates("OL8/u9/x86_64/old.iso").is_err());
     }
 
     #[test]
