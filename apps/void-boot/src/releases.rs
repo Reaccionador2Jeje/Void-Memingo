@@ -1521,10 +1521,10 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             true,
         ),
         "zorin-os" => (
-            "official_download_page",
-            "Descarga oficial de Zorin OS",
-            "Se conserva la página oficial de descarga; no se asume compatibilidad con mirrors de Ubuntu para sus imágenes ISO.",
-            "https://zorin.com/os/download/",
+            "publisher_listed_iso_mirror",
+            "Mirror ISO publicado por Zorin OS",
+            "Void Boot construye la ruta de ISO en Kernel.org, mirror global enlazado explícitamente por Zorin; el resolver valida la versión y el nombre exacto del archivo.",
+            "https://zorin.com/os/mirrors/",
             false,
         ),
         "pop-os" => (
