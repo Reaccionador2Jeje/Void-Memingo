@@ -1214,6 +1214,63 @@ pub fn list_nixos_official_download_candidates(
     }])
 }
 
+/// Parse Gentoo's signed latest-build pointer for the amd64 minimal installer.
+fn parse_gentoo_latest_iso_pointer(text: &str) -> Result<String, String> {
+    if !text.contains("-----BEGIN PGP SIGNED MESSAGE-----")
+        || !text.contains("-----BEGIN PGP SIGNATURE-----")
+        || !text.contains("-----END PGP SIGNATURE-----")
+    {
+        return Err("El índice latest de Gentoo no tiene el formato de manifiesto firmado esperado.".into());
+    }
+    let mut matches = text.lines().filter_map(|line| {
+        let mut fields = line.split_whitespace();
+        let file_name = fields.next()?;
+        let size = fields.next()?;
+        if fields.next().is_some()
+            || !file_name.starts_with("install-amd64-minimal-")
+            || !file_name.ends_with(".iso")
+            || !safe_iso_name(file_name)
+            || size.parse::<u64>().is_err()
+        {
+            return None;
+        }
+        Some(file_name.to_owned())
+    });
+    let file_name = matches.next()
+        .ok_or_else(|| "El índice de Gentoo no anunció una ISO amd64 minimal válida.".to_string())?;
+    if matches.next().is_some() {
+        return Err("El índice de Gentoo anunció más de una ISO amd64 minimal.".into());
+    }
+    Ok(file_name)
+}
+
+/// Resolve the current Gentoo amd64 minimal installer through its official CDN index.
+pub fn list_gentoo_official_download_candidates() -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    const INDEX_URL: &str = "https://distfiles-cdn.gentoo.org/releases/amd64/autobuilds/current-install-amd64-minimal/latest-install-amd64-minimal.txt";
+    let text = fetch_official_mirror_page(
+        INDEX_URL,
+        "distfiles-cdn.gentoo.org",
+        "VoidBoot-GentooResolver/0.1",
+    )?;
+    let file_name = parse_gentoo_latest_iso_pointer(&text)?;
+    let url = format!(
+        "https://distfiles-cdn.gentoo.org/releases/amd64/autobuilds/current-install-amd64-minimal/{file_name}"
+    );
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Gentoo es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("distfiles-cdn.gentoo.org")
+        || parsed.path().rsplit('/').next() != Some(file_name.as_str())
+    {
+        return Err("La URL no pertenece al CDN HTTPS oficial de Gentoo.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Gentoo official CDN".to_owned(),
+        region: "ISO amd64 minimal más reciente del índice oficial".to_owned(),
+    }])
+}
+
 /// Resolve elementary OS ISO links from the publisher's live download page.
 pub fn list_elementary_official_download_candidates(file_name: &str)
     -> Result<Vec<OfficialPathDownloadCandidate>, String> {
@@ -1999,6 +2056,24 @@ mod tests {
         ).is_err());
         assert!(list_nixos_official_download_candidates(
             "nixos-26.05", "minimal", "i686"
+        ).is_err());
+    }
+
+    #[test]
+    fn gentoo_latest_pointer_accepts_only_one_signed_amd64_minimal_iso_entry() {
+        let pointer = "-----BEGIN PGP SIGNED MESSAGE-----\\nHash: SHA256\\n# Latest\\ninstall-amd64-minimal-20261115T170104Z.iso 1051310080\\n-----BEGIN PGP SIGNATURE-----\\nsignature\\n-----END PGP SIGNATURE-----";
+        assert_eq!(
+            parse_gentoo_latest_iso_pointer(pointer).unwrap(),
+            "install-amd64-minimal-20261115T170104Z.iso"
+        );
+        assert!(parse_gentoo_latest_iso_pointer(
+            "install-amd64-minimal-20261115T170104Z.iso 100"
+        ).is_err());
+        assert!(parse_gentoo_latest_iso_pointer(
+            "-----BEGIN PGP SIGNED MESSAGE-----\\ninstall-amd64-minimal-20261115T170104Z.iso 100\\ninstall-amd64-minimal-20261116T170104Z.iso 100\\n-----BEGIN PGP SIGNATURE-----\\nx\\n-----END PGP SIGNATURE-----"
+        ).is_err());
+        assert!(parse_gentoo_latest_iso_pointer(
+            "-----BEGIN PGP SIGNED MESSAGE-----\\n../evil.iso 100\\n-----BEGIN PGP SIGNATURE-----\\nx\\n-----END PGP SIGNATURE-----"
         ).is_err());
     }
 
