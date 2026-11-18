@@ -40,6 +40,24 @@ const SOURCES: &[ChecksumSource] = &[
         allowed_host: "releases.ubuntu.com",
     },
     ChecksumSource {
+        distribution_id: "lubuntu",
+        release_label: "Lubuntu 24.04 LTS · official amd64 release manifest",
+        manifest_url: "https://cdimage.ubuntu.com/lubuntu/releases/24.04/release/SHA256SUMS",
+        allowed_host: "cdimage.ubuntu.com",
+    },
+    ChecksumSource {
+        distribution_id: "kubuntu",
+        release_label: "Kubuntu 24.04 LTS · official amd64 release manifest",
+        manifest_url: "https://cdimage.ubuntu.com/kubuntu/releases/24.04/release/SHA256SUMS",
+        allowed_host: "cdimage.ubuntu.com",
+    },
+    ChecksumSource {
+        distribution_id: "xubuntu",
+        release_label: "Xubuntu 24.04 LTS · official amd64 release manifest",
+        manifest_url: "https://cdimage.ubuntu.com/xubuntu/releases/24.04/release/SHA256SUMS",
+        allowed_host: "cdimage.ubuntu.com",
+    },
+    ChecksumSource {
         distribution_id: "fedora",
         release_label: "Fedora Workstation 45 · x86_64",
         manifest_url: "https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Workstation/x86_64/iso/Fedora-Workstation-45-1.4-x86_64-CHECKSUM",
@@ -1081,7 +1099,7 @@ pub struct DistroCenterReleaseGate {
 
 // Only distributions with a built-in publisher-hosted SHA-256 manifest adapter are
 // eligible for automated downloads. Boot-profile validation is a separate release gate.
-const DOWNLOAD_ENABLED_DISTRIBUTIONS: &[&str] = &["debian", "arch", "ubuntu", "fedora", "opensuse"];
+const DOWNLOAD_ENABLED_DISTRIBUTIONS: &[&str] = &["debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse"];
 
 pub fn distro_center_release_gate() -> DistroCenterReleaseGate {
     let enabled_distribution_ids = DOWNLOAD_ENABLED_DISTRIBUTIONS
@@ -1503,9 +1521,9 @@ mod tests {
     fn distro_center_downloads_are_limited_to_official_checksum_adapters() {
         let gate = distro_center_release_gate();
         assert!(gate.downloads_enabled);
-        assert_eq!(gate.download_enabled_systems, 5);
+        assert_eq!(gate.download_enabled_systems, 8);
         assert_eq!(gate.required_systems, 40);
-        for id in ["debian", "arch", "ubuntu", "fedora", "opensuse"] {
+        for id in ["debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse"] {
             assert!(gate
                 .enabled_distribution_ids
                 .iter()
@@ -1635,8 +1653,8 @@ mod tests {
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 5);
-        for expected in ["debian", "arch", "ubuntu", "fedora", "opensuse"] {
+        assert_eq!(sources.len(), 8);
+        for expected in ["debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse"] {
             assert!(
                 sources.iter().any(|(id, _)| id == expected),
                 "missing {expected}"
