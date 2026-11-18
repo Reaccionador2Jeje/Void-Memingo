@@ -21,6 +21,7 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Query Kali's official `cdimage.kali.org` redirector for an exact ISO and parse its advertised HTTPS redirect and duplicate-mirror candidates; reject unsafe paths, non-HTTPS URLs and mismatched artifacts.
 - [x] Resolve Fedora Workstation x86_64 ISO requests through Fedora's official `download.fedoraproject.org` redirector; pin the redirector DNS result, reject non-HTTPS destinations, credentials, query strings and artifact-path mismatches.
 - [x] Build official Ubuntu, Lubuntu, Kubuntu and Xubuntu ISO destinations from an explicit release and exact filename; use Canonical's documented `releases.ubuntu.com` or `cdimage.ubuntu.com` host without pretending these fixed endpoints are a multi-mirror selector.
+- [x] Query openSUSE's official per-artifact `.mirrorlist` page; parse only HTTPS links with the exact requested ISO path, reject duplicate/mismatched/non-HTTPS entries, and cap the returned list.
 - [x] Register mirror/download-source capabilities for every catalogue entry: Arch live API, Debian official image CDN, Kali image redirector, Fedora MirrorManager, openSUSE Metalink, FreeBSD GeoDNS, OpenBSD/NetBSD mirror directories, and project-specific official download sources for remaining Linux, BSD and Windows entries. Capability labels distinguish selectable lists from documentation/CDN/direct-download sources.
 - [x] Enforce a global Distro Center download release gate in both the UI and Tauri backend; no distribution can start a download or open its download-source link until every catalogue system passes release validation.
 
@@ -83,8 +84,9 @@ Until the media builder has passed the safeguards and test gates, Void Boot only
 - [x] Resolver de Kali: consulta el redirector oficial para obtener el destino y los mirrors HTTPS alternativos anunciados para la ISO exacta.
 - [x] Resolver de Fedora Workstation x86_64: consulta el redirector oficial y valida el destino HTTPS anunciado para el archivo exacto.
 - [x] Resolver de Ubuntu, Lubuntu, Kubuntu y Xubuntu: genera destinos de ISO en los hosts oficiales a partir de versión y nombre de archivo exactos; no lo presenta como selección de mirrors.
+- [x] Resolver de openSUSE: consulta la página oficial `.mirrorlist` para un artefacto exacto y filtra los mirrors HTTPS anunciados.
 - [ ] Completar Fedora con un selector de mirrors medidos y soporte de otras ediciones/arquitecturas; el resolver actual cubre solo Workstation x86_64 mediante el redirector oficial.
-- [ ] Integrar el MirrorCache/Metalink de openSUSE como selector de mirrors por artefacto.
+- [ ] Validar el resolver openSUSE MirrorCache con respuestas reales por arquitectura y tipo de imagen; medir disponibilidad y latencia de los mirrors antes de recomendarlos.
 - [ ] Integrar OpenBSD y NetBSD con resolución automática de ISO por versión y arquitectura.
 - [ ] Mejorar Debian con descubrimiento y medición de mirrors de imagen más allá de su CDN oficial.
 - [ ] Integrar los índices propios de mirrors ISO de Ubuntu y derivados, Linux Mint y otros proyectos cuando se puedan verificar; no reutilizar mirrors de paquetes como si alojaran ISOs.
