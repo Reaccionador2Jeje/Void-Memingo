@@ -247,6 +247,14 @@ pub fn lookup_void_boot_official_release_checksum(
 }
 
 
+
+#[tauri::command]
+pub fn list_void_boot_reactos_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_reactos_official_download_candidates(&artifact_path)
+}
+
 #[tauri::command]
 pub fn list_void_boot_slackware_official_download_candidates(
     artifact_path: String,
