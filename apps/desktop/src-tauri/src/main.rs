@@ -71,6 +71,7 @@ fn main() {
             commands::void_boot::list_void_boot_void_linux_official_download_candidates,
             commands::void_boot::list_void_boot_mx_official_download_candidates,
             commands::void_boot::list_void_boot_mageia_official_download_candidates,
+            commands::void_boot::list_void_boot_reactos_official_download_candidates,
             commands::void_boot::list_void_boot_slackware_official_download_candidates,
             commands::void_boot::list_void_boot_linux_lite_official_download_candidates,
             commands::void_boot::list_void_boot_solus_official_download_candidates,
