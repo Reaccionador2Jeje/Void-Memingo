@@ -322,7 +322,6 @@ fn parse_arch_mirror_status(document: &serde_json::Value) -> Result<Vec<Official
     Ok(mirrors)
 }
 
-
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct KaliDownloadCandidate {
     pub url: String,
@@ -366,13 +365,17 @@ fn parse_kali_redirect_candidates(
         for item in header.split(',') {
             let item = item.trim();
             let item = item.strip_prefix('<').unwrap_or(item);
-            let Some((target, parameters)) = item.split_once('>') else { continue };
+            let Some((target, parameters)) = item.split_once('>') else {
+                continue;
+            };
             let target = target.trim();
             let parameters = parameters.to_ascii_lowercase();
             if !parameters.contains("rel=duplicate") {
                 continue;
             }
-            let Some(url) = validate(target, artifact_path) else { continue };
+            let Some(url) = validate(target, artifact_path) else {
+                continue;
+            };
             let priority = parameters
                 .split(';')
                 .find_map(|part| part.trim().strip_prefix("pri="))
@@ -391,7 +394,10 @@ fn parse_kali_redirect_candidates(
     candidates.sort_by(|left, right| left.priority.cmp(&right.priority));
     candidates.dedup_by(|left, right| left.url == right.url);
     if candidates.is_empty() {
-        return Err("El redirector oficial de Kali no entregó candidatos HTTPS válidos para esta ISO.".into());
+        return Err(
+            "El redirector oficial de Kali no entregó candidatos HTTPS válidos para esta ISO."
+                .into(),
+        );
     }
     Ok(candidates)
 }
@@ -405,7 +411,9 @@ pub fn list_kali_official_download_candidates(
         || artifact_path.starts_with('/')
         || artifact_path.contains("..")
         || artifact_path.contains('\\')
-        || !artifact_path.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"/._-".contains(&byte))
+        || !artifact_path
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/._-".contains(&byte))
         || !artifact_path.to_ascii_lowercase().ends_with(".iso")
     {
         return Err("Indica una ruta relativa válida de ISO de Kali, sin rutas absolutas ni segmentos '..'.".into());
@@ -419,7 +427,9 @@ pub fn list_kali_official_download_candidates(
         .map_err(|error| format!("No se pudo resolver el redirector oficial de Kali: {error}"))?
         .collect::<Vec<_>>();
     if addresses.is_empty()
-        || addresses.iter().any(|address| !crate::download::is_safe_ip(address.ip()))
+        || addresses
+            .iter()
+            .any(|address| !crate::download::is_safe_ip(address.ip()))
     {
         return Err("El redirector oficial de Kali resolvió a una dirección no pública.".into());
     }
@@ -438,12 +448,19 @@ pub fn list_kali_official_download_candidates(
         .send()
         .map_err(|error| format!("No se pudo consultar el redirector oficial de Kali: {error}"))?;
     if !response.status().is_redirection() || response.url().as_str() != url {
-        return Err(format!("El redirector oficial de Kali respondió con {}; no se siguieron redirecciones.", response.status()));
+        return Err(format!(
+            "El redirector oficial de Kali respondió con {}; no se siguieron redirecciones.",
+            response.status()
+        ));
     }
 
-    let location = response.headers().get(reqwest::header::LOCATION)
+    let location = response
+        .headers()
+        .get(reqwest::header::LOCATION)
         .and_then(|value| value.to_str().ok());
-    let links = response.headers().get_all(reqwest::header::LINK)
+    let links = response
+        .headers()
+        .get_all(reqwest::header::LINK)
         .iter()
         .filter_map(|value| value.to_str().ok().map(str::to_owned))
         .collect::<Vec<_>>();
@@ -766,8 +783,12 @@ mod tests {
         assert_eq!(candidates.len(), 3);
         assert_eq!(candidates[0].priority, 0);
         assert_eq!(candidates[1].priority, 1);
-        assert!(candidates.iter().all(|candidate| candidate.url.starts_with("https://")));
-        assert!(!candidates.iter().any(|candidate| candidate.url.contains("plain.example")));
+        assert!(candidates
+            .iter()
+            .all(|candidate| candidate.url.starts_with("https://")));
+        assert!(!candidates
+            .iter()
+            .any(|candidate| candidate.url.contains("plain.example")));
     }
 
     #[test]
