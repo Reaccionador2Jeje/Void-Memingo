@@ -102,6 +102,10 @@ pub fn supported_release_sources() -> Vec<(String, String)> {
         })
         .collect::<Vec<_>>();
     sources.push((
+        "linuxmint".to_owned(),
+        "Linux Mint 20/21/22 · sha256sum.txt oficial".to_owned(),
+    ));
+    sources.push((
         "rocky-linux".to_owned(),
         "Rocky Linux 9/10 · CHECKSUM oficial x86_64".to_owned(),
     ));
@@ -361,6 +365,43 @@ fn lookup_centos_stream_release_checksum(file_name: &str) -> Result<OfficialRele
     )
 }
 
+fn linux_mint_checksum_url_for_iso(file_name: &str) -> Result<(String, String), String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("linuxmint-") {
+        return Err("Indica el nombre exacto de una ISO Linux Mint.".into());
+    }
+    let version = file_name
+        .strip_prefix("linuxmint-")
+        .and_then(|name| name.split('-').next())
+        .unwrap_or_default();
+    let mut pieces = version.split('.');
+    let major = pieces.next().unwrap_or_default();
+    let minor = pieces.next();
+    if !matches!(major, "20" | "21" | "22")
+        || minor.is_some_and(|value| value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()))
+        || pieces.next().is_some()
+    {
+        return Err("El adaptador Linux Mint cubre versiones 20, 21 y 22 con nombres oficiales.".into());
+    }
+    if !file_name.ends_with("-64bit.iso") {
+        return Err("El adaptador Linux Mint cubre únicamente ISOs x86_64 de 64 bits.".into());
+    }
+    Ok((
+        format!("https://mirrors.edge.kernel.org/linuxmint/stable/{version}/sha256sum.txt"),
+        "mirrors.edge.kernel.org".to_owned(),
+    ))
+}
+
+fn lookup_linux_mint_release_checksum(file_name: &str) -> Result<OfficialReleaseChecksum, String> {
+    let (manifest_url, host) = linux_mint_checksum_url_for_iso(file_name)?;
+    lookup_pinned_checksum_manifest(
+        "linuxmint",
+        "Linux Mint · sha256sum.txt oficial publicado en mirror recomendado por el proyecto",
+        file_name,
+        &manifest_url,
+        &host,
+    )
+}
+
 fn parse_antix_sha256_html(html: &str, file_name: &str) -> Result<String, String> {
     if !safe_iso_name(file_name) || !file_name.starts_with("antiX-") {
         return Err("Indica el nombre exacto de una ISO antiX.".into());
@@ -415,6 +456,10 @@ pub fn lookup_official_release_checksum(
         return Err(
             "Indica el nombre exacto de una ISO, sin rutas ni caracteres especiales.".into(),
         );
+    }
+
+    if distribution_id == "linuxmint" {
+        return lookup_linux_mint_release_checksum(file_name);
     }
 
     if distribution_id == "rocky-linux" {
@@ -3409,6 +3454,22 @@ mod tests {
     }
 
     #[test]
+    fn linux_mint_checksum_adapter_builds_only_supported_official_manifest_paths() {
+        assert_eq!(
+            linux_mint_checksum_url_for_iso("linuxmint-22.3-xfce-64bit.iso").unwrap().0,
+            "https://mirrors.edge.kernel.org/linuxmint/stable/22.3/sha256sum.txt"
+        );
+        assert_eq!(
+            linux_mint_checksum_url_for_iso("linuxmint-21.3-cinnamon-64bit.iso").unwrap().0,
+            "https://mirrors.edge.kernel.org/linuxmint/stable/21.3/sha256sum.txt"
+        );
+        assert!(linux_mint_checksum_url_for_iso("../linuxmint-22.3-xfce-64bit.iso").is_err());
+        assert!(linux_mint_checksum_url_for_iso("linuxmint-23.0-xfce-64bit.iso").is_err());
+        assert!(linux_mint_checksum_url_for_iso("linuxmint-22.3-xfce-aarch64.iso").is_err());
+        assert!(linux_mint_checksum_url_for_iso("linuxmint-22.3-xfce.iso").is_err());
+    }
+
+    #[test]
     fn rocky_checksum_adapter_builds_only_supported_official_manifest_paths() {
         assert_eq!(
             rocky_checksum_url_for_iso("Rocky-10.1-x86_64-minimal.iso").unwrap().0,
@@ -3504,7 +3565,7 @@ mod tests {
     #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 13);
+        assert_eq!(sources.len(), 14);
         for expected in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
         ] {
@@ -3513,7 +3574,7 @@ mod tests {
                 "missing {expected}"
             );
         }
-        assert!(!sources.iter().any(|(id, _)| id == "linuxmint"));
+        assert!(sources.iter().any(|(id, _)| id == "linuxmint"));
     }
 
     #[test]
