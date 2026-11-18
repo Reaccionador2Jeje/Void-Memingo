@@ -325,7 +325,6 @@ fn parse_arch_mirror_status(document: &serde_json::Value) -> Result<Vec<Official
 /// How a distribution obtains ISO download mirrors or an official download source.
 /// "directory" means the publisher documents mirrors, but Void Boot does not yet
 /// resolve a release-specific ISO URL automatically.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 /// Global release gate for Distro Center downloads.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct DistroCenterReleaseGate {
@@ -352,6 +351,7 @@ pub fn ensure_distro_center_downloads_enabled() -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct MirrorSupport {
     pub distribution_id: String,
     pub mode: String,
