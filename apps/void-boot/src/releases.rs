@@ -1989,9 +1989,9 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             false,
         ),
         "antix" => (
-            "official_download_page",
-            "Descarga oficial de antiX",
-            "Se utiliza la página oficial del proyecto hasta integrar su propio índice de imágenes y mirrors.",
+            "publisher_live_iso_links",
+            "Mirrors ISO publicados por antiX",
+            "Void Boot consulta la página oficial y conserva únicamente enlaces HTTPS anunciados para el nombre exacto de la ISO; no reutiliza mirrors de repositorios de paquetes.",
             "https://antixlinux.com/download/",
             false,
         ),
@@ -2024,9 +2024,9 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             false,
         ),
         "linux-lite" => (
-            "official_download_page",
-            "Descarga oficial de Linux Lite",
-            "Se conserva la página oficial del proyecto; no se asume que mirrors de Ubuntu alojen sus imágenes ISO.",
+            "publisher_live_iso_links",
+            "Descargas ISO oficiales Linux Lite",
+            "Void Boot consulta la página oficial y extrae enlaces HTTPS directos cuyo nombre coincide exactamente con la ISO solicitada; no reutiliza mirrors de paquetes Ubuntu.",
             "https://www.linuxliteos.com/download.php",
             false,
         ),
@@ -2121,6 +2121,20 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://www.netbsd.org/mirrors/",
             true,
         ),
+        "slackware" => (
+            "official_iso_index",
+            "Índice oficial de ISOs Slackware",
+            "Void Boot construye destinos HTTPS únicamente dentro del índice ISO publicado por mirrors.slackware.com para Slackware 15.0, separando las imágenes de 32 y 64 bits.",
+            "https://mirrors.slackware.com/slackware/slackware-iso/",
+            false,
+        ),
+        "solus" => (
+            "publisher_live_iso_links",
+            "Imágenes oficiales Solus",
+            "Void Boot consulta la página oficial y acepta únicamente enlaces HTTPS de downloads.getsol.us cuyo nombre coincide exactamente con la ISO de la edición solicitada.",
+            "https://getsol.us/download/",
+            false,
+        ),
         "windows-11-x64" | "windows-11-arm64" | "windows-10-home" | "windows-10-pro" | "windows-10-ltsc" => (
             "official_single_source",
             "Descarga oficial de Microsoft",
@@ -2195,6 +2209,174 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
         source_url: source_url.to_owned(),
         selectable,
     })
+}
+
+
+
+/// Parse exact ISO links advertised by a publisher's official download page.
+/// Only HTTPS links whose final path component is the requested filename survive.
+fn parse_publisher_iso_links(
+    html: &str,
+    page_url: &str,
+    file_name: &str,
+    allowed_domains: &[&str],
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_iso_name(file_name) || file_name.len() > 180 {
+        return Err("Indica el nombre exacto de una ISO válida.".into());
+    }
+    let page = reqwest::Url::parse(page_url)
+        .map_err(|error| format!("Página oficial inválida: {error}"))?;
+    let mut candidates = Vec::new();
+    let mut cursor = 0;
+    while cursor < html.len() {
+        let Some(relative_index) = html[cursor..].to_ascii_lowercase().find("href") else {
+            break;
+        };
+        let mut position = cursor + relative_index + 4;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+            position += 1;
+        }
+        if html.as_bytes().get(position) != Some(&b'=') {
+            cursor = position;
+            continue;
+        }
+        position += 1;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) {
+            position += 1;
+        }
+        let Some(&quote) = html.as_bytes().get(position) else {
+            break;
+        };
+        if quote != b'"' && quote != 39 {
+            cursor = position + 1;
+            continue;
+        }
+        let value_start = position + 1;
+        let Some(relative_end) = html[value_start..].find(quote as char) else {
+            break;
+        };
+        let value_end = value_start + relative_end;
+        let raw = html[value_start..value_end].replace("&amp;", "&");
+        cursor = value_end + 1;
+
+        let Ok(url) = page.join(&raw) else {
+            continue;
+        };
+        let Some(host) = url.host_str() else {
+            continue;
+        };
+        let domain_allowed = allowed_domains.is_empty()
+            || allowed_domains.iter().any(|domain| {
+                host.eq_ignore_ascii_case(domain)
+                    || host.to_ascii_lowercase().ends_with(&format!(".{domain}"))
+            });
+        if url.scheme() != "https"
+            || !domain_allowed
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || url.path().rsplit('/').next() != Some(file_name)
+        {
+            continue;
+        }
+        let candidate = OfficialPathDownloadCandidate {
+            url: url.to_string(),
+            provider: host.to_owned(),
+            region: "Enlace HTTPS anunciado por el editor".to_owned(),
+        };
+        if !candidates.iter().any(|existing: &OfficialPathDownloadCandidate| {
+            existing.url == candidate.url
+        }) {
+            candidates.push(candidate);
+        }
+    }
+    if candidates.is_empty() {
+        return Err(format!(
+            "La página oficial no anunció un enlace HTTPS directo para {file_name}."
+        ));
+    }
+    candidates.truncate(20);
+    Ok(candidates)
+}
+
+/// Resolve Slackware 15.0 installer DVDs from the project's official ISO index.
+pub fn list_slackware_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path)
+        || !(artifact_path.starts_with("slackware-iso/slackware64-15.0-iso/")
+            || artifact_path.starts_with("slackware-iso/slackware-15.0-iso/"))
+    {
+        return Err(
+            "La ruta Slackware debe apuntar al directorio ISO oficial de Slackware 15.0 (32 o 64 bits)."
+                .into(),
+        );
+    }
+    let url = format!("https://mirrors.slackware.com/slackware/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Slackware es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("mirrors.slackware.com")
+        || !parsed.path().ends_with(".iso")
+    {
+        return Err("La URL no pertenece al índice HTTPS oficial de Slackware.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Slackware official ISO mirror".to_owned(),
+        region: "Mirror oficial del proyecto".to_owned(),
+    }])
+}
+
+/// Resolve the exact Linux Lite ISO link advertised by its official download page.
+pub fn list_linux_lite_official_download_candidates(
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    const PAGE_URL: &str = "https://www.linuxliteos.com/download.php";
+    let html = fetch_official_mirror_page(
+        PAGE_URL,
+        "www.linuxliteos.com",
+        "VoidBoot-LinuxLiteResolver/0.1",
+    )?;
+    parse_publisher_iso_links(
+        &html,
+        PAGE_URL,
+        file_name,
+        &["linuxliteos.com", "sourceforge.net"],
+    )
+}
+
+/// Resolve one exact Solus edition ISO from the publisher's live download page.
+pub fn list_solus_official_download_candidates(
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    const PAGE_URL: &str = "https://getsol.us/download/";
+    let html = fetch_official_mirror_page(
+        PAGE_URL,
+        "getsol.us",
+        "VoidBoot-SolusResolver/0.1",
+    )?;
+    parse_publisher_iso_links(
+        &html,
+        PAGE_URL,
+        file_name,
+        &["downloads.getsol.us"],
+    )
+}
+
+/// Resolve antiX ISO links explicitly advertised on the project's download page.
+/// The page itself curates the mirror destinations; only exact HTTPS ISO filenames are accepted.
+pub fn list_antix_official_download_candidates(
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    const PAGE_URL: &str = "https://antixlinux.com/download/";
+    let html = fetch_official_mirror_page(
+        PAGE_URL,
+        "antixlinux.com",
+        "VoidBoot-antiXResolver/0.1",
+    )?;
+    parse_publisher_iso_links(&html, PAGE_URL, file_name, &[])
 }
 
 #[cfg(test)]
@@ -2847,4 +3029,53 @@ mod tests {
         let error = lookup_official_release_checksum("linuxmint", "linuxmint.iso").unwrap_err();
         assert!(error.contains("todavía no tiene"));
     }
+
+    #[test]
+    fn publisher_iso_link_parser_requires_exact_https_filename_and_allowed_host() {
+        let html = r#"
+            <a href="https://downloads.getsol.us/isos/Solus-Budgie.iso">good</a>
+            <a href="http://downloads.getsol.us/isos/Solus-Budgie.iso">plain</a>
+            <a href="https://evil.example/isos/Solus-Budgie.iso">wrong host</a>
+            <a href="https://downloads.getsol.us/isos/Other.iso">wrong file</a>
+            <a href="https://downloads.getsol.us/isos/Solus-Budgie.iso?token=x">query</a>
+        "#;
+        let candidates = parse_publisher_iso_links(
+            html,
+            "https://getsol.us/download/",
+            "Solus-Budgie.iso",
+            &["downloads.getsol.us"],
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://downloads.getsol.us/isos/Solus-Budgie.iso"
+        );
+        assert!(parse_publisher_iso_links(
+            html,
+            "https://getsol.us/download/",
+            "../Solus-Budgie.iso",
+            &["downloads.getsol.us"],
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn slackware_resolver_is_pinned_to_publisher_iso_tree() {
+        let candidates = list_slackware_official_download_candidates(
+            "slackware-iso/slackware64-15.0-iso/slackware64-15.0-install-dvd.iso",
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://mirrors.slackware.com/slackware/slackware-iso/slackware64-15.0-iso/slackware64-15.0-install-dvd.iso"
+        );
+        assert!(list_slackware_official_download_candidates("../image.iso").is_err());
+        assert!(list_slackware_official_download_candidates(
+            "slackware64-current/untrusted.iso"
+        )
+        .is_err());
+    }
+
 }
