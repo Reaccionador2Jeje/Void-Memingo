@@ -277,6 +277,26 @@ mod tests {
     }
 
     #[test]
+    fn manifest_parser_accepts_oracle_clear_signed_payload_and_centos_bsd_sidecar() {
+        let digest = "a".repeat(64);
+        let oracle = format!(
+            "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\n{digest}  OracleLinux-R10-U2-x86_64-dvd.iso\n-----BEGIN PGP SIGNATURE-----\nignored-signature\n-----END PGP SIGNATURE-----\n"
+        );
+        assert_eq!(
+            parse_manifest_sha256(&oracle, "OracleLinux-R10-U2-x86_64-dvd.iso").unwrap(),
+            digest
+        );
+
+        let centos = format!(
+            "SHA256 (CentOS-Stream-10-latest-x86_64-boot.iso) = {digest}\n"
+        );
+        assert_eq!(
+            parse_manifest_sha256(&centos, "CentOS-Stream-10-latest-x86_64-boot.iso").unwrap(),
+            digest
+        );
+    }
+
+    #[test]
     fn reads_publisher_checksum_for_exact_iso_filename() {
         let manifest = unique_temp_path("publisher-SHA256SUMS");
         let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
