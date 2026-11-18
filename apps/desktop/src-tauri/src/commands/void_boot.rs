@@ -126,6 +126,24 @@ pub fn list_void_boot_elementary_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_alpine_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_alpine_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
+pub fn list_void_boot_nixos_official_download_candidates(
+    channel: String,
+    variant: String,
+    architecture: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_nixos_official_download_candidates(
+        &channel, &variant, &architecture,
+    )
+}
+
+#[tauri::command]
 pub fn list_void_boot_endeavouros_official_download_candidates(
     file_name: String,
 ) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
