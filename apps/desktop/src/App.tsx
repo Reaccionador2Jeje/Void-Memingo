@@ -27,7 +27,7 @@ type OpenTab = {
 };
 
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
-type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean; iso_path_argument?: string | null };
+type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean; iso_path_argument?: string | null; loopback_config?: string | null; loopback_config_source?: boolean };
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootMirror = { base_url: string; country: string; delay_seconds: number; score: number };
 type BootKaliCandidate = { url: string; priority: number; geo: string };
