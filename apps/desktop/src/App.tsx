@@ -27,7 +27,7 @@ type OpenTab = {
 };
 
 type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
-type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean };
+type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean; iso_path_argument?: string | null };
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootMirror = { base_url: string; country: string; delay_seconds: number; score: number };
 type BootKaliCandidate = { url: string; priority: number; geo: string };
@@ -1923,7 +1923,7 @@ directory = ${quote(osOutputDir)}
                   </div>
                   {qemuImagePath && <small className="distro-library-path">{qemuImagePath}</small>}
                   {qemuStatus && <div className="distro-lab-status">{qemuStatus}</div>}
-                  <div className="distro-profile-actions"><button className="secondary-button" onClick={() => void chooseVoidBootProfile()} disabled={voidBootPreviewBusy}>{voidBootPreviewBusy ? 'Cargando…' : 'Abrir catálogo'}</button><button className="secondary-button" onClick={() => { setVoidBootProfileSelected(voidBootProfiles.length); setVoidBootProfileStatus('Perfil nuevo sin guardar. Completa sus datos y guarda el catálogo.'); setVoidBootProfiles((current) => [...current, { id: 'profile-' + Date.now(), name: 'Nuevo sistema', iso: 'iso/system.iso', kernel: 'live/vmlinuz', initrd: 'live/initrd.img', linux_args: ['boot=live'], findiso: true }]); }} disabled={voidBootPreviewBusy}>＋ Añadir perfil</button><button className="secondary-button" onClick={() => void saveVoidBootProfileCatalog()} disabled={voidBootPreviewBusy || voidBootProfiles.length === 0}>Guardar catálogo</button><button className="secondary-button" onClick={() => void refreshVoidBootPreview()} disabled={!voidBootProfileFile || voidBootPreviewBusy}>Actualizar vista previa</button></div>
+                  <div className="distro-profile-actions"><button className="secondary-button" onClick={() => void chooseVoidBootProfile()} disabled={voidBootPreviewBusy}>{voidBootPreviewBusy ? 'Cargando…' : 'Abrir catálogo'}</button><button className="secondary-button" onClick={() => { setVoidBootProfileSelected(voidBootProfiles.length); setVoidBootProfileStatus('Perfil nuevo sin guardar. Completa sus datos y guarda el catálogo.'); setVoidBootProfiles((current) => [...current, { id: 'profile-' + Date.now(), name: 'Nuevo sistema', iso: 'iso/system.iso', kernel: 'live/vmlinuz', initrd: 'live/initrd.img', linux_args: ['boot=live'], findiso: true, iso_path_argument: null }]); }} disabled={voidBootPreviewBusy}>＋ Añadir perfil</button><button className="secondary-button" onClick={() => void saveVoidBootProfileCatalog()} disabled={voidBootPreviewBusy || voidBootProfiles.length === 0}>Guardar catálogo</button><button className="secondary-button" onClick={() => void refreshVoidBootPreview()} disabled={!voidBootProfileFile || voidBootPreviewBusy}>Actualizar vista previa</button></div>
                   {voidBootProfiles.length > 0 && (
                     <div className="void-boot-profile-editor">
                       <div className="void-boot-profile-list" role="list" aria-label="Perfiles del catálogo">
@@ -1940,6 +1940,7 @@ directory = ${quote(osOutputDir)}
                           <label>Ruta del initrd<input value={profile.initrd} onChange={(event) => updateProfile({ initrd: event.target.value })} placeholder="live/initrd.img" /></label>
                           <label>Argumentos del kernel<input value={profile.linux_args.join(' ')} onChange={(event) => updateProfile({ linux_args: event.target.value.split(/\s+/).filter(Boolean) })} placeholder="boot=live quiet" /></label>
                           <label className="void-boot-profile-check"><input type="checkbox" checked={profile.findiso} onChange={(event) => updateProfile({ findiso: event.target.checked })} /> Añadir búsqueda automática de ISO (findiso)</label>
+                          <label>Parámetro de ruta ISO (opcional)<input value={profile.iso_path_argument ?? ''} onChange={(event) => updateProfile({ iso_path_argument: event.target.value.trim() || null, findiso: event.target.value.trim() ? false : profile.findiso })} placeholder="iso-scan/filename" /></label>
                           <button className="text-action" onClick={() => { setVoidBootProfiles((current) => current.filter((_, index) => index !== voidBootProfileSelected)); setVoidBootProfileSelected((current) => Math.max(0, Math.min(current, voidBootProfiles.length - 2))); }}>Eliminar perfil seleccionado</button>
                         </div>;
                       })()}
