@@ -363,10 +363,11 @@ fn parse_kali_redirect_candidates(
     }
 
     for header in link_headers {
-        for item in header.split(", <") {
-            let item = if item.starts_with('<') { item } else { &format!("<{item}") };
+        for item in header.split(',') {
+            let item = item.trim();
+            let item = item.strip_prefix('<').unwrap_or(item);
             let Some((target, parameters)) = item.split_once('>') else { continue };
-            let target = target.trim_start_matches('<');
+            let target = target.trim();
             let parameters = parameters.to_ascii_lowercase();
             if !parameters.contains("rel=duplicate") {
                 continue;
