@@ -68,6 +68,7 @@ fn main() {
             commands::void_boot::list_void_boot_alpine_official_download_candidates,
             commands::void_boot::list_void_boot_nixos_official_download_candidates,
             commands::void_boot::list_void_boot_gentoo_official_download_candidates,
+            commands::void_boot::list_void_boot_deepin_official_download_candidates,
             commands::void_boot::list_void_boot_endeavouros_official_download_candidates,
             commands::void_boot::list_void_boot_centos_stream_official_download_candidates,
             commands::void_boot::list_void_boot_oracle_linux_official_download_candidates,
