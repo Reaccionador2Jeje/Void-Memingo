@@ -30,6 +30,7 @@ type SidebarView = 'explorer' | 'search' | 'source' | 'boot';
 type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; initrd: string; linux_args: string[]; findiso: boolean };
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootMirror = { base_url: string; country: string; delay_seconds: number; score: number };
+type BootKaliCandidate = { url: string; priority: number; geo: string };
 type BootMirrorSupport = { distribution_id: string; mode: string; label: string; description: string; source_url: string; selectable: boolean };
 type BootReleaseGate = { downloads_enabled: boolean; validated_systems: number; required_systems: number; message: string };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean; reused_from_library: boolean };
@@ -187,6 +188,10 @@ function App() {
   const [voidBootArchMirrors, setVoidBootArchMirrors] = useState<BootMirror[]>([]);
   const [voidBootMirrorSupport, setVoidBootMirrorSupport] = useState<BootMirrorSupport | null>(null);
   const [voidBootArchMirrorBase, setVoidBootArchMirrorBase] = useState('');
+  const [voidBootKaliArtifactPath, setVoidBootKaliArtifactPath] = useState('');
+  const [voidBootKaliCandidates, setVoidBootKaliCandidates] = useState<BootKaliCandidate[]>([]);
+  const [voidBootKaliCandidateUrl, setVoidBootKaliCandidateUrl] = useState('');
+  const [voidBootKaliBusy, setVoidBootKaliBusy] = useState(false);
   const [voidBootMirrorBusy, setVoidBootMirrorBusy] = useState(false);
   const [voidBootDownloadName, setVoidBootDownloadName] = useState('distribution.iso');
   const [voidBootExpectedSha256, setVoidBootExpectedSha256] = useState('');
@@ -707,6 +712,27 @@ function App() {
     const cleanName = voidBootDownloadName.trim();
     setVoidBootDownloadUrl(cleanName ? baseUrl + 'iso/latest/' + cleanName : '');
   }, [voidBootDownloadName]);
+
+  const loadVoidBootKaliCandidates = useCallback(async () => {
+    const artifactPath = voidBootKaliArtifactPath.trim();
+    if (!artifactPath) {
+      addLog('Void Boot: indica la ruta relativa exacta de la ISO en el índice oficial de Kali.');
+      return;
+    }
+    setVoidBootKaliBusy(true);
+    try {
+      const candidates = await invoke<BootKaliCandidate[]>('list_void_boot_kali_official_download_candidates', { artifactPath });
+      setVoidBootKaliCandidates(candidates);
+      setVoidBootKaliCandidateUrl(candidates[0]?.url ?? '');
+      addLog('Void Boot: el redirector oficial de Kali anunció ' + candidates.length + ' candidatos HTTPS para la ISO solicitada.');
+    } catch (error) {
+      setVoidBootKaliCandidates([]);
+      setVoidBootKaliCandidateUrl('');
+      addLog('No se pudieron consultar los mirrors oficiales de Kali: ' + String(error));
+    } finally {
+      setVoidBootKaliBusy(false);
+    }
+  }, [addLog, voidBootKaliArtifactPath]);
 
   const loadVoidBootPublisherChecksum = useCallback(async () => {
     const fileName = voidBootDownloadName.trim();
@@ -1653,6 +1679,7 @@ directory = ${quote(osOutputDir)}
                       <span className="distro-download-locked-link" aria-disabled="true"><ExternalLink size={15} /> Descargas oficiales bloqueadas hasta completar todos los sistemas</span>
                       <a className="distro-project-link" href={voidBootSelectedDistro.project_url} target="_blank" rel="noreferrer">Sitio oficial del proyecto ↗</a>
                       {voidBootMirrorSupport && <div className="distro-detail-section"><strong>FUENTE DE DESCARGA · {voidBootMirrorSupport.label.toLocaleUpperCase()}</strong><span>{voidBootMirrorSupport.description}</span><span className="distro-download-locked-link" aria-disabled="true"><ExternalLink size={14} /> Fuente de descarga disponible al completar la validación global</span>{voidBootMirrorSupport.selectable && <small>Selector automático disponible para esta distribución.</small>}</div>}
+                      {voidBootSelectedDistro.id === 'kali' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>REDIRECTOR OFICIAL DE IMÁGENES KALI</strong><span>Introduce la ruta relativa exacta que aparece en el índice oficial. Void Boot consulta el redirector y muestra el destino elegido junto con las alternativas HTTPS anunciadas por Kali.</span></div><input aria-label="Ruta relativa de ISO de Kali" placeholder="kali-2026.3/nombre-exacto.iso" value={voidBootKaliArtifactPath} onChange={(event) => { setVoidBootKaliArtifactPath(event.target.value); setVoidBootKaliCandidates([]); setVoidBootKaliCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootKaliCandidates()} disabled={voidBootKaliBusy || !voidBootKaliArtifactPath.trim()}>{voidBootKaliBusy ? 'Consultando redirector…' : 'Buscar mirrors oficiales de Kali'}</button>{voidBootKaliCandidates.length > 0 && <select aria-label="Seleccionar candidato oficial de Kali" value={voidBootKaliCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootKaliCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'kali.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar mirror…</option>{voidBootKaliCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>Prioridad {candidate.priority} · zona {candidate.geo} · {new URL(candidate.url).host}</option>)}</select>}</div>}
                       {!voidBootReleaseGate?.downloads_enabled ? (
                         <div className="distro-download-panel distro-download-gate" role="status">
                           <AlertCircle size={18} />
