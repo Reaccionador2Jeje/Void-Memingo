@@ -7,6 +7,8 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Rust CLI and reusable library.
 - [x] Read-only ISO inventory, SHA-256 and ISO 9660 / El Torito descriptor inspection.
 - [x] Declarative profile parsing and input validation.
+- [x] Per-distribution ISO-path kernel parameter support (`findiso` or a validated parameter key), preserving compatibility with existing Debian profiles.
+- [x] Experimental GRUB loopback recipes for Ubuntu, Lubuntu, Kubuntu and Xubuntu using the Casper layout; these are recipes only and remain unverified on real BIOS/UEFI hardware.
 - [x] GRUB graphical menu generation and Atdev theme.
 - [x] Void Memingo integration for ISO inspection and profile preview.
 - [x] Linux read-only removable-device inventory.
