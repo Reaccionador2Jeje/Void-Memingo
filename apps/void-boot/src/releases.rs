@@ -467,6 +467,58 @@ pub fn list_kali_official_download_candidates(
     parse_kali_redirect_candidates(location, &links, artifact_path)
 }
 
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DebianDownloadCandidate {
+    pub url: String,
+    pub provider: String,
+    pub region: String,
+}
+
+/// Build a Debian ISO URL on Debian's documented CloudFront-backed image mirror.
+/// Only relative ISO paths under /debian-cd/ are accepted.
+pub fn list_debian_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<DebianDownloadCandidate>, String> {
+    if artifact_path.is_empty()
+        || artifact_path.starts_with('/')
+        || artifact_path.contains("..")
+        || artifact_path.contains('\\')
+        || !artifact_path
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/._-".contains(&byte))
+        || !artifact_path.to_ascii_lowercase().ends_with(".iso")
+    {
+        return Err("Indica una ruta relativa válida de ISO Debian, sin rutas absolutas ni segmentos '..'.".into());
+    }
+
+    const HOST: &str = "cloudfront.debian.net";
+    let addresses = (HOST, 443)
+        .to_socket_addrs()
+        .map_err(|error| format!("No se pudo resolver el CDN oficial de Debian: {error}"))?
+        .collect::<Vec<_>>();
+    if addresses.is_empty()
+        || addresses
+            .iter()
+            .any(|address| !crate::download::is_safe_ip(address.ip()))
+    {
+        return Err("El CDN oficial de Debian resolvió a una dirección no pública.".into());
+    }
+
+    let url = format!("https://{HOST}/debian-cd/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La ruta de ISO Debian generó una URL inválida: {error}"))?;
+    if parsed.scheme() != "https" || parsed.host_str() != Some(HOST) {
+        return Err("La URL generada no pertenece al CDN HTTPS oficial de Debian.".into());
+    }
+
+    Ok(vec![DebianDownloadCandidate {
+        url,
+        provider: "Debian CloudFront".to_owned(),
+        region: "CDN global".to_owned(),
+    }])
+}
+
 /// How a distribution obtains ISO download mirrors or an official download source.
 /// "directory" means the publisher documents mirrors, but Void Boot does not yet
 /// resolve a release-specific ISO URL automatically.
@@ -685,6 +737,22 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn debian_candidate_uses_only_the_official_cdn_and_safe_relative_paths() {
+        let candidates = list_debian_official_download_candidates(
+            "current/amd64/iso-cd/debian-stable-amd64-netinst.iso",
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].provider, "Debian CloudFront");
+        assert!(candidates[0].url.starts_with(
+            "https://cloudfront.debian.net/debian-cd/current/amd64/iso-cd/"
+        ));
+        assert!(list_debian_official_download_candidates("../private.iso").is_err());
+        assert!(list_debian_official_download_candidates("/absolute.iso").is_err());
+        assert!(list_debian_official_download_candidates("folder\\\\image.iso").is_err());
+    }
 
     #[test]
     fn distro_center_downloads_stay_locked_until_every_system_is_validated() {
