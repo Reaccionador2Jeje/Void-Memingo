@@ -1145,6 +1145,75 @@ fn parse_elementary_official_download_links(
     Ok(candidates)
 }
 
+/// Resolve Alpine Linux installer ISOs from the official latest-stable CDN tree.
+pub fn list_alpine_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path)
+        || !artifact_path.starts_with("latest-stable/releases/")
+    {
+        return Err("La ruta Alpine debe estar dentro de latest-stable/releases/.".into());
+    }
+    let parts: Vec<&str> = artifact_path.split('/').collect();
+    if parts.len() != 4 {
+        return Err("La ruta Alpine debe incluir arquitectura y nombre de ISO.".into());
+    }
+    let architecture = parts[2];
+    if !["x86", "x86_64", "aarch64", "armhf", "armv7", "ppc64le", "riscv64", "s390x", "loongarch64"].contains(&architecture)
+        || !parts[3].starts_with("alpine-")
+        || !parts[3].ends_with(".iso")
+        || !parts[3].contains(&format!("-{architecture}."))
+    {
+        return Err("La ruta Alpine debe indicar una arquitectura oficial y un nombre alpine-*.iso coincidente.".into());
+    }
+    let url = format!("https://dl-cdn.alpinelinux.org/alpine/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Alpine Linux es inválida: {error}"))?;
+    if parsed.scheme() != "https" || parsed.host_str() != Some("dl-cdn.alpinelinux.org") {
+        return Err("La URL no pertenece al CDN HTTPS oficial de Alpine Linux.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Alpine Linux official CDN".to_owned(),
+        region: "CDN oficial dl-cdn.alpinelinux.org".to_owned(),
+    }])
+}
+
+/// Resolve NixOS stable/unstable installer ISOs through the official channel aliases.
+pub fn list_nixos_official_download_candidates(
+    channel: &str,
+    variant: &str,
+    architecture: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    let valid_channel = channel == "nixos-unstable"
+        || (channel.starts_with("nixos-")
+            && channel.len() == 10
+            && channel.as_bytes()[6..8].iter().all(u8::is_ascii_digit)
+            && channel.as_bytes()[8] == b'.'
+            && channel.as_bytes()[9..10].iter().all(u8::is_ascii_digit));
+    if !valid_channel {
+        return Err("El canal NixOS debe ser nixos-unstable o un canal estable como nixos-26.05.".into());
+    }
+    if !["graphical", "minimal"].contains(&variant) {
+        return Err("La variante NixOS debe ser graphical o minimal.".into());
+    }
+    if !["x86_64", "aarch64"].contains(&architecture) {
+        return Err("La arquitectura NixOS debe ser x86_64 o aarch64.".into());
+    }
+    let file_name = format!("latest-nixos-{variant}-{architecture}-linux.iso");
+    let url = format!("https://channels.nixos.org/{channel}/{file_name}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de NixOS es inválida: {error}"))?;
+    if parsed.scheme() != "https" || parsed.host_str() != Some("channels.nixos.org") {
+        return Err("La URL no pertenece al host HTTPS oficial de canales NixOS.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "NixOS official channel".to_owned(),
+        region: "Alias oficial al ISO más reciente del canal".to_owned(),
+    }])
+}
+
 /// Resolve elementary OS ISO links from the publisher's live download page.
 pub fn list_elementary_official_download_candidates(file_name: &str)
     -> Result<Vec<OfficialPathDownloadCandidate>, String> {
@@ -1884,6 +1953,38 @@ mod tests {
         ).is_err());
         assert!(list_popos_official_download_candidates(
             "24.04", "amd64", "generic", "22", "another.iso"
+        ).is_err());
+    }
+
+    #[test]
+    fn alpine_resolver_uses_only_official_latest_stable_iso_tree() {
+        let candidates = list_alpine_official_download_candidates(
+            "latest-stable/releases/x86_64/alpine-standard-3.24.4-x86_64.iso",
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].url,
+            "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/alpine-standard-3.24.4-x86_64.iso");
+        assert!(list_alpine_official_download_candidates("../private.iso").is_err());
+        assert!(list_alpine_official_download_candidates(
+            "latest-stable/releases/x86_64/alpine-standard-3.24.4-aarch64.iso"
+        ).is_err());
+    }
+
+    #[test]
+    fn nixos_resolver_uses_official_channel_aliases_and_validates_selection() {
+        let candidates = list_nixos_official_download_candidates(
+            "nixos-26.05", "graphical", "x86_64",
+        ).unwrap();
+        assert_eq!(candidates[0].url,
+            "https://channels.nixos.org/nixos-26.05/latest-nixos-graphical-x86_64-linux.iso");
+        assert!(list_nixos_official_download_candidates(
+            "../evil", "graphical", "x86_64"
+        ).is_err());
+        assert!(list_nixos_official_download_candidates(
+            "nixos-26.05", "desktop", "x86_64"
+        ).is_err());
+        assert!(list_nixos_official_download_candidates(
+            "nixos-26.05", "minimal", "i686"
         ).is_err());
     }
 
