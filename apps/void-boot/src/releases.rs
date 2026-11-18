@@ -134,9 +134,10 @@ fn rocky_checksum_url_for_iso(file_name: &str) -> Result<(String, String), Strin
     if !matches!(major, "9" | "10") {
         return Err("El adaptador Rocky Linux cubre únicamente las ramas 9 y 10.".into());
     }
-    let architecture_index = parts.iter().position(|part| *part == "x86_64");
-    let Some(architecture_index) = architecture_index else {
-        return Err("El adaptador Rocky Linux cubre únicamente x86_64.".into());
+    let architecture_index = match parts.as_slice() {
+        [_, _, "x86_64", _] => 2,
+        [_, _, "latest", "x86_64", _] => 3,
+        _ => return Err("El adaptador Rocky Linux cubre únicamente nombres x86_64 con formato oficial.".into()),
     };
     if architecture_index + 1 != parts.len() - 1
         || !matches!(parts.last().copied(), Some("boot" | "dvd" | "minimal"))
@@ -238,9 +239,10 @@ fn almalinux_checksum_url_for_iso(file_name: &str) -> Result<(String, String), S
     if !matches!(major, "9" | "10") {
         return Err("El adaptador AlmaLinux cubre únicamente las ramas 9 y 10.".into());
     }
-    let architecture_index = parts.iter().position(|part| *part == "x86_64");
-    let Some(architecture_index) = architecture_index else {
-        return Err("El adaptador AlmaLinux cubre únicamente x86_64.".into());
+    let architecture_index = match parts.as_slice() {
+        [_, _, "x86_64", _] => 2,
+        [_, _, "latest", "x86_64", _] => 3,
+        _ => return Err("El adaptador AlmaLinux cubre únicamente nombres x86_64 con formato oficial.".into()),
     };
     if architecture_index + 1 != parts.len() - 1
         || !matches!(parts.last().copied(), Some("boot" | "dvd" | "minimal"))
@@ -3315,6 +3317,7 @@ mod tests {
         assert!(rocky_checksum_url_for_iso("Rocky-8.10-x86_64-dvd.iso").is_err());
         assert!(rocky_checksum_url_for_iso("Rocky-10.1-aarch64-dvd.iso").is_err());
         assert!(rocky_checksum_url_for_iso("Rocky-10.1-x86_64-other.iso").is_err());
+        assert!(rocky_checksum_url_for_iso("Rocky-10.1-odd-x86_64-dvd.iso").is_err());
     }
 
     #[test]
@@ -3331,6 +3334,7 @@ mod tests {
         assert!(almalinux_checksum_url_for_iso("AlmaLinux-8.10-x86_64-dvd.iso").is_err());
         assert!(almalinux_checksum_url_for_iso("AlmaLinux-10.2-aarch64-dvd.iso").is_err());
         assert!(almalinux_checksum_url_for_iso("AlmaLinux-10.2-x86_64-other.iso").is_err());
+        assert!(almalinux_checksum_url_for_iso("AlmaLinux-10.2-odd-x86_64-dvd.iso").is_err());
     }
 
     #[test]
