@@ -1214,6 +1214,33 @@ pub fn list_nixos_official_download_candidates(
     }])
 }
 
+/// Resolve final MX Linux ISO files through the project's SourceForge download gateway.
+pub fn list_mx_linux_official_download_candidates(
+    file_name: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_iso_name(file_name)
+        || !(file_name.starts_with("MX-") || file_name.starts_with("mx-"))
+    {
+        return Err("Indica únicamente el nombre exacto de una ISO final de MX Linux.".into());
+    }
+    let url = format!(
+        "https://sourceforge.net/projects/mx-linux/files/Final/{file_name}/download"
+    );
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de MX Linux es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("sourceforge.net")
+        || parsed.path().rsplit('/').next() != Some("download")
+    {
+        return Err("La URL no pertenece al gateway HTTPS oficial del proyecto MX Linux.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "MX Linux official SourceForge project".to_owned(),
+        region: "Gateway de descargas del proyecto · Final".to_owned(),
+    }])
+}
+
 /// Parse Gentoo's signed latest-build pointer for the amd64 minimal installer.
 fn parse_gentoo_latest_iso_pointer(text: &str) -> Result<String, String> {
     if !text.contains("-----BEGIN PGP SIGNED MESSAGE-----")
@@ -2064,6 +2091,19 @@ mod tests {
         assert!(list_nixos_official_download_candidates(
             "nixos-26.05", "minimal", "i686"
         ).is_err());
+    }
+
+    #[test]
+    fn mx_linux_resolver_uses_only_final_project_iso_gateway() {
+        let candidates = list_mx_linux_official_download_candidates(
+            "MX-25.3_Xfce_x64.iso",
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].url,
+            "https://sourceforge.net/projects/mx-linux/files/Final/MX-25.3_Xfce_x64.iso/download");
+        assert!(list_mx_linux_official_download_candidates("../private.iso").is_err());
+        assert!(list_mx_linux_official_download_candidates("OtherDistro.iso").is_err());
+        assert!(list_mx_linux_official_download_candidates("MX-25.3_Xfce_x64.iso?x=1").is_err());
     }
 
     #[test]
