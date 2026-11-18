@@ -31,6 +31,7 @@ type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; 
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootMirror = { base_url: string; country: string; delay_seconds: number; score: number };
 type BootMirrorSupport = { distribution_id: string; mode: string; label: string; description: string; source_url: string; selectable: boolean };
+type BootReleaseGate = { downloads_enabled: boolean; validated_systems: number; required_systems: number; message: string };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean; reused_from_library: boolean };
 type BootDistribution = { id: string; kind?: 'linux_distribution' | 'operating_system' | string; name: string; description: string; family: string; project_url: string; download_page: string; architectures: string[]; editions: string[]; release_model: string; formats: string[]; verification: string; installation: { delivery: string; requires_full_image: boolean; boot_profile_required: boolean; note: string } };
 type BottomView = 'problems' | 'output' | 'terminal';
@@ -176,6 +177,7 @@ function App() {
   const [voidBootDirectory, setVoidBootDirectory] = useState<string | null>(null);
   const [voidBootCatalog, setVoidBootCatalog] = useState<BootDistribution[]>([]);
   const [voidBootCatalogBusy, setVoidBootCatalogBusy] = useState(false);
+  const [voidBootReleaseGate, setVoidBootReleaseGate] = useState<BootReleaseGate | null>(null);
   const [voidBootSelectedDistro, setVoidBootSelectedDistro] = useState<BootDistribution | null>(null);
   const [distroSearch, setDistroSearch] = useState('');
   const [distroFamily, setDistroFamily] = useState('all');
@@ -641,6 +643,24 @@ function App() {
   }, [addLog]);
 
   useEffect(() => {
+    let cancelled = false;
+    void invoke<BootReleaseGate>('get_void_boot_release_gate')
+      .then((gate) => { if (!cancelled) setVoidBootReleaseGate(gate); })
+      .catch((error) => {
+        if (!cancelled) {
+          setVoidBootReleaseGate({
+            downloads_enabled: false,
+            validated_systems: 0,
+            required_systems: 40,
+            message: 'No se pudo comprobar el estado de lanzamiento. Las descargas permanecen bloqueadas por seguridad.'
+          });
+          addLog('No se pudo consultar la barrera de lanzamiento de Distro Center: ' + String(error));
+        }
+      });
+    return () => { cancelled = true; };
+  }, [addLog]);
+
+  useEffect(() => {
     const distributionId = voidBootSelectedDistro?.id;
     if (!distributionId) {
       setVoidBootMirrorSupport(null);
@@ -733,6 +753,7 @@ function App() {
   }, [addLog, voidBootDownloadName, voidBootSelectedDistro]);
 
   const startVoidBootDownload = useCallback(async () => {
+    if (!voidBootReleaseGate?.downloads_enabled) { addLog('Distro Center: descargas bloqueadas hasta completar el soporte validado de todos los sistemas.'); return; }
     if (!voidBootDownloadUrl.trim() || !voidBootDownloadDirectory || !voidBootDownloadName.trim()) return;
     setVoidBootDownloadBusy(true);
     try {
@@ -1629,9 +1650,15 @@ directory = ${quote(osOutputDir)}
                       <div className="distro-detail-section"><strong>EDICIONES</strong><span>{voidBootSelectedDistro.editions.join(' · ')}</span></div>
                       <div className="distro-detail-section"><strong>VERIFICACIÓN</strong><span>{voidBootSelectedDistro.verification}</span></div>
                       <div className="distro-detail-section"><strong>COMPATIBILIDAD Y ENTREGA</strong><span>{voidBootSelectedDistro.installation.note}</span></div>
-                      <a className="distro-official-link" href={voidBootSelectedDistro.download_page} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Abrir página oficial de descarga</a>
+                      <span className="distro-download-locked-link" aria-disabled="true"><ExternalLink size={15} /> Descargas oficiales bloqueadas hasta completar todos los sistemas</span>
                       <a className="distro-project-link" href={voidBootSelectedDistro.project_url} target="_blank" rel="noreferrer">Sitio oficial del proyecto ↗</a>
                       {voidBootMirrorSupport && <div className="distro-detail-section"><strong>FUENTE DE DESCARGA · {voidBootMirrorSupport.label.toLocaleUpperCase()}</strong><span>{voidBootMirrorSupport.description}</span><a className="distro-official-link" href={voidBootMirrorSupport.source_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Consultar fuente oficial</a>{voidBootMirrorSupport.selectable && <small>Selector automático disponible para esta distribución.</small>}</div>}
+                      {!voidBootReleaseGate?.downloads_enabled ? (
+                        <div className="distro-download-panel distro-download-gate" role="status">
+                          <AlertCircle size={18} />
+                          <div><strong>DESCARGAS BLOQUEADAS · DESARROLLO GLOBAL EN CURSO</strong><span>{voidBootReleaseGate?.message ?? 'Comprobando la barrera global de lanzamiento…'}</span><small>Sistemas validados: {voidBootReleaseGate?.validated_systems ?? 0} / {voidBootReleaseGate?.required_systems ?? 40}. No se permite iniciar descargas desde ninguna ficha del catálogo.</small></div>
+                        </div>
+                      ) : (
                       {(voidBootSelectedDistro.kind ?? 'linux_distribution') === 'linux_distribution' && voidBootSelectedDistro.installation.delivery === 'direct_iso_to_void_data_partition' ? (
                         <div className="distro-download-panel">
                           <div className="distro-detail-section"><strong>DESCARGA A BIBLIOTECA</strong><span>Smart Download detecta si el mirror admite HTTP Range: usa hasta 8 conexiones paralelas con reanudación por partes o cambia a una conexión simple. El destino se elige explícitamente.</span></div>
@@ -1649,6 +1676,7 @@ directory = ${quote(osOutputDir)}
                         </div>
                       ) : (
                         <div className="distro-download-panel distro-external-only"><AlertCircle size={16} /><span>Solo catálogo y enlace oficial. No se ofrece descarga automatizada ni se afirma compatibilidad multiboot para este sistema.</span></div>
+                      )}
                       )}
                     </>
                   ) : <div className="panel-empty">Selecciona un sistema del catálogo para consultar sus detalles.</div>}
