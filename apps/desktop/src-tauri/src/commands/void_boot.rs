@@ -246,6 +246,35 @@ pub fn lookup_void_boot_official_release_checksum(
     ::void_boot::releases::lookup_official_release_checksum(&distribution_id, &file_name)
 }
 
+
+#[tauri::command]
+pub fn list_void_boot_slackware_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_slackware_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
+pub fn list_void_boot_linux_lite_official_download_candidates(
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_linux_lite_official_download_candidates(&file_name)
+}
+
+#[tauri::command]
+pub fn list_void_boot_solus_official_download_candidates(
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_solus_official_download_candidates(&file_name)
+}
+
+#[tauri::command]
+pub fn list_void_boot_antix_official_download_candidates(
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_antix_official_download_candidates(&file_name)
+}
+
 #[tauri::command]
 pub fn read_void_boot_expected_sha256(
     manifest_path: String,
