@@ -189,12 +189,17 @@ pub fn preview_void_boot_menu(profile_file: String) -> Result<String, String> {
 #[tauri::command]
 pub fn start_void_boot_download(
     manager: tauri::State<'_, ::void_boot::download::DownloadManager>,
+    distribution_id: String,
     url: String,
     file_name: String,
     directory: String,
     expected_sha256: Option<String>,
 ) -> Result<String, String> {
-    ::void_boot::releases::ensure_distro_center_downloads_enabled()?;
+    ::void_boot::releases::ensure_distro_center_downloads_enabled(
+        &distribution_id,
+        &file_name,
+        expected_sha256.as_deref(),
+    )?;
     manager.start(url, file_name, directory, expected_sha256)
 }
 
