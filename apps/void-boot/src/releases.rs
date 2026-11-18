@@ -1540,54 +1540,19 @@ mod tests {
     }
 
     #[test]
-    fn mirror_support_is_defined_for_linux_bsd_and_windows_catalogue_entries() {
-        for id in [
-            "debian",
-            "ubuntu",
-            "fedora",
-            "arch",
-            "linux-mint",
-            "zorin-os",
-            "opensuse",
-            "pop-os",
-            "elementary-os",
-            "kali",
-            "endeavouros",
-            "manjaro",
-            "mx-linux",
-            "nixos",
-            "void-linux",
-            "rocky-linux",
-            "almalinux",
-            "alpine",
-            "mageia",
-            "windows-11-x64",
-            "windows-11-arm64",
-            "freebsd",
-            "openbsd",
-            "netbsd",
-            "reactos",
-            "centos-stream",
-            "gentoo",
-            "slackware",
-            "lubuntu",
-            "kubuntu",
-            "xubuntu",
-            "linux-lite",
-            "deepin",
-            "solus",
-            "kde-neon",
-            "oracle-linux",
-            "antix",
-            "windows-10-home",
-            "windows-10-pro",
-            "windows-10-ltsc",
-        ] {
-            let support = mirror_support_for_distribution(id)
-                .unwrap_or_else(|_| panic!("missing mirror support for {id}"));
-            assert_eq!(support.distribution_id, id);
+    fn every_catalogue_entry_has_an_explicit_official_source_policy() {
+        let catalogue = crate::catalog::load_distributions().expect("catalogue should load");
+        assert_eq!(catalogue.len(), 40, "Distro Center must cover all 40 entries");
+
+        for distribution in &catalogue {
+            let support = mirror_support_for_distribution(&distribution.id)
+                .unwrap_or_else(|_| panic!("missing source policy for {}", distribution.id));
+            assert_eq!(support.distribution_id, distribution.id);
             assert!(support.source_url.starts_with("https://"));
+            assert!(!support.label.trim().is_empty());
+            assert!(!support.description.trim().is_empty());
         }
+
         assert!(mirror_support_for_distribution("arch").unwrap().selectable);
         assert!(
             !mirror_support_for_distribution("windows-11-x64")
