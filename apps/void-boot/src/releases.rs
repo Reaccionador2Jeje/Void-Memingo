@@ -69,6 +69,12 @@ const SOURCES: &[ChecksumSource] = &[
         manifest_url: "https://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso.sha256",
         allowed_host: "download.opensuse.org",
     },
+    ChecksumSource {
+        distribution_id: "antix",
+        release_label: "antiX 26.1 · hashes publicados en la página oficial",
+        manifest_url: "https://antixlinux.com/download/",
+        allowed_host: "antixlinux.com",
+    },
 ];
 
 fn safe_iso_name(value: &str) -> bool {
@@ -97,6 +103,52 @@ pub fn supported_release_sources() -> Vec<(String, String)> {
         .collect()
 }
 
+fn parse_antix_sha256_html(html: &str, file_name: &str) -> Result<String, String> {
+    if !safe_iso_name(file_name) || !file_name.starts_with("antiX-") {
+        return Err("Indica el nombre exacto de una ISO antiX.".into());
+    }
+
+    // Strip markup while preserving token boundaries between adjacent HTML elements.
+    let mut plain = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for character in html.chars() {
+        match character {
+            '<' => {
+                in_tag = true;
+                plain.push(' ');
+            }
+            '>' => {
+                in_tag = false;
+                plain.push(' ');
+            }
+            _ if !in_tag => plain.push(character),
+            _ => {}
+        }
+    }
+    let plain = plain
+        .replace("&nbsp;", " ")
+        .replace("&#160;", " ")
+        .replace("&amp;", "&");
+    let tokens = plain.split_whitespace().collect::<Vec<_>>();
+    let mut matches = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if *token != file_name || index == 0 {
+            continue;
+        }
+        let digest = tokens[index - 1];
+        if digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            matches.push(digest.to_ascii_lowercase());
+        }
+    }
+    matches.sort();
+    matches.dedup();
+    match matches.as_slice() {
+        [digest] => Ok(digest.clone()),
+        [] => Err(format!("La página oficial antiX no publicó un SHA-256 para {file_name}.")),
+        _ => Err(format!("La página oficial antiX publicó hashes SHA-256 contradictorios para {file_name}.")),
+    }
+}
+
 pub fn lookup_official_release_checksum(
     distribution_id: &str,
     file_name: &str,
@@ -105,6 +157,23 @@ pub fn lookup_official_release_checksum(
         return Err(
             "Indica el nombre exacto de una ISO, sin rutas ni caracteres especiales.".into(),
         );
+    }
+
+    if distribution_id == "antix" {
+        const PAGE_URL: &str = "https://antixlinux.com/download/";
+        let html = fetch_official_mirror_page(
+            PAGE_URL,
+            "antixlinux.com",
+            "VoidBoot-antiXChecksum/0.1",
+        )?;
+        let sha256 = parse_antix_sha256_html(&html, file_name)?;
+        return Ok(OfficialReleaseChecksum {
+            distribution_id: "antix".to_owned(),
+            release_label: "antiX · SHA-256 publicado en la página oficial".to_owned(),
+            manifest_url: PAGE_URL.to_owned(),
+            file_name: file_name.to_owned(),
+            sha256,
+        });
     }
 
     let source = SOURCES
@@ -2962,7 +3031,7 @@ mod tests {
         assert_eq!(gate.download_enabled_systems, 8);
         assert_eq!(gate.required_systems, 40);
         for id in [
-            "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
+            "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse", "antix",
         ] {
             assert!(gate
                 .enabled_distribution_ids
@@ -3063,9 +3132,34 @@ mod tests {
     }
 
     #[test]
+    fn antix_sha256_parser_accepts_exact_publisher_hash_and_rejects_conflicts() {
+        let html = r#"
+            <section>
+              <h3>antiX 26.1</h3>
+              <p>293381af0b7c48399abe015da8f67d41fd34372b73c4aafcf53747fbaed22371
+                antiX-26.1_x64-full.iso</p>
+              <p>6ec6f6522c69b4411d32f61e853709cdaf94df709c264b2a4d7de9724ce57fbc
+                antiX-26.1_386-full.iso</p>
+            </section>
+        "#;
+        assert_eq!(
+            parse_antix_sha256_html(html, "antiX-26.1_x64-full.iso").unwrap(),
+            "293381af0b7c48399abe015da8f67d41fd34372b73c4aafcf53747fbaed22371"
+        );
+        assert!(parse_antix_sha256_html(html, "antiX-26.1_x64-core.iso").is_err());
+        assert!(parse_antix_sha256_html(html, "../antiX.iso").is_err());
+
+        let conflict = format!(
+            "{html}<p>{} antiX-26.1_x64-full.iso</p>",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
+        assert!(parse_antix_sha256_html(&conflict, "antiX-26.1_x64-full.iso").is_err());
+    }
+
+    #[test]
     fn exposes_only_explicitly_allowlisted_release_sources() {
         let sources = supported_release_sources();
-        assert_eq!(sources.len(), 8);
+        assert_eq!(sources.len(), 9);
         for expected in [
             "debian", "arch", "ubuntu", "lubuntu", "kubuntu", "xubuntu", "fedora", "opensuse",
         ] {
