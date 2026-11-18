@@ -31,6 +31,7 @@ type VoidBootProfile = { id: string; name: string; iso: string; kernel: string; 
 type BootIsoEntry = { name: string; path: string; size_bytes: number; sha256: string; iso9660: boolean; el_torito_descriptor: boolean; status: string };
 type BootMirror = { base_url: string; country: string; delay_seconds: number; score: number };
 type BootKaliCandidate = { url: string; priority: number; geo: string };
+type BootDebianCandidate = { url: string; provider: string; region: string };
 type BootMirrorSupport = { distribution_id: string; mode: string; label: string; description: string; source_url: string; selectable: boolean };
 type BootReleaseGate = { downloads_enabled: boolean; validated_systems: number; required_systems: number; message: string };
 type BootDownload = { id: string; file_name: string; path: string; downloaded_bytes: number; total_bytes: number | null; connections: number; status: string; error: string | null; sha256: string | null; checksum_verified: boolean; reused_from_library: boolean };
@@ -192,6 +193,10 @@ function App() {
   const [voidBootKaliCandidates, setVoidBootKaliCandidates] = useState<BootKaliCandidate[]>([]);
   const [voidBootKaliCandidateUrl, setVoidBootKaliCandidateUrl] = useState('');
   const [voidBootKaliBusy, setVoidBootKaliBusy] = useState(false);
+  const [voidBootDebianArtifactPath, setVoidBootDebianArtifactPath] = useState('');
+  const [voidBootDebianCandidates, setVoidBootDebianCandidates] = useState<BootDebianCandidate[]>([]);
+  const [voidBootDebianCandidateUrl, setVoidBootDebianCandidateUrl] = useState('');
+  const [voidBootDebianBusy, setVoidBootDebianBusy] = useState(false);
   const [voidBootMirrorBusy, setVoidBootMirrorBusy] = useState(false);
   const [voidBootDownloadName, setVoidBootDownloadName] = useState('distribution.iso');
   const [voidBootExpectedSha256, setVoidBootExpectedSha256] = useState('');
@@ -733,6 +738,27 @@ function App() {
       setVoidBootKaliBusy(false);
     }
   }, [addLog, voidBootKaliArtifactPath]);
+
+  const loadVoidBootDebianCandidates = useCallback(async () => {
+    const artifactPath = voidBootDebianArtifactPath.trim();
+    if (!artifactPath) {
+      addLog('Void Boot: indica la ruta relativa exacta de la ISO en el índice oficial de imágenes Debian.');
+      return;
+    }
+    setVoidBootDebianBusy(true);
+    try {
+      const candidates = await invoke<BootDebianCandidate[]>('list_void_boot_debian_official_download_candidates', { artifactPath });
+      setVoidBootDebianCandidates(candidates);
+      setVoidBootDebianCandidateUrl(candidates[0]?.url ?? '');
+      addLog('Void Boot: se preparó ' + candidates.length + ' destino HTTPS del CDN oficial de imágenes Debian.');
+    } catch (error) {
+      setVoidBootDebianCandidates([]);
+      setVoidBootDebianCandidateUrl('');
+      addLog('No se pudo preparar el destino oficial de Debian: ' + String(error));
+    } finally {
+      setVoidBootDebianBusy(false);
+    }
+  }, [addLog, voidBootDebianArtifactPath]);
 
   const loadVoidBootPublisherChecksum = useCallback(async () => {
     const fileName = voidBootDownloadName.trim();
@@ -1680,6 +1706,7 @@ directory = ${quote(osOutputDir)}
                       <a className="distro-project-link" href={voidBootSelectedDistro.project_url} target="_blank" rel="noreferrer">Sitio oficial del proyecto ↗</a>
                       {voidBootMirrorSupport && <div className="distro-detail-section"><strong>FUENTE DE DESCARGA · {voidBootMirrorSupport.label.toLocaleUpperCase()}</strong><span>{voidBootMirrorSupport.description}</span><span className="distro-download-locked-link" aria-disabled="true"><ExternalLink size={14} /> Fuente de descarga disponible al completar la validación global</span>{voidBootMirrorSupport.selectable && <small>Selector automático disponible para esta distribución.</small>}</div>}
                       {voidBootSelectedDistro.id === 'kali' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>REDIRECTOR OFICIAL DE IMÁGENES KALI</strong><span>Introduce la ruta relativa exacta que aparece en el índice oficial. Void Boot consulta el redirector y muestra el destino elegido junto con las alternativas HTTPS anunciadas por Kali.</span></div><input aria-label="Ruta relativa de ISO de Kali" placeholder="kali-2026.3/nombre-exacto.iso" value={voidBootKaliArtifactPath} onChange={(event) => { setVoidBootKaliArtifactPath(event.target.value); setVoidBootKaliCandidates([]); setVoidBootKaliCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootKaliCandidates()} disabled={voidBootKaliBusy || !voidBootKaliArtifactPath.trim()}>{voidBootKaliBusy ? 'Consultando redirector…' : 'Buscar mirrors oficiales de Kali'}</button>{voidBootKaliCandidates.length > 0 && <select aria-label="Seleccionar candidato oficial de Kali" value={voidBootKaliCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootKaliCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'kali.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar mirror…</option>{voidBootKaliCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>Prioridad {candidate.priority} · zona {candidate.geo} · {new URL(candidate.url).host}</option>)}</select>}</div>}
+                      {voidBootSelectedDistro.id === 'debian' && <div className="distro-mirror-selector"><div className="distro-detail-section"><strong>CDN OFICIAL DE IMÁGENES DEBIAN</strong><span>Usa el prefijo de ruta publicado por Debian. Ejemplo: current/amd64/iso-cd/debian-stable-amd64-netinst.iso. El destino se sirve por HTTPS desde el CDN global documentado por Debian.</span></div><input aria-label="Ruta relativa de ISO Debian" placeholder="current/amd64/iso-cd/nombre-exacto.iso" value={voidBootDebianArtifactPath} onChange={(event) => { setVoidBootDebianArtifactPath(event.target.value); setVoidBootDebianCandidates([]); setVoidBootDebianCandidateUrl(''); }} /><button className="secondary-button" onClick={() => void loadVoidBootDebianCandidates()} disabled={voidBootDebianBusy || !voidBootDebianArtifactPath.trim()}>{voidBootDebianBusy ? 'Preparando destino…' : 'Preparar descarga oficial Debian'}</button>{voidBootDebianCandidates.length > 0 && <select aria-label="Seleccionar CDN oficial Debian" value={voidBootDebianCandidateUrl} onChange={(event) => { const url = event.target.value; setVoidBootDebianCandidateUrl(url); setVoidBootDownloadUrl(url); setVoidBootDownloadName(url.split('/').pop() ?? 'debian.iso'); setVoidBootExpectedSha256(''); }}><option value="">Seleccionar destino…</option>{voidBootDebianCandidates.map((candidate) => <option key={candidate.url} value={candidate.url}>{candidate.provider} · {candidate.region}</option>)}</select>}</div>}
                       {!voidBootReleaseGate?.downloads_enabled ? (
                         <div className="distro-download-panel distro-download-gate" role="status">
                           <AlertCircle size={18} />
