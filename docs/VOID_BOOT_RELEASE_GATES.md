@@ -18,8 +18,14 @@ Void Boot is not considered production-ready until every required gate below has
 - [x] Add pinned online checksum-manifest adapters for Debian stable amd64 ISO CD, Arch Linux current x86_64, Ubuntu 24.04 LTS amd64, Fedora Workstation 45 x86_64 and openSUSE Tumbleweed current DVD x86_64; require exact ISO filename matches and reject unknown distributions, redirects, oversized manifests and non-public DNS results.
 - [x] Discover Arch Linux HTTPS mirrors from the official mirror-status JSON API; reject inactive, low-completion, stale, non-HTTPS or malformed entries, prefer Chile, and retain download-time HTTPS/DNS/public-IP validation.
 - [x] Register mirror/download-source capabilities for every catalogue entry: Arch live API, Debian mirror directory, Fedora MirrorManager, openSUSE Metalink, FreeBSD GeoDNS, OpenBSD/NetBSD mirror directories, and project-specific official download sources for remaining Linux, BSD and Windows entries. Capability labels distinguish selectable lists from documentation/CDN/direct-download sources.
+- [x] Enforce a global Distro Center download release gate in both the UI and Tauri backend; no distribution can start a download or open its download-source link until every catalogue system passes release validation.
 
 ## Required before a stable release
+
+### 0. Global Distro Center download gate
+- [ ] Complete and validate every system in the 40-entry catalogue before enabling any download.
+- [ ] For each system, provide an official artifact resolver, authenticated integrity verification, a tested boot/install profile where applicable, and BIOS/UEFI evidence or an explicit documented platform exception.
+- [ ] Update the release-gate implementation from locked to enabled only after all evidence is reviewed. The current backend intentionally reports 0/40 validated and rejects every download.
 
 ### 1. Boot compatibility
 - [ ] Run and pass the Debian Live 13.7.0 QEMU full-boot workflow.
