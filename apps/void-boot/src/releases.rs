@@ -620,6 +620,137 @@ pub fn list_ubuntu_official_download_candidates(
     }])
 }
 
+const MAX_OPENSUSE_MIRRORLIST_BYTES: u64 = 2 * 1024 * 1024;
+
+/// Extract only HTTPS mirror links that serve the exact requested openSUSE artifact.
+fn parse_opensuse_mirrorlist(
+    html: &str,
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    let base = reqwest::Url::parse("https://download.opensuse.org/")
+        .expect("static openSUSE base URL is valid");
+    let mut candidates: Vec<OfficialPathDownloadCandidate> = Vec::new();
+    let mut remaining = html;
+
+    while let Some(index) = remaining.to_ascii_lowercase().find("href") {
+        remaining = &remaining[index + 4..];
+        let trimmed = remaining.trim_start();
+        let Some(after_equals) = trimmed.strip_prefix('=') else {
+            continue;
+        };
+        let value = after_equals.trim_start();
+        let Some(quote) = value.chars().next() else {
+            break;
+        };
+        if quote != '"' && quote != '\'' {
+            continue;
+        }
+        let content = &value[1..];
+        let Some(end) = content.find(quote) else {
+            break;
+        };
+        let raw = content[..end].replace("&amp;", "&");
+        remaining = &content[end + 1..];
+
+        let Ok(url) = base.join(&raw) else {
+            continue;
+        };
+        if url.scheme() != "https"
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || !url.path().ends_with(artifact_path)
+        {
+            continue;
+        }
+        let candidate_url = url.to_string();
+        if candidates.iter().any(|item| item.url == candidate_url) {
+            continue;
+        }
+        candidates.push(OfficialPathDownloadCandidate {
+            url: candidate_url,
+            provider: "openSUSE MirrorCache".to_owned(),
+            region: "Mirror HTTPS oficial".to_owned(),
+        });
+        if candidates.len() == 20 {
+            break;
+        }
+    }
+
+    if candidates.is_empty() {
+        return Err("MirrorCache no anunció mirrors HTTPS válidos para esa ISO exacta.".into());
+    }
+    Ok(candidates)
+}
+
+/// Query openSUSE's official mirrorlist page for the exact ISO artifact.
+pub fn list_opensuse_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if artifact_path.is_empty()
+        || artifact_path.starts_with('/')
+        || artifact_path.contains("..")
+        || artifact_path.contains('\\')
+        || !artifact_path
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/._-".contains(&byte))
+        || !artifact_path.to_ascii_lowercase().ends_with(".iso")
+    {
+        return Err("Indica una ruta relativa válida de ISO openSUSE, sin rutas absolutas ni segmentos '..'.".into());
+    }
+
+    let host = "download.opensuse.org";
+    let url = format!("https://{host}/{artifact_path}.mirrorlist");
+    let addresses = (host, 443)
+        .to_socket_addrs()
+        .map_err(|error| format!("No se pudo resolver MirrorCache de openSUSE: {error}"))?
+        .collect::<Vec<_>>();
+    if addresses.is_empty()
+        || addresses
+            .iter()
+            .any(|address| !crate::download::is_safe_ip(address.ip()))
+    {
+        return Err("MirrorCache de openSUSE resolvió a una dirección no pública.".into());
+    }
+
+    let client = reqwest::blocking::Client::builder()
+        .resolve_to_addrs(host, &addresses)
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(15))
+        .user_agent("VoidBoot-openSUSEMirrorResolver/0.1")
+        .build()
+        .map_err(|error| format!("No se pudo preparar la consulta a openSUSE: {error}"))?;
+    let response = client
+        .get(&url)
+        .send()
+        .map_err(|error| format!("No se pudo consultar MirrorCache de openSUSE: {error}"))?;
+    if !response.status().is_success() || response.url().as_str() != url {
+        return Err(format!(
+            "MirrorCache de openSUSE respondió con {}; no se siguieron redirecciones.",
+            response.status()
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_OPENSUSE_MIRRORLIST_BYTES)
+    {
+        return Err("La lista de mirrors openSUSE supera el límite de tamaño permitido.".into());
+    }
+    let mut html = String::new();
+    response
+        .take(MAX_OPENSUSE_MIRRORLIST_BYTES + 1)
+        .read_to_string(&mut html)
+        .map_err(|error| format!("No se pudo leer MirrorCache de openSUSE: {error}"))?;
+    if html.len() as u64 > MAX_OPENSUSE_MIRRORLIST_BYTES {
+        return Err("La lista de mirrors openSUSE supera el límite de tamaño permitido.".into());
+    }
+
+    parse_opensuse_mirrorlist(&html, artifact_path)
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct DebianDownloadCandidate {
     pub url: String,
@@ -881,6 +1012,29 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opensuse_mirrorlist_parser_keeps_only_exact_https_iso_mirrors() {
+        let html = r#"
+            <a href="https://mirror.example/tumbleweed/iso/example.iso">good</a>
+            <a href="http://plain.example/tumbleweed/iso/example.iso">plain</a>
+            <a href="https://mirror.example/tumbleweed/iso/other.iso">wrong file</a>
+            <a href="https://user:pass@mirror.example/tumbleweed/iso/example.iso">credentials</a>
+            <a href="https://mirror.example/tumbleweed/iso/example.iso">duplicate</a>
+        "#;
+        let candidates = parse_opensuse_mirrorlist(html, "tumbleweed/iso/example.iso").unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].provider, "openSUSE MirrorCache");
+        assert_eq!(candidates[0].url, "https://mirror.example/tumbleweed/iso/example.iso");
+        assert!(parse_opensuse_mirrorlist("<a href='http://plain.example/file.iso'>x</a>", "file.iso").is_err());
+    }
+
+    #[test]
+    fn opensuse_resolver_rejects_unsafe_artifact_paths_before_network_access() {
+        assert!(list_opensuse_official_download_candidates("../private.iso").is_err());
+        assert!(list_opensuse_official_download_candidates("/absolute.iso").is_err());
+        assert!(list_opensuse_official_download_candidates("folder\\\\image.iso").is_err());
+    }
 
     #[test]
     fn ubuntu_official_iso_resolver_uses_publisher_hosts_and_rejects_unknown_projects() {
