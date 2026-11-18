@@ -881,6 +881,61 @@ pub fn list_netbsd_official_download_candidates(
     )
 }
 
+/// Resolve Rocky Linux ISO paths on the project's official download host.
+pub fn list_rocky_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) {
+        return Err("Indica una ruta relativa válida de ISO Rocky Linux.".into());
+    }
+    if !artifact_path.starts_with("10/isos/")
+        && !artifact_path.starts_with("9/isos/")
+    {
+        return Err("La ruta Rocky debe comenzar por 9/isos/ o 10/isos/.".into());
+    }
+    let url = format!("https://download.rockylinux.org/pub/rocky/{artifact_path}");
+    let parsed = reqwest::Url::parse(&url)
+        .map_err(|error| format!("La URL oficial de Rocky Linux es inválida: {error}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str() != Some("download.rockylinux.org")
+        || !parsed.path().ends_with(".iso")
+    {
+        return Err("La URL no pertenece al servidor HTTPS oficial de Rocky Linux.".into());
+    }
+    Ok(vec![OfficialPathDownloadCandidate {
+        url,
+        provider: "Rocky Linux official download".to_owned(),
+        region: "CDN / servidor oficial".to_owned(),
+    }])
+}
+
+/// Resolve AlmaLinux ISO paths using the publisher's own maintained mirror directory.
+pub fn list_almalinux_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path) {
+        return Err("Indica una ruta relativa válida de ISO AlmaLinux.".into());
+    }
+    if !artifact_path.starts_with("10/isos/")
+        && !artifact_path.starts_with("9/isos/")
+    {
+        return Err("La ruta AlmaLinux debe comenzar por 9/isos/ o 10/isos/.".into());
+    }
+    let page_url = "https://mirrors.almalinux.org/";
+    let html = fetch_official_mirror_page(
+        page_url,
+        "mirrors.almalinux.org",
+        "VoidBoot-AlmaLinuxMirrorResolver/0.1",
+    )?;
+    parse_publisher_mirror_directory(
+        &html,
+        page_url,
+        artifact_path,
+        &["/almalinux/"],
+        "AlmaLinux official mirror",
+    )
+}
+
 /// Validate a safe relative path ending in an ISO filename.
 fn safe_relative_iso_path(artifact_path: &str) -> bool {
     !artifact_path.is_empty()
@@ -1259,6 +1314,20 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://neon.kde.org/download",
             false,
         ),
+        "rocky-linux" => (
+            "official_download_host",
+            "Servidor oficial de Rocky Linux",
+            "Void Boot construye rutas ISO relativas en download.rockylinux.org y restringe las rutas admitidas a los árboles de versiones 9 y 10.",
+            "https://download.rockylinux.org/pub/rocky/",
+            true,
+        ),
+        "almalinux" => (
+            "official_mirror_directory",
+            "Directorio oficial de mirrors AlmaLinux",
+            "Void Boot consulta el directorio oficial de mirrors de AlmaLinux y acepta únicamente enlaces HTTPS que correspondan a la ruta ISO solicitada.",
+            "https://mirrors.almalinux.org/",
+            true,
+        ),
         "fedora" => (
             "official_mirrormanager",
             "Fedora MirrorManager",
@@ -1379,6 +1448,27 @@ mod tests {
             .starts_with("https://download.freebsd.org/releases/"));
         assert!(list_freebsd_official_download_candidates("../private.iso").is_err());
         assert!(list_freebsd_official_download_candidates("/absolute.iso").is_err());
+    }
+
+    #[test]
+    fn rocky_resolver_builds_only_official_versioned_iso_paths() {
+        let candidates = list_rocky_official_download_candidates(
+            "10/isos/x86_64/Rocky-10.1-x86_64-minimal.iso",
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://download.rockylinux.org/pub/rocky/10/isos/x86_64/Rocky-10.1-x86_64-minimal.iso"
+        );
+        assert!(list_rocky_official_download_candidates("../private.iso").is_err());
+        assert!(list_rocky_official_download_candidates("8/isos/x86_64/old.iso").is_err());
+    }
+
+    #[test]
+    fn almalinux_resolver_rejects_unsafe_and_unexpected_release_paths() {
+        assert!(list_almalinux_official_download_candidates("../private.iso").is_err());
+        assert!(list_almalinux_official_download_candidates("8/isos/x86_64/old.iso").is_err());
     }
 
     #[test]
