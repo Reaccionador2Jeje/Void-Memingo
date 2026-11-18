@@ -1245,6 +1245,41 @@ pub fn list_void_linux_official_download_candidates(
     }])
 }
 
+/// Parse MX Linux's publisher-maintained mirror status page for exact ISO paths.
+pub fn parse_mx_official_iso_mirrors(
+    html: &str,
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path)
+        || !(artifact_path.starts_with("MX/Final/") || artifact_path.starts_with("MX/Snapshots/"))
+        || !artifact_path.rsplit('/').next().is_some_and(|name| {
+            name.starts_with("MX-") && name.to_ascii_lowercase().ends_with(".iso")
+        })
+    {
+        return Err("La ruta MX debe señalar una ISO dentro de MX/Final/ o MX/Snapshots/.".into());
+    }
+    parse_publisher_mirror_directory(
+        html,
+        "https://rsync-mxlinux.org/mirmon/index.html",
+        artifact_path,
+        &["/iso/"],
+        "MX Linux official ISO mirror",
+    )
+}
+
+/// Resolve MX Linux ISO mirrors from the publisher-maintained live mirror status page.
+pub fn list_mx_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    const PAGE_URL: &str = "https://rsync-mxlinux.org/mirmon/index.html";
+    let html = fetch_official_mirror_page(
+        PAGE_URL,
+        "rsync-mxlinux.org",
+        "VoidBoot-MXLinuxMirrorResolver/0.1",
+    )?;
+    parse_mx_official_iso_mirrors(&html, artifact_path)
+}
+
 /// Build a Deepin ISO URL on the publisher's official release repository.
 pub fn list_deepin_official_download_candidates(
     release: &str,
@@ -1787,6 +1822,13 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://mxlinux.org/download-links/",
             false,
         ),
+        "mx-linux" => (
+            "publisher_live_iso_mirror_status",
+            "Mirrors oficiales de ISO MX Linux",
+            "Void Boot consulta el índice mirmon publicado por MX Linux y acepta únicamente raíces HTTPS anunciadas por el proyecto que terminan en /iso/; exige la ruta exacta dentro de MX/Final/ o MX/Snapshots/.",
+            "https://rsync-mxlinux.org/mirmon/index.html",
+            true,
+        ),
         "deepin" => (
             "official_download_page",
             "Descarga oficial de deepin",
@@ -1999,6 +2041,32 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mx_linux_parser_uses_only_publisher_listed_https_iso_roots() {
+        let html = r#"
+            <a href="https://mirror.example/pub/mxlinux/iso/">Mirror A</a>
+            <a href="http://insecure.example/mxlinux/iso/">Insecure</a>
+            <a href="https://mirror.example/debian/">Debian packages</a>
+        "#;
+        let candidates = parse_mx_official_iso_mirrors(
+            html,
+            "MX/Final/MX-25.3_Xfce_x64.iso",
+        ).unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            candidates[0].url,
+            "https://mirror.example/pub/mxlinux/iso/MX/Final/MX-25.3_Xfce_x64.iso"
+        );
+        assert!(parse_mx_official_iso_mirrors(
+            html,
+            "../MX-25.3_Xfce_x64.iso"
+        ).is_err());
+        assert!(parse_mx_official_iso_mirrors(
+            html,
+            "MX/Final/Ubuntu.iso"
+        ).is_err());
+    }
 
     #[test]
     fn void_linux_resolver_accepts_only_official_current_live_iso_paths() {
