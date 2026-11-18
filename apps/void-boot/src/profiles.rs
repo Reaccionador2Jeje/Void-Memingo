@@ -17,6 +17,9 @@ pub struct BootProfile {
     pub linux_args: Vec<String>,
     #[serde(default)]
     pub findiso: bool,
+    /// Kernel parameter key that receives the ISO path, e.g. iso-scan/filename.
+    #[serde(default)]
+    pub iso_path_argument: Option<String>,
 }
 
 fn safe_relative_path(value: &str) -> bool {
@@ -101,6 +104,14 @@ impl ProfileCatalog {
                     "ISO, kernel and initrd paths must be safe relative paths; ISO paths must end in .iso",
                 ));
             }
+            if profile.iso_path_argument.as_ref().is_some_and(|value| {
+                value.is_empty() || value.len() > 96 || !value.chars().all(|character| character.is_ascii_alphanumeric() || "._/-".contains(character))
+            }) {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "unsafe ISO path kernel parameter"));
+            }
+            if profile.findiso && profile.iso_path_argument.is_some() {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "choose either findiso or iso_path_argument, not both"));
+            }
             if profile.linux_args.len() > 64
                 || profile
                     .linux_args
@@ -146,6 +157,9 @@ set theme=$prefix/themes/void-boot/theme.txt
             let mut kernel_args = profile.linux_args.clone();
             if profile.findiso {
                 kernel_args.push("findiso=$isofile".to_string());
+            }
+            if let Some(argument) = &profile.iso_path_argument {
+                kernel_args.push(format!("{argument}=$isofile"));
             }
             let args = kernel_args.join(" ");
             let linux_command = if args.is_empty() {
@@ -199,6 +213,7 @@ mod tests {
                 initrd: "live/initrd.img".into(),
                 linux_args: vec!["boot=live".into(), "components".into()],
                 findiso: true,
+                iso_path_argument: None,
             }],
         }
     }
@@ -238,6 +253,24 @@ mod tests {
         assert!(catalog
             .render_grub_config()
             .contains("    linux (loop)/live/vmlinuz findiso=$isofile\n"));
+    }
+
+    #[test]
+    fn renders_configurable_iso_path_parameter_for_ubuntu_family() {
+        let mut catalog = sample();
+        catalog.profiles[0].findiso = false;
+        catalog.profiles[0].iso_path_argument = Some("iso-scan/filename".into());
+        let rendered = catalog.render_grub_config();
+        assert!(rendered.contains("boot=live components iso-scan/filename=$isofile"));
+        assert!(!rendered.contains("findiso=$isofile"));
+    }
+
+    #[test]
+    fn rejects_unsafe_iso_path_kernel_parameter() {
+        let mut catalog = sample();
+        catalog.profiles[0].findiso = false;
+        catalog.profiles[0].iso_path_argument = Some("iso-scan/filename;reboot".into());
+        assert!(catalog.validate().is_err());
     }
 
     #[test]
