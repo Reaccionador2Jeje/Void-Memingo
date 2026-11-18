@@ -513,11 +513,11 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             false,
         ),
         "kali" => (
-            "official_download_page",
-            "Descarga oficial de Kali Linux",
-            "Kali mantiene su propio proceso de descarga y mirrors. No se reutilizan mirrors Debian porque no garantizan alojar las imágenes ISO de Kali.",
-            "https://www.kali.org/get-kali/",
-            false,
+            "official_redirector",
+            "Redirector oficial de imágenes de Kali",
+            "cdimage.kali.org selecciona un mirror cercano y anuncia alternativas HTTPS oficiales para la ISO exacta; Void Boot puede consultar esos candidatos.",
+            "https://cdimage.kali.org/",
+            true,
         ),
         "mx-linux" => (
             "official_download_page",
