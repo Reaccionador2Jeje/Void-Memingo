@@ -391,7 +391,7 @@ fn parse_kali_redirect_candidates(
         }
     }
 
-    candidates.sort_by(|left, right| left.priority.cmp(&right.priority));
+    candidates.sort_by_key(|left| left.priority);
     candidates.dedup_by(|left, right| left.url == right.url);
     if candidates.is_empty() {
         return Err(
