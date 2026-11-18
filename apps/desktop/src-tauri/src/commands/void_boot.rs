@@ -149,6 +149,17 @@ pub fn list_void_boot_gentoo_official_download_candidates(
     ::void_boot::releases::list_gentoo_official_download_candidates()
 }
 
+#[tauri::command]
+pub fn list_void_boot_deepin_official_download_candidates(
+    release: String,
+    architecture: String,
+    file_name: String,
+) -> Result<Vec<::void_boot::releases::OfficialPathDownloadCandidate>, String> {
+    ::void_boot::releases::list_deepin_official_download_candidates(
+        &release, &architecture, &file_name,
+    )
+}
+
 
 #[tauri::command]
 pub fn list_void_boot_endeavouros_official_download_candidates(
