@@ -1306,7 +1306,7 @@ pub fn parse_mageia_official_mirrors(
         position += 1;
         while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) { position += 1; }
         let Some(&quote) = html.as_bytes().get(position) else { break; };
-        if quote != b'"' && quote != b'\\'' { cursor = position + 1; continue; }
+        if quote != b'"' && quote != 39 { cursor = position + 1; continue; }
         let value_start = position + 1;
         let Some(relative_end) = html[value_start..].find(quote as char) else { break; };
         let value_end = value_start + relative_end;
@@ -1382,7 +1382,7 @@ pub fn parse_kde_neon_official_download_links(
         position += 1;
         while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) { position += 1; }
         let Some(&quote) = html.as_bytes().get(position) else { break; };
-        if quote != b'"' && quote != b'\\'' { cursor = position + 1; continue; }
+        if quote != b'"' && quote != 39 { cursor = position + 1; continue; }
         let value_start = position + 1;
         let Some(relative_end) = html[value_start..].find(quote as char) else { break; };
         let value_end = value_start + relative_end;
