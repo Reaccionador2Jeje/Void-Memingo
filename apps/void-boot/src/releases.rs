@@ -1280,6 +1280,82 @@ pub fn list_mx_official_download_candidates(
     parse_mx_official_iso_mirrors(&html, artifact_path)
 }
 
+/// Parse Mageia's official mirror database and build exact HTTPS ISO candidates.
+pub fn parse_mageia_official_mirrors(
+    html: &str,
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    if !safe_relative_iso_path(artifact_path)
+        || !artifact_path.starts_with("iso/")
+        || !artifact_path.rsplit('/').next().is_some_and(|name| {
+            name.to_ascii_lowercase().ends_with(".iso")
+                && name.starts_with("Mageia-")
+        })
+    {
+        return Err("La ruta Mageia debe señalar una ISO con nombre Mageia- dentro de iso/.".into());
+    }
+    let page = reqwest::Url::parse("https://mirrors.mageia.org/")
+        .expect("static Mageia mirror page URL is valid");
+    let mut candidates: Vec<OfficialPathDownloadCandidate> = Vec::new();
+    let mut cursor = 0;
+    while cursor < html.len() {
+        let Some(relative_index) = html[cursor..].to_ascii_lowercase().find("href") else { break; };
+        let mut position = cursor + relative_index + 4;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) { position += 1; }
+        if html.as_bytes().get(position) != Some(&b'=') { cursor = position; continue; }
+        position += 1;
+        while html.as_bytes().get(position).is_some_and(u8::is_ascii_whitespace) { position += 1; }
+        let Some(&quote) = html.as_bytes().get(position) else { break; };
+        if quote != b'"' && quote != b'\\'' { cursor = position + 1; continue; }
+        let value_start = position + 1;
+        let Some(relative_end) = html[value_start..].find(quote as char) else { break; };
+        let value_end = value_start + relative_end;
+        let raw = html[value_start..value_end].replace("&amp;", "&");
+        cursor = value_end + 1;
+        let Ok(base) = page.join(&raw) else { continue; };
+        let path = base.path().to_ascii_lowercase();
+        if base.scheme() != "https"
+            || base.host_str().is_none()
+            || base.host_str().is_some_and(|host| host == "mirrors.mageia.org" || host.ends_with(".mageia.org"))
+            || !base.username().is_empty()
+            || base.password().is_some()
+            || base.query().is_some()
+            || base.fragment().is_some()
+            || !(path == "/" || path.ends_with("/mageia/"))
+        { continue; }
+        let root = if path == "/" {
+            match base.join("mageia/") { Ok(url) => url, Err(_) => continue }
+        } else { base };
+        let Ok(url) = root.join(artifact_path) else { continue; };
+        if url.scheme() != "https" || !url.path().ends_with(artifact_path) { continue; }
+        let candidate_url = url.to_string();
+        if candidates.iter().any(|item| item.url == candidate_url) { continue; }
+        candidates.push(OfficialPathDownloadCandidate {
+            url: candidate_url,
+            provider: "Mageia official mirror database".to_owned(),
+            region: url.host_str().unwrap_or("mirror").to_owned(),
+        });
+        if candidates.len() == 30 { break; }
+    }
+    if candidates.is_empty() {
+        return Err("La base oficial de Mageia no anunció mirrors HTTPS compatibles para esa ISO.".into());
+    }
+    Ok(candidates)
+}
+
+/// Resolve Mageia ISO mirrors from the official mirror database.
+pub fn list_mageia_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<OfficialPathDownloadCandidate>, String> {
+    const PAGE_URL: &str = "https://mirrors.mageia.org/";
+    let html = fetch_official_mirror_page(
+        PAGE_URL,
+        "mirrors.mageia.org",
+        "VoidBoot-MageiaMirrorResolver/0.1",
+    )?;
+    parse_mageia_official_mirrors(&html, artifact_path)
+}
+
 /// Build a Deepin ISO URL on the publisher's official release repository.
 pub fn list_deepin_official_download_candidates(
     release: &str,
@@ -1829,6 +1905,13 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
             "https://rsync-mxlinux.org/mirmon/index.html",
             true,
         ),
+        "mageia" => (
+            "official_mirror_database",
+            "Base oficial de mirrors Mageia",
+            "Void Boot consulta mirrors.mageia.org y acepta solo destinos HTTPS anunciados por Mageia cuya raíz es / o termina en /mageia/; construye la ruta exacta dentro de iso/.",
+            "https://mirrors.mageia.org/",
+            true,
+        ),
         "deepin" => (
             "official_download_page",
             "Descarga oficial de deepin",
@@ -2041,6 +2124,26 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mageia_parser_accepts_only_officially_listed_https_mirror_roots() {
+        let html = r#"
+            <a href="https://mirror.example/">Mirror root</a>
+            <a href="https://other.example/mageia/">Mageia root</a>
+            <a href="http://insecure.example/">Insecure</a>
+            <a href="https://www.mageia.org/">Project website</a>
+        "#;
+        let candidates = parse_mageia_official_mirrors(
+            html,
+            "iso/10/Mageia-10-x86_64/Mageia-10-x86_64.iso",
+        ).unwrap();
+        assert_eq!(candidates.len(), 2);
+        assert!(candidates.iter().any(|candidate| candidate.url ==
+            "https://mirror.example/mageia/iso/10/Mageia-10-x86_64/Mageia-10-x86_64.iso"));
+        assert!(candidates.iter().any(|candidate| candidate.url ==
+            "https://other.example/mageia/iso/10/Mageia-10-x86_64/Mageia-10-x86_64.iso"));
+        assert!(parse_mageia_official_mirrors(html, "../private.iso").is_err());
+    }
 
     #[test]
     fn mx_linux_parser_uses_only_publisher_listed_https_iso_roots() {
