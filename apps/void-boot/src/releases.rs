@@ -322,6 +322,133 @@ fn parse_arch_mirror_status(document: &serde_json::Value) -> Result<Vec<Official
     Ok(mirrors)
 }
 
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct KaliDownloadCandidate {
+    pub url: String,
+    pub priority: u32,
+    pub geo: String,
+}
+
+/// Parse only HTTPS candidates explicitly advertised by Kali's official image redirector.
+fn parse_kali_redirect_candidates(
+    location: Option<&str>,
+    link_headers: &[String],
+    artifact_path: &str,
+) -> Result<Vec<KaliDownloadCandidate>, String> {
+    fn validate(raw: &str, artifact_path: &str) -> Option<String> {
+        let url = reqwest::Url::parse(raw).ok()?;
+        if url.scheme() != "https"
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || !url.path().ends_with(artifact_path)
+        {
+            return None;
+        }
+        Some(url.to_string())
+    }
+
+    let mut candidates = Vec::new();
+    if let Some(raw) = location {
+        if let Some(url) = validate(raw, artifact_path) {
+            candidates.push(KaliDownloadCandidate {
+                url,
+                priority: 0,
+                geo: "redirector".to_owned(),
+            });
+        }
+    }
+
+    for header in link_headers {
+        for item in header.split(", <") {
+            let item = if item.starts_with('<') { item } else { &format!("<{item}") };
+            let Some((target, parameters)) = item.split_once('>') else { continue };
+            let target = target.trim_start_matches('<');
+            let parameters = parameters.to_ascii_lowercase();
+            if !parameters.contains("rel=duplicate") {
+                continue;
+            }
+            let Some(url) = validate(target, artifact_path) else { continue };
+            let priority = parameters
+                .split(';')
+                .find_map(|part| part.trim().strip_prefix("pri="))
+                .and_then(|value| value.parse::<u32>().ok())
+                .unwrap_or(1000);
+            let geo = parameters
+                .split(';')
+                .find_map(|part| part.trim().strip_prefix("geo="))
+                .unwrap_or("global")
+                .trim_matches('"')
+                .to_owned();
+            candidates.push(KaliDownloadCandidate { url, priority, geo });
+        }
+    }
+
+    candidates.sort_by(|left, right| left.priority.cmp(&right.priority));
+    candidates.dedup_by(|left, right| left.url == right.url);
+    if candidates.is_empty() {
+        return Err("El redirector oficial de Kali no entregó candidatos HTTPS válidos para esta ISO.".into());
+    }
+    Ok(candidates)
+}
+
+/// Ask Kali's official cdimage redirector for the current best mirror and its advertised fallbacks.
+/// artifact_path must be a relative path such as kali-2026.3/kali-linux-2026.3-installer-amd64.iso.
+pub fn list_kali_official_download_candidates(
+    artifact_path: &str,
+) -> Result<Vec<KaliDownloadCandidate>, String> {
+    if artifact_path.is_empty()
+        || artifact_path.starts_with('/')
+        || artifact_path.contains("..")
+        || artifact_path.contains('\\')
+        || !artifact_path.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"/._-".contains(&byte))
+        || !artifact_path.to_ascii_lowercase().ends_with(".iso")
+    {
+        return Err("Indica una ruta relativa válida de ISO de Kali, sin rutas absolutas ni segmentos '..'.".into());
+    }
+
+    const REDIRECTOR: &str = "https://cdimage.kali.org/";
+    let url = format!("{REDIRECTOR}{artifact_path}");
+    let host = "cdimage.kali.org";
+    let addresses = (host, 443)
+        .to_socket_addrs()
+        .map_err(|error| format!("No se pudo resolver el redirector oficial de Kali: {error}"))?
+        .collect::<Vec<_>>();
+    if addresses.is_empty()
+        || addresses.iter().any(|address| !crate::download::is_safe_ip(address.ip()))
+    {
+        return Err("El redirector oficial de Kali resolvió a una dirección no pública.".into());
+    }
+
+    let client = reqwest::blocking::Client::builder()
+        .resolve_to_addrs(host, &addresses)
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(15))
+        .user_agent("VoidBoot-KaliMirrorResolver/0.1")
+        .build()
+        .map_err(|error| format!("No se pudo preparar la consulta al redirector: {error}"))?;
+    let response = client
+        .get(&url)
+        .header(reqwest::header::RANGE, "bytes=0-0")
+        .send()
+        .map_err(|error| format!("No se pudo consultar el redirector oficial de Kali: {error}"))?;
+    if !response.status().is_redirection() || response.url().as_str() != url {
+        return Err(format!("El redirector oficial de Kali respondió con {}; no se siguieron redirecciones.", response.status()));
+    }
+
+    let location = response.headers().get(reqwest::header::LOCATION)
+        .and_then(|value| value.to_str().ok());
+    let links = response.headers().get_all(reqwest::header::LINK)
+        .iter()
+        .filter_map(|value| value.to_str().ok().map(str::to_owned))
+        .collect::<Vec<_>>();
+    parse_kali_redirect_candidates(location, &links, artifact_path)
+}
+
 /// How a distribution obtains ISO download mirrors or an official download source.
 /// "directory" means the publisher documents mirrors, but Void Boot does not yet
 /// resolve a release-specific ISO URL automatically.
