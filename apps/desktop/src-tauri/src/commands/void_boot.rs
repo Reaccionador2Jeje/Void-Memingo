@@ -34,6 +34,13 @@ pub fn list_void_boot_kali_official_download_candidates(
 }
 
 #[tauri::command]
+pub fn list_void_boot_debian_official_download_candidates(
+    artifact_path: String,
+) -> Result<Vec<::void_boot::releases::DebianDownloadCandidate>, String> {
+    ::void_boot::releases::list_debian_official_download_candidates(&artifact_path)
+}
+
+#[tauri::command]
 pub fn lookup_void_boot_official_release_checksum(
     distribution_id: String,
     file_name: String,
