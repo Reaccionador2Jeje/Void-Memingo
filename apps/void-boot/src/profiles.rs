@@ -368,6 +368,63 @@ mod tests {
     }
 
     #[test]
+    fn every_shipped_experimental_profile_catalog_parses_and_validates() {
+        let shipped_catalogs = [
+            include_str!("../profiles/ubuntu-family-loopback.toml"),
+            include_str!("../profiles/archlinux-loopback.toml"),
+            include_str!("../profiles/opensuse-tumbleweed-loopback.toml"),
+        ];
+
+        let mut all_profiles = Vec::new();
+        for contents in shipped_catalogs {
+            let catalog: ProfileCatalog =
+                toml::from_str(contents).expect("shipped profile TOML must parse");
+            catalog.validate().expect("shipped profiles must validate");
+            all_profiles.extend(catalog.profiles);
+        }
+
+        let combined = ProfileCatalog { profiles: all_profiles };
+        combined
+            .validate()
+            .expect("all shipped profile IDs must be unique and valid");
+        assert_eq!(combined.profiles.len(), 6);
+    }
+
+    #[test]
+    fn shipped_loopback_profiles_render_their_distribution_owned_recipes() {
+        let arch: ProfileCatalog = toml::from_str(include_str!(
+            "../profiles/archlinux-loopback.toml"
+        ))
+        .expect("parse Arch profile");
+        let suse: ProfileCatalog = toml::from_str(include_str!(
+            "../profiles/opensuse-tumbleweed-loopback.toml"
+        ))
+        .expect("parse openSUSE profile");
+
+        let arch_grub = arch.render_grub_config();
+        assert!(arch_grub.contains("search --no-floppy --file --set=root \"$iso_path\""));
+        assert!(arch_grub.contains("configfile /boot/grub/loopback.cfg"));
+
+        let suse_grub = suse.render_grub_config();
+        assert!(suse_grub.contains("source /boot/grub2/loopback.cfg"));
+    }
+
+    #[test]
+    fn shipped_ubuntu_flavour_profiles_render_casper_iso_paths() {
+        let ubuntu: ProfileCatalog = toml::from_str(include_str!(
+            "../profiles/ubuntu-family-loopback.toml"
+        ))
+        .expect("parse Ubuntu family profiles");
+        ubuntu.validate().expect("validate Ubuntu family profiles");
+
+        let grub = ubuntu.render_grub_config();
+        for distro in ["Ubuntu", "Lubuntu", "Kubuntu", "Xubuntu"] {
+            assert!(grub.contains(&format!("menuentry \"{distro} Live (experimental)\"")));
+        }
+        assert_eq!(grub.matches("iso-scan/filename=$isofile").count(), 4);
+    }
+
+    #[test]
     fn rejects_unsafe_menu_labels() {
         let mut catalog = sample();
         catalog.profiles[0].name = "Linux\"; reboot".into();
