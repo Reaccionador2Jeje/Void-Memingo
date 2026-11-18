@@ -49,6 +49,7 @@ fn main() {
             commands::void_boot::scan_void_boot_iso_directory,
             commands::void_boot::verify_void_boot_iso_checksum_manifest,
             commands::void_boot::lookup_void_boot_official_release_checksum,
+            commands::void_boot::get_void_boot_mirror_support,
             commands::void_boot::list_void_boot_arch_official_mirrors,
             commands::void_boot::read_void_boot_expected_sha256,
             commands::void_boot::load_void_boot_profile_catalog,
