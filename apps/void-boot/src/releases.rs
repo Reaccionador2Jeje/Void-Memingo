@@ -1155,16 +1155,16 @@ pub fn mirror_support_for_distribution(distribution_id: &str) -> Result<MirrorSu
         "openbsd" => (
             "official_mirror_directory",
             "Directorio oficial de mirrors",
-            "OpenBSD publica mirrors HTTPS oficiales. La selección por versión y arquitectura todavía se realiza desde la página del proyecto.",
+            "Void Boot lee la lista publicada por OpenBSD y combina las bases HTTPS oficiales con la ruta relativa exacta de la ISO solicitada.",
             "https://www.openbsd.org/ftp.html",
-            false,
+            true,
         ),
         "netbsd" => (
             "official_mirror_directory",
             "Directorio oficial de mirrors",
-            "NetBSD documenta sus mirrors. La resolución automática de imágenes por versión y arquitectura aún no está integrada.",
+            "Void Boot lee la lista publicada por NetBSD y combina las bases HTTPS oficiales con la ruta relativa exacta de la ISO solicitada.",
             "https://www.netbsd.org/mirrors/",
-            false,
+            true,
         ),
         "windows-11-x64" | "windows-11-arm64" | "windows-10-home" | "windows-10-pro" | "windows-10-ltsc" => (
             "official_single_source",
